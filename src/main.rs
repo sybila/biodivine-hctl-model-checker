@@ -2,6 +2,7 @@ mod tokenizer;
 use tokenizer::{tokenize_recursive,print_tokens};
 mod parser;
 mod operation_enums;
+mod implementation;
 
 use parser::parse_update_function;
 
