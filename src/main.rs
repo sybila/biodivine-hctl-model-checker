@@ -1,10 +1,12 @@
 mod tokenizer;
-use tokenizer::{tokenize_recursive,print_tokens};
 mod parser;
 mod operation_enums;
 mod implementation;
+mod evaluator;
 
+use tokenizer::{tokenize_recursive,print_tokens};
 use parser::parse_update_function;
+
 
 fn main() {
     let formula : String = "!{x}: ~ EX {x}".to_string();
