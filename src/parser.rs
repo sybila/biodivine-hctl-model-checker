@@ -162,7 +162,6 @@ fn parse_2_iff(tokens: &[Token]) -> Result<Box<Node>, String> {
             parse_2_iff(&tokens[(i + 1)..])?,
             BinaryOp::Iff,)
         )
-
     } else {
         parse_3_imp(tokens)?
     })

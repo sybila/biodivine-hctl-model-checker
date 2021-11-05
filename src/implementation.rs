@@ -17,7 +17,20 @@ pre_E_one_var -> graph.var_pre   (var_can_pre)
 pre_E_all_vars -> graph.pre      (can_pre)
  */
 
-fn eu(graph: &SymbolicAsyncGraph,
+/// Returns set where var given by name is true
+/// If var is invalid, returns empty set
+pub fn labeled_by(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertices {
+    if let Some(var_id) = graph.as_network().as_graph().find_variable(name) {
+        return GraphColoredVertices::new(
+            graph.symbolic_context().mk_state_variable_is_true(var_id),
+            graph.symbolic_context()
+        );
+    }
+    graph.mk_empty_vertices()
+}
+
+/// EU computed using fixpoint
+pub fn eu(graph: &SymbolicAsyncGraph,
       phi1: &GraphColoredVertices,
       phi2: &GraphColoredVertices
 ) -> GraphColoredVertices {
@@ -33,7 +46,7 @@ fn eu(graph: &SymbolicAsyncGraph,
 }
 
 /// EF computed using fixpoint
-fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
     let false_bdd = graph.symbolic_context().mk_constant(false);
     let mut new_set = GraphColoredVertices::new(false_bdd, graph.symbolic_context());
@@ -46,7 +59,7 @@ fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVer
 }
 
 /// EF computed via saturation
-fn ef_saturated(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+pub fn ef_saturated(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut result = phi.clone();
     let mut done = false;
     while !done {
@@ -64,7 +77,7 @@ fn ef_saturated(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> Graph
 }
 
 /// EG computed using fixpoint
-fn eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+pub fn eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
     let false_bdd = graph.symbolic_context().mk_constant(false);
     let mut new_set = GraphColoredVertices::new(false_bdd, graph.symbolic_context());
@@ -77,28 +90,28 @@ fn eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVer
 }
 
 /// AX computed through the EX
-fn ax(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+pub fn ax(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let true_bdd = graph.symbolic_context().mk_constant(true);
     let unit_set = GraphColoredVertices::new(true_bdd, graph.symbolic_context());
     unit_set.minus(&graph.pre(&unit_set.minus(&phi)))
 }
 
 /// AF computed through the EG
-fn af(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+pub fn af(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let true_bdd = graph.symbolic_context().mk_constant(true);
     let unit_set = GraphColoredVertices::new(true_bdd, graph.symbolic_context());
     unit_set.minus(&eg(graph, &unit_set.minus(&phi)))
 }
 
 /// AG computed through the EF
-fn ag(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+pub fn ag(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let true_bdd = graph.symbolic_context().mk_constant(true);
     let unit_set = GraphColoredVertices::new(true_bdd, graph.symbolic_context());
     unit_set.minus(&ef_saturated(graph, &unit_set.minus(&phi)))
 }
 
 /// AU computed through the fixpoint
-fn au(graph: &SymbolicAsyncGraph,
+pub fn au(graph: &SymbolicAsyncGraph,
       phi1: &GraphColoredVertices,
       phi2: &GraphColoredVertices
 ) -> GraphColoredVertices {
@@ -114,7 +127,7 @@ fn au(graph: &SymbolicAsyncGraph,
 }
 
 /// EW computed through the AU
-fn ew(graph: &SymbolicAsyncGraph,
+pub fn ew(graph: &SymbolicAsyncGraph,
       phi1: &GraphColoredVertices,
       phi2: &GraphColoredVertices
 ) -> GraphColoredVertices {
@@ -124,7 +137,7 @@ fn ew(graph: &SymbolicAsyncGraph,
 }
 
 /// AW computed through the EU
-fn aw(graph: &SymbolicAsyncGraph,
+pub fn aw(graph: &SymbolicAsyncGraph,
       phi1: &GraphColoredVertices,
       phi2: &GraphColoredVertices
 ) -> GraphColoredVertices {
