@@ -14,7 +14,7 @@ pub fn negate_set(graph: &SymbolicAsyncGraph, set: &GraphColoredVertices) -> Gra
     unit_set.minus(set)
 }
 
-pub fn implication(
+pub fn imp(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
     right : &GraphColoredVertices
@@ -22,7 +22,7 @@ pub fn implication(
     negate_set(graph,left).union(right)
 }
 
-pub fn equivalence(
+pub fn equiv(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
     right : &GraphColoredVertices
@@ -30,6 +30,14 @@ pub fn equivalence(
     left.intersect(right).union(
         &negate_set(graph, left).intersect(&negate_set(graph, right))
     )
+}
+
+pub fn non_equiv(
+    graph: &SymbolicAsyncGraph,
+    left: &GraphColoredVertices,
+    right : &GraphColoredVertices
+) -> GraphColoredVertices {
+    negate_set(graph, &equiv(graph, left, right))
 }
 
 /// Returns set where var given by name is true
