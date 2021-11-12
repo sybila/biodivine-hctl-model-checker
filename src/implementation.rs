@@ -3,19 +3,34 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 
 // TODO
 /*
-Model -> SymbolicAsyncGraph
-BDD.Function -> GraphColoredVertices
-
-labeled_by -> mk_state_variable_is_true
-
 create_comparator
 bind
 jump
 existential
-
-pre_E_one_var -> graph.var_pre   (var_can_pre)
-pre_E_all_vars -> graph.pre      (can_pre)
  */
+
+pub fn negate_set(graph: &SymbolicAsyncGraph, set: &GraphColoredVertices) -> GraphColoredVertices {
+    let unit_set = graph.mk_unit_colored_vertices();
+    unit_set.minus(set)
+}
+
+pub fn implication(
+    graph: &SymbolicAsyncGraph,
+    left: &GraphColoredVertices,
+    right : &GraphColoredVertices
+) -> GraphColoredVertices {
+    negate_set(graph,left).union(right)
+}
+
+pub fn equivalence(
+    graph: &SymbolicAsyncGraph,
+    left: &GraphColoredVertices,
+    right : &GraphColoredVertices
+) -> GraphColoredVertices {
+    left.intersect(right).union(
+        &negate_set(graph, left).intersect(&negate_set(graph, right))
+    )
+}
 
 /// Returns set where var given by name is true
 /// If var is invalid, returns empty set
@@ -35,8 +50,7 @@ pub fn eu(graph: &SymbolicAsyncGraph,
       phi2: &GraphColoredVertices
 ) -> GraphColoredVertices {
     let mut old_set = phi2.clone();
-    let false_bdd = graph.symbolic_context().mk_constant(false);
-    let mut new_set = GraphColoredVertices::new(false_bdd, graph.symbolic_context());
+    let mut new_set = graph.mk_empty_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();
@@ -48,8 +62,7 @@ pub fn eu(graph: &SymbolicAsyncGraph,
 /// EF computed using fixpoint
 pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
-    let false_bdd = graph.symbolic_context().mk_constant(false);
-    let mut new_set = GraphColoredVertices::new(false_bdd, graph.symbolic_context());
+    let mut new_set = graph.mk_empty_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();
@@ -79,8 +92,7 @@ pub fn ef_saturated(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> G
 /// EG computed using fixpoint
 pub fn eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
-    let false_bdd = graph.symbolic_context().mk_constant(false);
-    let mut new_set = GraphColoredVertices::new(false_bdd, graph.symbolic_context());
+    let mut new_set = graph.mk_empty_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();
@@ -91,23 +103,17 @@ pub fn eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
 
 /// AX computed through the EX
 pub fn ax(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
-    let true_bdd = graph.symbolic_context().mk_constant(true);
-    let unit_set = GraphColoredVertices::new(true_bdd, graph.symbolic_context());
-    unit_set.minus(&graph.pre(&unit_set.minus(&phi)))
+    negate_set(graph, &graph.pre(&negate_set(graph, &phi)))
 }
 
 /// AF computed through the EG
 pub fn af(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
-    let true_bdd = graph.symbolic_context().mk_constant(true);
-    let unit_set = GraphColoredVertices::new(true_bdd, graph.symbolic_context());
-    unit_set.minus(&eg(graph, &unit_set.minus(&phi)))
+    negate_set(graph, &eg(graph, &negate_set(graph, &phi)))
 }
 
 /// AG computed through the EF
 pub fn ag(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
-    let true_bdd = graph.symbolic_context().mk_constant(true);
-    let unit_set = GraphColoredVertices::new(true_bdd, graph.symbolic_context());
-    unit_set.minus(&ef_saturated(graph, &unit_set.minus(&phi)))
+    negate_set(graph, &ef_saturated(graph, &negate_set(graph, &phi)))
 }
 
 /// AU computed through the fixpoint
@@ -116,8 +122,7 @@ pub fn au(graph: &SymbolicAsyncGraph,
       phi2: &GraphColoredVertices
 ) -> GraphColoredVertices {
     let mut old_set = phi2.clone();
-    let false_bdd = graph.symbolic_context().mk_constant(false);
-    let mut new_set = GraphColoredVertices::new(false_bdd, graph.symbolic_context());
+    let mut new_set = graph.mk_empty_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();
@@ -131,9 +136,7 @@ pub fn ew(graph: &SymbolicAsyncGraph,
       phi1: &GraphColoredVertices,
       phi2: &GraphColoredVertices
 ) -> GraphColoredVertices {
-    let true_bdd = graph.symbolic_context().mk_constant(true);
-    let unit_set = GraphColoredVertices::new(true_bdd, graph.symbolic_context());
-    unit_set.minus(&au(graph, &unit_set.minus(&phi1), &unit_set.minus(&phi2)))
+    negate_set(graph, &au(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)))
 }
 
 /// AW computed through the EU
@@ -141,7 +144,5 @@ pub fn aw(graph: &SymbolicAsyncGraph,
       phi1: &GraphColoredVertices,
       phi2: &GraphColoredVertices
 ) -> GraphColoredVertices {
-    let true_bdd = graph.symbolic_context().mk_constant(true);
-    let unit_set = GraphColoredVertices::new(true_bdd, graph.symbolic_context());
-    unit_set.minus(&eu(graph, &unit_set.minus(&phi1), &unit_set.minus(&phi2)))
+    negate_set(graph, &eu(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)))
 }
