@@ -1,12 +1,13 @@
 use crate::operation_enums::*;
 use crate::tokenizer::Token;
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::cmp;
 
 
 /// Enum of possible node types in a HCTL formula tree
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum NodeType {
     TerminalNode(Atomic),
     UnaryNode(UnaryOp, Box<Node>),
@@ -15,12 +16,20 @@ pub enum NodeType {
 }
 
 /// Node structure for HCTL formula parse tree
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd)]
 pub struct Node {
     pub subform_str: String,
     pub height: i32,
     pub node_type: NodeType,
 }
+
+/// Nodes are ordered by their height
+impl Ord for Node {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.height.cmp(&other.height)
+    }
+}
+
 
 impl Node {
     /// Create default node - True terminal node

@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// Enum of all possible unary operators occurring in a HCTL formula string
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum UnaryOp {
     Not,                // '~'
     Ex,                 // 'EX'
@@ -13,7 +13,7 @@ pub enum UnaryOp {
 }
 
 /// Enum of all possible binary operators occurring in a HCTL formula string
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum BinaryOp {
     And,                // '&'
     Or,                 // '|'
@@ -27,7 +27,7 @@ pub enum BinaryOp {
 }
 
 /// Enum of all possible hybrid operators occurring in a HCTL formula string
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum HybridOp {
     Bind,               // '!'
     Jump,               // '@'
@@ -35,7 +35,7 @@ pub enum HybridOp {
 }
 
 /// Enum of all possible hybrid operators occurring in a HCTL formula string
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum Atomic {
     Prop(String),       // A proposition name
     Var(String),        // A variable name
