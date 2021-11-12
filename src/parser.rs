@@ -141,7 +141,7 @@ fn index_of_first_unary(tokens: &[Token]) -> Option<usize> {
  */
 
 /// Parse a `Node` using the recursive steps.
-pub fn parse_update_function(tokens: &[Token]) -> Result<Box<Node>, String> {
+pub fn parse_hctl_formula(tokens: &[Token]) -> Result<Box<Node>, String> {
     parse_1_hybrid(tokens)
 }
 
@@ -300,7 +300,7 @@ fn parse_9_terminal(tokens: &[Token]) -> Result<Box<Node>, String> {
                     height: 0,
                     node_type: NodeType::TerminalNode(Atomic::Var(name.clone())),
                 })),
-                Token::Tokens(inner) => return parse_update_function(inner),
+                Token::Tokens(inner) => return parse_hctl_formula(inner),
                 _ => {} // otherwise, fall through to the error at the end.
             }
         }

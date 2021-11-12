@@ -122,7 +122,7 @@ pub fn tokenize_recursive(
             // proposition name
             c if is_valid_in_name(c) => {
                 let name = collect_name(input_chars)?;
-                output.push(Token::Atom(Atomic::Prop(name)));
+                output.push(Token::Atom(Atomic::Prop(c.to_string() + &name)));
             }
             _ => return Result::Err(format!("Unexpected char '{}'.", c)),
         }

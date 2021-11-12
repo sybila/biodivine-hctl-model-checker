@@ -8,7 +8,6 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::BinaryHeap;
-use crate::operation_enums::Atomic::False;
 
 
 // TODO: more efficient negation of GraphColoredVertices using just bdds ?
@@ -16,7 +15,11 @@ use crate::operation_enums::Atomic::False;
 // TODO: maybe even and / or directly on BDD?
 
 
-pub fn eval_node(node: Node, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+pub fn eval_node(
+    node: Node,
+    graph: &SymbolicAsyncGraph,
+    duplicates: &mut HashMap<String, i32>
+) -> GraphColoredVertices {
     // TODO
     let empty_set = graph.mk_empty_vertices();
 
@@ -27,29 +30,25 @@ pub fn eval_node(node: Node, graph: &SymbolicAsyncGraph) -> GraphColoredVertices
                 Atomic::Var(name) => empty_set, // TODO
                 Atomic::Prop(name) => labeled_by(graph, &name)
         }
-        // TODO
         NodeType::UnaryNode(op, child) => match op {
-            UnaryOp::Not => negate_set(graph, &eval_node(*child, graph)),
-            UnaryOp::Ex => graph.pre(&eval_node(*child, graph)),
-            UnaryOp::Ax => ax(graph, &eval_node(*child, graph)),
-            UnaryOp::Ef => ef_saturated(graph, &eval_node(*child, graph)),
-            UnaryOp::Af => af(graph, &eval_node(*child, graph)),
-            UnaryOp::Eg => eg(graph, &eval_node(*child, graph)),
-            UnaryOp::Ag => ag(graph, &eval_node(*child, graph)),
+            UnaryOp::Not => negate_set(graph, &eval_node(*child, graph, duplicates)),
+            UnaryOp::Ex => graph.pre(&eval_node(*child, graph, duplicates)),
+            UnaryOp::Ax => ax(graph, &eval_node(*child, graph, duplicates)),
+            UnaryOp::Ef => ef_saturated(graph, &eval_node(*child, graph, duplicates)),
+            UnaryOp::Af => af(graph, &eval_node(*child, graph, duplicates)),
+            UnaryOp::Eg => eg(graph, &eval_node(*child, graph, duplicates)),
+            UnaryOp::Ag => ag(graph, &eval_node(*child, graph, duplicates)),
         }
-        // TODO
         NodeType::BinaryNode(op, left, right) => match op {
-            BinaryOp::And => eval_node(*left, graph).intersect(&eval_node(*right, graph)),
-            BinaryOp::Or => eval_node(*left, graph).union(&eval_node(*right, graph)),
-            BinaryOp::Xor => negate_set(
-                graph,
-                &equivalence(graph,&eval_node(*left, graph), &eval_node(*right, graph))),
-            BinaryOp::Imp => implication(graph,&eval_node(*left, graph), &eval_node(*right, graph)),
-            BinaryOp::Iff => equivalence(graph,&eval_node(*left, graph), &eval_node(*right, graph)),
-            BinaryOp::Eu => eu(graph, &eval_node(*left, graph), &eval_node(*right, graph)),
-            BinaryOp::Au => au(graph, &eval_node(*left, graph), &eval_node(*right, graph)),
-            BinaryOp::Ew => ew(graph, &eval_node(*left, graph), &eval_node(*right, graph)),
-            BinaryOp::Aw => aw(graph, &eval_node(*left, graph), &eval_node(*right, graph)),
+            BinaryOp::And => eval_node(*left, graph, duplicates).intersect(&eval_node(*right, graph, duplicates)),
+            BinaryOp::Or => eval_node(*left, graph, duplicates).union(&eval_node(*right, graph, duplicates)),
+            BinaryOp::Xor => non_equiv(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
+            BinaryOp::Imp => imp(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
+            BinaryOp::Iff => equiv(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
+            BinaryOp::Eu => eu(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
+            BinaryOp::Au => au(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
+            BinaryOp::Ew => ew(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
+            BinaryOp::Aw => aw(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
         },
         // TODO
         NodeType::HybridNode(op, var, child) => match op {
@@ -67,47 +66,44 @@ fn get_canonical(subform_string: &str) -> String {
 /// find out if we have some duplicate nodes in our parse tree
 /// marks duplicate node's string together with number of its appearances
 /// uses some kind of canonization - EX{x} and EX{y} recognized as duplicates
-pub fn mark_duplicates(root_node: Node) -> HashMap<String, i32> {
+pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
     // go through the nodes from top, use height to compare only those with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
     let mut duplicates: HashMap<String, i32> = HashMap::new();
     let mut heap_queue: BinaryHeap<&Node> = BinaryHeap::new();
 
     let mut last_height = root_node.height.clone();
-    let mut same_height_nodes: HashSet<&Node> = HashSet::new();
-    heap_queue.push(&root_node);
+    let mut same_height_node_strings: HashSet<String> = HashSet::new();
+    heap_queue.push(root_node);
 
     // because we are traversing a tree, we dont care about cycles
     while let Some(node) = heap_queue.pop() {
-        let mut skip = False;
-        let node_canonical_subform = get_canonical(&node.subform_str);
+        let mut skip = false;
+        let canonical_subform = get_canonical(&node.subform_str);
 
         if last_height == node.height {
-            // TODO
             // if we have saved some nodes of the same height, lets compare them
-            /*
-            for n, n_canonic_subform in same_height_nodes:
-                # TODO: dont we compare node with itself?
-                if node_canonical_subform == n_canonic_subform:
-                    # TODO : subform_string string problem?
-                    if n_canonic_subform in duplicates:
-                        duplicates[n_canonic_subform] += 1
-                        skip = True  # we wont be traversing subtree of this node (cache will be used)
-                    else:
-                        duplicates[n_canonic_subform] = 1
-                    break
-            # do not include subtree of the duplicate in the traversing (will be cached during eval)
-            if skip:
-                continue
-            same_height_nodes.add((node, get_canonical(node.subform_string)))
+            for other_string in same_height_node_strings.clone() {
+                // TODO: check if we dont compare node with itself
+                if other_string == canonical_subform {
+                    duplicates.insert(
+                        canonical_subform.clone(),
+                        if duplicates.contains_key(&canonical_subform) { duplicates[&canonical_subform] } else { 1 }
+                    );
+                    break;
+                }
+            }
 
-             */
+            // do not include subtree of the duplicate in the traversing (will be cached during eval)
+            if skip { continue; }
+
+            same_height_node_strings.insert(canonical_subform);
         }
         else {
             // else we got node from lower level, so we empty the set of nodes to compare
             last_height = node.height;
-            same_height_nodes.clear();
-            same_height_nodes.insert(node);
+            same_height_node_strings.clear();
+            same_height_node_strings.insert(get_canonical(&node.subform_str));
         }
 
         // add children of node to the heap_queue
