@@ -8,6 +8,8 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::BinaryHeap;
+use std::intrinsics::fabsf32;
+use std::str::Chars;
 
 
 // TODO: equivalence, nonequivalence, implication of GraphColoredVertices using bdds
@@ -57,9 +59,91 @@ pub fn eval_node(
     };
 }
 
-fn get_canonical(subform_string: &str) -> String {
+/// returns string representing the same subformula, but with canonized var names (var0, var1...)
+/// subform must be valid HCTL formula, minimized by minimize_number_of_state_vars function
+/// subform MUST include all PARENTHESES and MUST NOT include excess spaces
+/// for example "(3{x}:(3{xx}:((@{x}:((~{xx})&&(AX{x})))&&(@{xx}:(AX{xx})))))" is valid input
+/// any node.subform_string field should be OK to use
+fn canonize_subform(
+    mut subform_chars: Chars,
+    mut translate_dict: HashMap<String, String>,
+    mut canonical: String,
+    stack_len: i32,
+) -> (Chars, String, HashMap<String, String>) {
     // TODO - do this correctly
-    return "".to_string();
+    while let Some(ch) = subform_chars.next() {
+        let mut should_return = false;
+        match ch {
+            '(' => {
+                canonical.push(ch);
+                let tuple = canonize_subform(subform_chars, translate_dict, canonical, stack_len);
+                subform_chars = tuple.0;
+                canonical = tuple.1;
+                translate_dict = tuple.2;
+            }
+            ')' => {
+                canonical.push(ch);
+                should_return = true;
+            }
+            // we must distinguish situations where '3' is existential and when it is part of some prop name
+            // TODO
+
+            _ => { canonical.append(char); }
+        }
+        if should_return { break; }
+
+    }
+    (subform_chars, canonical, translate_dict)
+}
+
+/*
+def canonize_subform(subform, idx, translate_dict, canonical, stack_len=0) -> int:
+    while idx < len(subform):
+        char = subform[idx]
+        if char == '(':
+            canonical.append(char)
+            idx = canonize_subform(subform, idx + 1, translate_dict, canonical, stack_len)
+        elif char == ')':
+            canonical.append(char)
+            return idx + 1
+        # we ust distinguish situations when 3 is existential and when it is part of some prop name
+        elif char == '!' or (char == '3' and idx + 1 < len(subform) and subform[idx + 1] == '{'):
+            idx += 2  # move to the beginning of the var name
+            var_name = []
+            while subform[idx] != '}':
+                var_name.append(subform[idx])
+                idx += 1
+            idx += 2
+            translate_dict[''.join(var_name)] = f"var{stack_len}"
+            canonical.extend([char, '{'] + list(translate_dict[''.join(var_name)]) + ['}', ':'])
+            stack_len += 1
+        elif char == '{':
+            idx += 1  # move to the beginning of the var name
+            var_name = []
+            while subform[idx] != '}':
+                var_name.append(subform[idx])
+                idx += 1
+            idx += 1
+            var_name_str = ''.join(var_name)
+
+            # WE MUST BE PREPARED FOR THE CASE WHEN FREE VARS APPEAR - bcs we are canonizing all subformulas in tree
+            if var_name_str not in translate_dict:
+                translate_dict[var_name_str] = f"var{stack_len}"
+                stack_len += 1
+
+            canonical.extend(['{'] + list(translate_dict[var_name_str]) + ['}'])
+        else:
+            canonical.append(char)
+            idx += 1
+
+    return idx
+
+ */
+
+/// returns semantically same subformula, but with "canonized" var names
+fn get_canonical(subform_string: String) -> String {
+    // TODO - do this correctly
+    return canonize_subform(subform_string.chars(), HashMap::new(), String::new(), 0).1;
 }
 
 /// find out if we have some duplicate nodes in our parse tree
@@ -78,7 +162,7 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
     // because we are traversing a tree, we dont care about cycles
     while let Some(node) = heap_queue.pop() {
         let mut skip = false;
-        let canonical_subform = get_canonical(&node.subform_str);
+        let canonical_subform = get_canonical(node.subform_str.clone());
 
         if last_height == node.height {
             // if we have saved some nodes of the same height, lets compare them
@@ -105,7 +189,7 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
             // else we got node from lower level, so we empty the set of nodes to compare
             last_height = node.height;
             same_height_node_strings.clear();
-            same_height_node_strings.insert(get_canonical(&node.subform_str));
+            same_height_node_strings.insert(get_canonical(node.subform_str.clone()));
         }
 
         // add children of node to the heap_queue
