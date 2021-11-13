@@ -17,14 +17,14 @@ use biodivine_lib_param_bn::biodivine_std::bitvector::BitVector;
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
 
-
+// TODO: safe version for labeled_by (does not ignore error)
 // TODO: iterator for GraphColoredVertices sets - we only have one for vertices..
 // TODO: maybe - exact set size for GraphColoredVertices, GraphColors, GraphVertices - idk
 // TODO: better operators on GraphColoredVertices (like imp, xor, equiv)?
 // TODO: printer for all correct valuations in all three color/vertex sets
 
 fn main() {
-    let formula : String = "~ EF coup_fti".to_string();
+    let formula : String = "~ EF Coup_fti".to_string();
     let filename : String = "models/[var5]__[id007]__[CORTICAL-AREA-DEVELOPMENT]/model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
