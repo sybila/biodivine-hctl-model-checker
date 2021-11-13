@@ -10,9 +10,7 @@ use std::collections::HashSet;
 use std::collections::BinaryHeap;
 
 
-// TODO: more efficient negation of GraphColoredVertices using just bdds ?
 // TODO: equivalence, nonequivalence, implication of GraphColoredVertices using bdds
-// TODO: maybe even and / or directly on BDD?
 
 
 pub fn eval_node(
@@ -20,14 +18,14 @@ pub fn eval_node(
     graph: &SymbolicAsyncGraph,
     duplicates: &mut HashMap<String, i32>
 ) -> GraphColoredVertices {
-    // TODO
     let empty_set = graph.mk_empty_vertices();
 
     return match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
                 Atomic::True => graph.mk_unit_colored_vertices(),
                 Atomic::False => empty_set,
-                Atomic::Var(name) => empty_set, // TODO
+                // TODO - change this when we have HCTL vars included
+                Atomic::Var(name) => empty_set,
                 Atomic::Prop(name) => labeled_by(graph, &name)
         }
         NodeType::UnaryNode(op, child) => match op {
@@ -50,7 +48,7 @@ pub fn eval_node(
             BinaryOp::Ew => ew(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
             BinaryOp::Aw => aw(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
         },
-        // TODO
+        // TODO - change this when we have HCTL vars included
         NodeType::HybridNode(op, var, child) => match op {
             HybridOp::Bind => empty_set,
             HybridOp::Jump => empty_set,
@@ -60,7 +58,8 @@ pub fn eval_node(
 }
 
 fn get_canonical(subform_string: &str) -> String {
-    return "".to_string(); // TODO
+    // TODO - do this correctly
+    return "".to_string();
 }
 
 /// find out if we have some duplicate nodes in our parse tree
@@ -86,10 +85,13 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
             for other_string in same_height_node_strings.clone() {
                 // TODO: check if we dont compare node with itself
                 if other_string == canonical_subform {
-                    duplicates.insert(
-                        canonical_subform.clone(),
-                        if duplicates.contains_key(&canonical_subform) { duplicates[&canonical_subform] } else { 1 }
-                    );
+                    if duplicates.contains_key(&canonical_subform) {
+                        duplicates.insert(canonical_subform.clone(),duplicates[&canonical_subform] + 1);
+                        skip = true;
+                    }
+                    else {
+                        duplicates.insert(canonical_subform.clone(),1);
+                    }
                     break;
                 }
             }
