@@ -68,6 +68,7 @@ pub fn eu(graph: &SymbolicAsyncGraph,
     old_set
 }
 
+/*
 /// EF computed using fixpoint
 pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
@@ -79,6 +80,7 @@ pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
     }
     old_set
 }
+ */
 
 /// EF computed via saturation
 pub fn ef_saturated(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {

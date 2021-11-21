@@ -8,7 +8,7 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::BinaryHeap;
-use std::intrinsics::fabsf32;
+use std::iter::Peekable;
 use std::str::Chars;
 
 
@@ -21,6 +21,7 @@ pub fn eval_node(
     duplicates: &mut HashMap<String, i32>
 ) -> GraphColoredVertices {
     let empty_set = graph.mk_empty_vertices();
+    println!("{}", get_canonical(node.subform_str));
 
     return match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
@@ -65,85 +66,81 @@ pub fn eval_node(
 /// for example "(3{x}:(3{xx}:((@{x}:((~{xx})&&(AX{x})))&&(@{xx}:(AX{xx})))))" is valid input
 /// any node.subform_string field should be OK to use
 fn canonize_subform(
-    mut subform_chars: Chars,
-    mut translate_dict: HashMap<String, String>,
+    mut subform_chars: Peekable<Chars>,
+    mut mapping_dict: HashMap<String, String>,
     mut canonical: String,
-    stack_len: i32,
-) -> (Chars, String, HashMap<String, String>) {
-    // TODO - do this correctly
+    mut stack_len: i32,
+) -> (Peekable<Chars>, String, HashMap<String, String>, i32) {
     while let Some(ch) = subform_chars.next() {
         let mut should_return = false;
         match ch {
+            // dive deeper by one level
             '(' => {
                 canonical.push(ch);
-                let tuple = canonize_subform(subform_chars, translate_dict, canonical, stack_len);
+                let tuple = canonize_subform(subform_chars, mapping_dict, canonical, stack_len);
                 subform_chars = tuple.0;
                 canonical = tuple.1;
-                translate_dict = tuple.2;
+                mapping_dict = tuple.2;
+                stack_len = tuple.3;
             }
+            // emerge back to upper level
             ')' => {
                 canonical.push(ch);
                 should_return = true;
             }
+            // introduce new 'quantified' var (jump is not listed as it does not introduce vars)
             // we must distinguish situations where '3' is existential and when it is part of some prop name
-            // TODO
+            '!' | '3' if subform_chars.peek() == Some(&'{') => {
+                // move to the beginning of the var name (skip '{')
+                subform_chars.next();
+                let mut var_name = String::new();
+                while let Some(name_char) = subform_chars.next() {
+                    if name_char == '}' { break; }
+                    var_name.push(name_char);
+                }
+                // skip ':'
+                subform_chars.next();
+                // insert new mapping to dict and push it all to canonical string
+                mapping_dict.insert(var_name.clone(), format!("var{}", stack_len));
+                canonical.push_str(format!("{}{{{}}}:", ch, format!("var{}", stack_len)).as_str());
+                stack_len += 1;
+            }
+            // rename existing var to canonical form, or handle free variables
+            // this includes variable names which are part of the "jump operator"
+            '{' => {
+                let mut var_name = String::new();
+                while let Some(name_char) = subform_chars.next() {
+                    if name_char == '}' { break; }
+                    var_name.push(name_char);
+                }
 
-            _ => { canonical.append(char); }
+                // we must be prepared for free vars to appear (not bounded by hybrid operators)
+                // it is because we are canonizing all subformulas in the tree
+                if !mapping_dict.contains_key(var_name.as_str()) {
+                    mapping_dict.insert(var_name.clone(), format!("var{}", stack_len));
+                    stack_len += 1;
+                }
+
+                if let Some(canonical_name) = mapping_dict.get(var_name.as_str()) {
+                    canonical.push_str(format!("{{{}}}", canonical_name).as_str());
+                }
+                else {
+                    // This branch should never happen
+                    println!("{}", format!("Canonical name was not found for {}", var_name));
+                }
+            }
+            // all the other character, including boolean+temporal operators, '@', prop names
+            _ => { canonical.push(ch); }
         }
         if should_return { break; }
 
     }
-    (subform_chars, canonical, translate_dict)
+    (subform_chars, canonical, mapping_dict, stack_len)
 }
-
-/*
-def canonize_subform(subform, idx, translate_dict, canonical, stack_len=0) -> int:
-    while idx < len(subform):
-        char = subform[idx]
-        if char == '(':
-            canonical.append(char)
-            idx = canonize_subform(subform, idx + 1, translate_dict, canonical, stack_len)
-        elif char == ')':
-            canonical.append(char)
-            return idx + 1
-        # we ust distinguish situations when 3 is existential and when it is part of some prop name
-        elif char == '!' or (char == '3' and idx + 1 < len(subform) and subform[idx + 1] == '{'):
-            idx += 2  # move to the beginning of the var name
-            var_name = []
-            while subform[idx] != '}':
-                var_name.append(subform[idx])
-                idx += 1
-            idx += 2
-            translate_dict[''.join(var_name)] = f"var{stack_len}"
-            canonical.extend([char, '{'] + list(translate_dict[''.join(var_name)]) + ['}', ':'])
-            stack_len += 1
-        elif char == '{':
-            idx += 1  # move to the beginning of the var name
-            var_name = []
-            while subform[idx] != '}':
-                var_name.append(subform[idx])
-                idx += 1
-            idx += 1
-            var_name_str = ''.join(var_name)
-
-            # WE MUST BE PREPARED FOR THE CASE WHEN FREE VARS APPEAR - bcs we are canonizing all subformulas in tree
-            if var_name_str not in translate_dict:
-                translate_dict[var_name_str] = f"var{stack_len}"
-                stack_len += 1
-
-            canonical.extend(['{'] + list(translate_dict[var_name_str]) + ['}'])
-        else:
-            canonical.append(char)
-            idx += 1
-
-    return idx
-
- */
 
 /// returns semantically same subformula, but with "canonized" var names
 fn get_canonical(subform_string: String) -> String {
-    // TODO - do this correctly
-    return canonize_subform(subform_string.chars(), HashMap::new(), String::new(), 0).1;
+    return canonize_subform(subform_string.chars().peekable(), HashMap::new(), String::new(), 0).1;
 }
 
 /// find out if we have some duplicate nodes in our parse tree
@@ -167,7 +164,7 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
         if last_height == node.height {
             // if we have saved some nodes of the same height, lets compare them
             for other_string in same_height_node_strings.clone() {
-                // TODO: check if we dont compare node with itself
+                // TODO: check this - if we dont compare node with itself
                 if other_string == canonical_subform {
                     if duplicates.contains_key(&canonical_subform) {
                         duplicates.insert(canonical_subform.clone(),duplicates[&canonical_subform] + 1);
@@ -182,7 +179,6 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
 
             // do not include subtree of the duplicate in the traversing (will be cached during eval)
             if skip { continue; }
-
             same_height_node_strings.insert(canonical_subform);
         }
         else {
@@ -207,6 +203,5 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
             }
         }
     }
-
     duplicates
 }
