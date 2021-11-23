@@ -7,5 +7,6 @@ edition = "2018"
 
 [dependencies]
 biodivine-lib-param-bn = "0.1.0"
+biodivine-aeon-server = { git = "https://github.com/sybila/biodivine-aeon-server", branch = "master" }
 termcolor = "1.1.2"
 

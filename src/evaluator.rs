@@ -13,7 +13,7 @@ use std::str::Chars;
 
 
 // TODO: equivalence, nonequivalence, implication of GraphColoredVertices using bdds
-
+// TODO: evaluation of hybrid variables and operators
 
 pub fn eval_node(
     node: Node,
