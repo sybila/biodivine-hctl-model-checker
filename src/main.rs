@@ -6,9 +6,10 @@ mod evaluator;
 
 use tokenizer::tokenize_recursive;
 use parser::parse_hctl_formula;
-use evaluator::{mark_duplicates, eval_node};
+use evaluator::{mark_duplicates, eval_node, minimize_number_of_state_vars};
 
 use std::fs::read_to_string;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -24,7 +25,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: printer for all correct valuations in all three color/vertex sets
 
 fn main() {
-    let formula : String = "~ EF Coup_fti".to_string();
+    let formula : String = "!{var}: EF {var}".to_string();
     let filename : String = "models/[var5]__[id007]__[CORTICAL-AREA-DEVELOPMENT]/model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
@@ -37,12 +38,17 @@ fn main() {
 
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
-            println!("{}", tree.subform_str);
+            println!("original formula: {}", tree.subform_str);
             let aeon_string = read_to_string(filename).unwrap();
-            let network = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
-            let graph = SymbolicAsyncGraph::new(network).unwrap();
-            let mut duplicates = mark_duplicates(&*tree);
-            let result = eval_node(*tree, &graph, &mut duplicates);
+            let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
+            let graph = SymbolicAsyncGraph::new(bn).unwrap();
+
+            let (new_tree, _) = minimize_number_of_state_vars(
+                *tree, HashMap::new(), String::new(), 0);
+            println!("formula with renamed vars: {}", new_tree.subform_str);
+
+            let mut duplicates = mark_duplicates(&new_tree);
+            let result = eval_node(new_tree, &graph, &mut duplicates);
 
             let network = graph.as_network();
 

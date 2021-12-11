@@ -53,6 +53,36 @@ pub fn labeled_by(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertice
     graph.mk_empty_vertices()
 }
 
+/// creates comparator between variables from network and corresponding HCTL var' components
+/// it will be a set representing expression "(s__1 <=> var__1) & (s__2 <=> var__2) ... "
+pub fn create_comparator(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> GraphColoredVertices {
+    let reg_graph = graph.as_network().as_graph();
+    let mut comparator = graph.mk_unit_colored_vertices().as_bdd().clone();
+
+    for nw_var_id in reg_graph.variables() {
+        let nw_var_name = reg_graph.get_variable_name(nw_var_id);
+        let hctl_component_name = format!("{}__{}", hctl_var_name, nw_var_name);
+        let mut bdd_nw_var = graph.symbolic_context()
+            .bdd_variable_set()
+            .mk_var_by_name(nw_var_name);
+        let mut bdd_hctl_component = graph.symbolic_context()
+            .bdd_variable_set()
+            .mk_var_by_name(hctl_component_name.as_str());
+        comparator = comparator.and(&bdd_hctl_component.iff(&bdd_nw_var));
+    }
+
+    GraphColoredVertices::new(comparator, graph.symbolic_context())
+}
+
+/*
+def create_comparator(model: Model, var: str) -> Function:
+    expr_parts = [f"(s__{i} <=> {var}__{i})" for i in range(model.num_props)]
+    expr = " & ".join(expr_parts)
+    comparator = model.bdd.add_expr(expr)
+    return comparator
+ */
+
+
 /// EU computed using fixpoint
 pub fn eu(graph: &SymbolicAsyncGraph,
       phi1: &GraphColoredVertices,

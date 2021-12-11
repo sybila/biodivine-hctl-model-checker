@@ -1,6 +1,9 @@
+use std::borrow::Borrow;
+use std::cmp::max;
 use crate::parser::{Node, NodeType};
 use crate::operation_enums::*;
 use crate::implementation::*;
+use crate::parser::*;
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
@@ -21,14 +24,14 @@ pub fn eval_node(
     duplicates: &mut HashMap<String, i32>
 ) -> GraphColoredVertices {
     let empty_set = graph.mk_empty_vertices();
-    println!("{}", get_canonical(node.subform_str));
+    // println!("{}", get_canonical(node.subform_str));
 
     return match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
                 Atomic::True => graph.mk_unit_colored_vertices(),
                 Atomic::False => empty_set,
                 // TODO - change this when we have HCTL vars included
-                Atomic::Var(name) => empty_set,
+                Atomic::Var(name) => create_comparator(graph, name.as_str()),
                 Atomic::Prop(name) => labeled_by(graph, &name)
         }
         NodeType::UnaryNode(op, child) => match op {
@@ -204,4 +207,68 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
         }
     }
     duplicates
+}
+
+/// renames vars to canonical form of "x", "xx", ...
+/// works only FOR FORMULAS WITHOUT FREE VARIABLES
+/// renames as many state-vars as possible to the identical names, without changing the formula
+/// TODO: do we need num_vars ?
+pub fn minimize_number_of_state_vars(
+    mut orig_node: Node,
+    mut mapping_dict: HashMap<String, String>,
+    mut last_used_name: String,
+    mut num_vars: i32
+) -> (Node, i32) {
+    // If we find hybrid node with bind or exist, we add new var-name to rename_dict and stack (x, xx, xxx...)
+    // After we leave this binder/exist, we remove its var from rename_dict
+    // When we find terminal with free variable, we rename it using rename-dict, we do the same when we encounter jump
+    match orig_node.node_type {
+        // rename vars in terminal state-var nodes
+        NodeType::TerminalNode(ref atom) => match atom {
+            Atomic::Var(name) => {
+                let renamed_var = mapping_dict.get(name.as_str()).unwrap();
+                return (Node {
+                    subform_str: format!("{{{}}}", renamed_var.to_string()),
+                    height: 0,
+                    node_type: NodeType::TerminalNode(Atomic::Var(renamed_var.to_string())),
+                }, num_vars);
+            }
+            _ => { return (orig_node, 0); }
+        }
+        // just dive one level deeper for unary nodes, and rename string
+        NodeType::UnaryNode(op, child) => {
+            let mut node_num_pair = minimize_number_of_state_vars(
+                *child, mapping_dict, last_used_name.clone(), num_vars);
+            return (create_unary(Box::new(node_num_pair.0), op), node_num_pair.1);
+        }
+        // just dive deeper for binary nodes, and rename string
+        NodeType::BinaryNode(op, left, right) => {
+            let mut node_num_pair1 = minimize_number_of_state_vars(
+                *left, mapping_dict.clone(), last_used_name.clone(), num_vars);
+            let mut node_num_pair2 = minimize_number_of_state_vars(
+                *right, mapping_dict, last_used_name, num_vars);
+            return (create_binary(Box::new(node_num_pair1.0), Box::new(node_num_pair2.0), op),
+                max(node_num_pair1.1, node_num_pair2.1))
+        }
+        // hybrid nodes are more complicated
+        NodeType::HybridNode(op, var, child) => {
+            // if we hit binder or exist, we are adding its new var name to dict & stack
+            // no need to do this for jump, jump is not quantifier
+            match op {
+                HybridOp::Bind | HybridOp::Exist => {
+                    last_used_name.push('x');  // this represents adding to stack
+                    mapping_dict.insert(var.clone(), last_used_name.clone());
+                    num_vars = max(num_vars, last_used_name.len() as i32);
+                }
+                _ => {}
+            }
+
+            // dive deeper
+            let mut node_num_pair = minimize_number_of_state_vars(
+                *child, mapping_dict, last_used_name.clone(), num_vars);
+
+            return (create_hybrid(Box::new(node_num_pair.0), last_used_name, op),
+                node_num_pair.1)
+        }
+    }
 }

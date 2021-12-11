@@ -33,7 +33,7 @@ impl Ord for Node {
 
 impl Node {
     /// Create default node - True terminal node
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self{
             subform_str: "True".to_string(),
             height: 0,
@@ -49,7 +49,7 @@ impl fmt::Display for Node {
 }
 
 /// Create hybrid node from given arguments
-fn create_hybrid(child: Box<Node>, var: String, op: HybridOp) -> Node {
+pub fn create_hybrid(child: Box<Node>, var: String, op: HybridOp) -> Node {
     Node {
         subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
         height: child.height + 1,
@@ -62,7 +62,7 @@ fn create_hybrid(child: Box<Node>, var: String, op: HybridOp) -> Node {
 }
 
 /// Create unary node from given arguments
-fn create_unary(child: Box<Node>, op: UnaryOp) -> Node {
+pub fn create_unary(child: Box<Node>, op: UnaryOp) -> Node {
     Node {
         subform_str: format!("({} {})", op, child.subform_str),
         height: child.height + 1,
@@ -74,7 +74,7 @@ fn create_unary(child: Box<Node>, op: UnaryOp) -> Node {
 }
 
 /// Create binary node from given arguments
-fn create_binary(left: Box<Node>, right: Box<Node>, op: BinaryOp) -> Node {
+pub fn create_binary(left: Box<Node>, right: Box<Node>, op: BinaryOp) -> Node {
     Node {
         subform_str: format!("({} {} {})", left.subform_str, op, right.subform_str),
         height: cmp::max(left.height, right.height) + 1,
