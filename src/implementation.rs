@@ -76,6 +76,7 @@ pub fn create_comparator(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> Gra
         .intersect(graph.unit_colored_vertices())
 }
 
+/// evaluates bind operator - does intersection with comparator and projects out hctl var
 pub fn bind(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -95,18 +96,38 @@ pub fn bind(
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
-/*
-# Release(x, Comparator(x) & SMC(M, phi))
-def bind(model: Model, phi: Function, var: str) -> Function:
-    comparator = create_comparator(model, var)
-    intersection = comparator & phi
+/// evaluates existential operator - projects out given hctl var from bdd
+pub fn existential(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+    var_name: &str
+) -> GraphColoredVertices {
+    // lets just project out the bdd vars coding the hctl var we want to get rid of
+    let var_idx = var_name.len() - 1; // len of var codes its index
+    let vars_total = graph.symbolic_context().num_hctl_var_sets() as usize;
+    let vars_to_project : Vec<BddVariable> = graph.symbolic_context().hctl_variables()
+        .iter().skip(var_idx).step_by(vars_total).copied().collect();
+    let result_bdd = phi.as_bdd().project(&vars_to_project);
 
-    # now lets use existential quantification to get rid of the bdd vars coding VAR
-    vars_to_get_rid = [f"{var}__{i}" for i in range(model.num_props)]
-    result = model.bdd.quantify(intersection, vars_to_get_rid)
-    return result
+    // after projecting we do not need to intersect with unit bdd
+    GraphColoredVertices::new(result_bdd, graph.symbolic_context())
+}
 
- */
+/// evaluates jump operator - does intersection with comparator and projects out BN variables
+pub fn jump(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+    var_name: &str
+) -> GraphColoredVertices {
+    let comparator = create_comparator(graph, var_name);
+    let intersection = comparator.intersect(phi);
+
+    // now lets project out the bdd vars coding variables from boolean network
+    let result_bdd = intersection.into_bdd().project(
+        graph.symbolic_context().state_variables());
+    // after projecting we do not need to intersect with unit bdd
+    GraphColoredVertices::new(result_bdd, graph.symbolic_context())
+}
 
 /// EU computed using fixpoint
 pub fn eu(graph: &SymbolicAsyncGraph,

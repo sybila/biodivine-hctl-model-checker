@@ -52,11 +52,10 @@ pub fn eval_node(
             BinaryOp::Ew => ew(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
             BinaryOp::Aw => aw(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
         },
-        // TODO - change this when we have HCTL vars included
         NodeType::HybridNode(op, var, child) => match op {
             HybridOp::Bind => bind(graph, &eval_node(*child, graph, duplicates), var.as_str()),
-            HybridOp::Jump => empty_set,
-            HybridOp::Exist => empty_set,
+            HybridOp::Jump => jump(graph, &eval_node(*child, graph, duplicates), var.as_str()),
+            HybridOp::Exist => existential(graph, &eval_node(*child, graph, duplicates), var.as_str()),
         }
     };
 }
