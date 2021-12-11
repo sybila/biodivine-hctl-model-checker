@@ -63,15 +63,15 @@ fn main() {
                 let mut stdout = StandardStream::stdout(ColorChoice::Always);
                 for var in variable_name_strings {
                     if valuation.get(i) {
-                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)));
-                        write!(&mut stdout, "{} ", var);
+                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap();
+                        write!(&mut stdout, "{} ", var).unwrap();
                     } else {
-                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)));
-                        write!(&mut stdout, "{} ", var);
+                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
+                        write!(&mut stdout, "{} ", var).unwrap();
                     }
                     i += 1;
                 }
-                stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)));
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::White))).unwrap();
                 println!();
 
                 /*

@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::cmp::max;
 use crate::parser::{Node, NodeType};
 use crate::operation_enums::*;
@@ -30,7 +29,6 @@ pub fn eval_node(
         NodeType::TerminalNode(atom) => match atom {
                 Atomic::True => graph.mk_unit_colored_vertices(),
                 Atomic::False => empty_set,
-                // TODO - change this when we have HCTL vars included
                 Atomic::Var(name) => create_comparator(graph, name.as_str()),
                 Atomic::Prop(name) => labeled_by(graph, &name)
         }
@@ -214,7 +212,7 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
 /// renames as many state-vars as possible to the identical names, without changing the formula
 /// TODO: do we need num_vars ?
 pub fn minimize_number_of_state_vars(
-    mut orig_node: Node,
+    orig_node: Node,
     mut mapping_dict: HashMap<String, String>,
     mut last_used_name: String,
     mut num_vars: i32
@@ -237,15 +235,15 @@ pub fn minimize_number_of_state_vars(
         }
         // just dive one level deeper for unary nodes, and rename string
         NodeType::UnaryNode(op, child) => {
-            let mut node_num_pair = minimize_number_of_state_vars(
+            let node_num_pair = minimize_number_of_state_vars(
                 *child, mapping_dict, last_used_name.clone(), num_vars);
             return (create_unary(Box::new(node_num_pair.0), op), node_num_pair.1);
         }
         // just dive deeper for binary nodes, and rename string
         NodeType::BinaryNode(op, left, right) => {
-            let mut node_num_pair1 = minimize_number_of_state_vars(
+            let node_num_pair1 = minimize_number_of_state_vars(
                 *left, mapping_dict.clone(), last_used_name.clone(), num_vars);
-            let mut node_num_pair2 = minimize_number_of_state_vars(
+            let node_num_pair2 = minimize_number_of_state_vars(
                 *right, mapping_dict, last_used_name, num_vars);
             return (create_binary(Box::new(node_num_pair1.0), Box::new(node_num_pair2.0), op),
                 max(node_num_pair1.1, node_num_pair2.1))
@@ -264,7 +262,7 @@ pub fn minimize_number_of_state_vars(
             }
 
             // dive deeper
-            let mut node_num_pair = minimize_number_of_state_vars(
+            let node_num_pair = minimize_number_of_state_vars(
                 *child, mapping_dict, last_used_name.clone(), num_vars);
 
             return (create_hybrid(Box::new(node_num_pair.0), last_used_name, op),
