@@ -147,7 +147,7 @@ dependencies = [
 [[package]]
 name = "biodivine-lib-param-bn"
 version = "0.2.0-SNAPSHOT"
-source = "git+https://github.com/sybila/biodivine-lib-param-bn.git?branch=hctl-experimental#b509edfe0b32034a2abc5b1333da6857a6e3f383"
+source = "git+https://github.com/sybila/biodivine-lib-param-bn.git?branch=hctl-experimental#4522eed286a90ed516ea94b4504debc8fde08fd5"
 dependencies = [
  "biodivine-lib-bdd 0.3.0",
  "bitvector",
@@ -740,6 +740,7 @@ name = "rust_project"
 version = "0.1.0"
 dependencies = [
  "biodivine-aeon-server",
+ "biodivine-lib-bdd 0.3.0",
  "biodivine-lib-param-bn 0.2.0-SNAPSHOT",
  "termcolor",
 ]
