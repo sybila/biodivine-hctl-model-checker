@@ -25,8 +25,8 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: printer for all correct valuations in all three color/vertex sets
 
 fn main() {
-    let formula : String = "!{var}: EF {var}".to_string();
-    let filename : String = "models/[var5]__[id007]__[CORTICAL-AREA-DEVELOPMENT]/model.aeon".to_string();
+    let formula : String = "!{var}: AG EF {var}".to_string();
+    let filename : String = "models/[var14]__[id058]__[ARABIDOPSIS-THALIANA-CELL-CYCLE]/model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
         Err(e) => {

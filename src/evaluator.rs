@@ -54,7 +54,7 @@ pub fn eval_node(
         },
         // TODO - change this when we have HCTL vars included
         NodeType::HybridNode(op, var, child) => match op {
-            HybridOp::Bind => empty_set,
+            HybridOp::Bind => bind(graph, &eval_node(*child, graph, duplicates), var.as_str()),
             HybridOp::Jump => empty_set,
             HybridOp::Exist => empty_set,
         }

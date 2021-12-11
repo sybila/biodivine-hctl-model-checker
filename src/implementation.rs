@@ -1,6 +1,6 @@
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
-
+use biodivine_lib_bdd::{BddVariable};
 // TODO
 /*
 create_comparator
@@ -62,26 +62,51 @@ pub fn create_comparator(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> Gra
     for nw_var_id in reg_graph.variables() {
         let nw_var_name = reg_graph.get_variable_name(nw_var_id);
         let hctl_component_name = format!("{}__{}", hctl_var_name, nw_var_name);
-        let mut bdd_nw_var = graph.symbolic_context()
+        let bdd_nw_var = graph.symbolic_context()
             .bdd_variable_set()
             .mk_var_by_name(nw_var_name);
-        let mut bdd_hctl_component = graph.symbolic_context()
+        let bdd_hctl_component = graph.symbolic_context()
             .bdd_variable_set()
             .mk_var_by_name(hctl_component_name.as_str());
         comparator = comparator.and(&bdd_hctl_component.iff(&bdd_nw_var));
     }
 
+    // we must do the intersection with the unit bdd (static constraints)
     GraphColoredVertices::new(comparator, graph.symbolic_context())
+        .intersect(graph.unit_colored_vertices())
+}
+
+pub fn bind(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+    var_name: &str
+) -> GraphColoredVertices {
+    let comparator = create_comparator(graph, var_name);
+    let intersection = comparator.intersect(phi);
+
+    // now lets project out the bdd vars coding the hctl var we want to get rid of
+    let var_idx = var_name.len() - 1; // len of var codes its index
+    let vars_total = graph.symbolic_context().num_hctl_var_sets() as usize;
+    let vars_to_project : Vec<BddVariable> = graph.symbolic_context().hctl_variables()
+        .iter().skip(var_idx).step_by(vars_total).copied().collect();
+    let result_bdd = intersection.into_bdd().project(&vars_to_project);
+
+    // after projecting we do not need to intersect with unit bdd
+    GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
 /*
-def create_comparator(model: Model, var: str) -> Function:
-    expr_parts = [f"(s__{i} <=> {var}__{i})" for i in range(model.num_props)]
-    expr = " & ".join(expr_parts)
-    comparator = model.bdd.add_expr(expr)
-    return comparator
- */
+# Release(x, Comparator(x) & SMC(M, phi))
+def bind(model: Model, phi: Function, var: str) -> Function:
+    comparator = create_comparator(model, var)
+    intersection = comparator & phi
 
+    # now lets use existential quantification to get rid of the bdd vars coding VAR
+    vars_to_get_rid = [f"{var}__{i}" for i in range(model.num_props)]
+    result = model.bdd.quantify(intersection, vars_to_get_rid)
+    return result
+
+ */
 
 /// EU computed using fixpoint
 pub fn eu(graph: &SymbolicAsyncGraph,
@@ -99,7 +124,7 @@ pub fn eu(graph: &SymbolicAsyncGraph,
 }
 
 /*
-/// EF computed using fixpoint
+/// EF computed using normal fixpoint algorithm
 pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
     let mut new_set = graph.mk_empty_vertices();
