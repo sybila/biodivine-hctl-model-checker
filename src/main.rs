@@ -38,61 +38,47 @@ fn main() {
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
             println!("{}", tree.subform_str);
-            match read_to_string(filename) {
-                Ok(aeon_string) => {
-                    match BooleanNetwork::try_from(aeon_string.as_str()) {
-                        Ok(network) => {
-                            match SymbolicAsyncGraph::new(network) {
-                                Ok(graph) => {
-                                    let mut duplicates = mark_duplicates(&*tree);
-                                    let result = eval_node(*tree, &graph, &mut duplicates);
-                                    // TODO - do something with the result
-                                    let network = graph.as_network();
+            let aeon_string = read_to_string(filename).unwrap();
+            let network = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
+            let graph = SymbolicAsyncGraph::new(network).unwrap();
+            let mut duplicates = mark_duplicates(&*tree);
+            let result = eval_node(*tree, &graph, &mut duplicates);
 
-                                    let mut counter = 0;
-                                    for valuation in result.vertices().materialize().iter() {
-                                        // colored var names version
-                                        let mut i = 0;
-                                        let variable_name_strings = network
-                                            .variables()
-                                            .map(|id| format!("\"{}\"", network.get_variable_name(id)));
+            let network = graph.as_network();
 
-                                        let mut stdout = StandardStream::stdout(ColorChoice::Always);
-                                        for var in variable_name_strings {
-                                            if valuation.get(i) {
-                                                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)));
-                                                write!(&mut stdout, "{} ", var);
-                                            }
-                                            else {
-                                                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)));
-                                                write!(&mut stdout, "{} ", var);
-                                            }
-                                            i += 1;
-                                        }
-                                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)));
-                                        println!();
+            let mut counter = 0;
+            for valuation in result.vertices().materialize().iter() {
+                // colored var names version
+                let mut i = 0;
+                let variable_name_strings = network
+                    .variables()
+                    .map(|id| format!("\"{}\"", network.get_variable_name(id)));
 
-                                        /*
-                                        // just 0/1 valuation vector version
-                                        let mut valuation_str = String::new();
-                                        for i in 0..valuation.len() {
-                                            valuation_str.push(if valuation.get(i) { '1' } else { '0' });
-                                        }
-                                        println!("{}", valuation_str.as_str());
-                                         */
-                                        counter += 1;
-                                    }
-                                    println!("{} result states found in total.", counter)
-                                }
-                                Err(message) => println!("{}", message),
-                            }
-                        }
-                        Err(message) => println!("{}", message),
+                let mut stdout = StandardStream::stdout(ColorChoice::Always);
+                for var in variable_name_strings {
+                    if valuation.get(i) {
+                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)));
+                        write!(&mut stdout, "{} ", var);
+                    } else {
+                        stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red)));
+                        write!(&mut stdout, "{} ", var);
                     }
+                    i += 1;
                 }
-                Err(message) => println!("{}", message),
-            }
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::White)));
+                println!();
 
+                /*
+                // just 0/1 valuation vector version
+                let mut valuation_str = String::new();
+                for i in 0..valuation.len() {
+                    valuation_str.push(if valuation.get(i) { '1' } else { '0' });
+                }
+                println!("{}", valuation_str.as_str());
+                 */
+                counter += 1;
+            }
+            println!("{} result states found in total.", counter)
         },
         Err(message) => println!("{}", message),
     }
