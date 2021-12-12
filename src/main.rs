@@ -3,6 +3,7 @@ mod parser;
 mod operation_enums;
 mod implementation;
 mod evaluator;
+mod compute_scc;
 
 use tokenizer::tokenize_recursive;
 use parser::parse_hctl_formula;
@@ -12,6 +13,7 @@ use std::fs::read_to_string;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::io::Write;
+use std::time::SystemTime;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 use biodivine_lib_param_bn::biodivine_std::bitvector::BitVector;
@@ -25,8 +27,10 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: printer for all correct valuations in all three color/vertex sets
 
 fn main() {
+    let start = SystemTime::now();
+
     let formula : String = "!{var}: AG EF {var}".to_string();
-    let filename : String = "models/[var14]__[id058]__[ARABIDOPSIS-THALIANA-CELL-CYCLE]/model.aeon".to_string();
+    let filename : String = "models/[var23]__[id103]__[FGF-SIGNALING-PATHWAY]/model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
         Err(e) => {
@@ -49,11 +53,13 @@ fn main() {
 
             let mut duplicates = mark_duplicates(&new_tree);
             let result = eval_node(new_tree, &graph, &mut duplicates);
+            println!("Computation time: {}s", start.elapsed().unwrap().as_millis());
 
             let network = graph.as_network();
 
             let mut counter = 0;
             for valuation in result.vertices().materialize().iter() {
+                /*
                 // colored var names version
                 let mut i = 0;
                 let variable_name_strings = network
@@ -74,7 +80,6 @@ fn main() {
                 stdout.set_color(ColorSpec::new().set_fg(Some(Color::White))).unwrap();
                 println!();
 
-                /*
                 // just 0/1 valuation vector version
                 let mut valuation_str = String::new();
                 for i in 0..valuation.len() {
@@ -88,4 +93,6 @@ fn main() {
         },
         Err(message) => println!("{}", message),
     }
+
+    println!("Total elapsed time: {}ms", start.elapsed().unwrap().as_millis());
 }
