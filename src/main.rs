@@ -30,7 +30,7 @@ fn main() {
     let start = SystemTime::now();
 
     let formula : String = "!{var}: AG EF {var}".to_string();
-    let filename : String = "models/[var23]__[id103]__[FGF-SIGNALING-PATHWAY]/model.aeon".to_string();
+    let filename : String = "models/[var11]__[id095]__[FISSION-YEAST-2008]/model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
         Err(e) => {
@@ -53,13 +53,16 @@ fn main() {
 
             let mut duplicates = mark_duplicates(&new_tree);
             let result = eval_node(new_tree, &graph, &mut duplicates);
-            println!("Computation time: {}s", start.elapsed().unwrap().as_millis());
 
-            let network = graph.as_network();
+            println!("Computation time: {}ms", start.elapsed().unwrap().as_millis());
+            println!("{} results in total", result.approx_cardinality());
+            println!("{} colors in total", result.colors().approx_cardinality());
+            println!("{} vertices in total", result.vertices().approx_cardinality());
 
+            /*
             let mut counter = 0;
+            let network = graph.as_network();
             for valuation in result.vertices().materialize().iter() {
-                /*
                 // colored var names version
                 let mut i = 0;
                 let variable_name_strings = network
@@ -86,13 +89,11 @@ fn main() {
                     valuation_str.push(if valuation.get(i) { '1' } else { '0' });
                 }
                 println!("{}", valuation_str.as_str());
-                 */
                 counter += 1;
             }
             println!("{} result states found in total.", counter)
+            */
         },
         Err(message) => println!("{}", message),
     }
-
-    println!("Total elapsed time: {}ms", start.elapsed().unwrap().as_millis());
 }
