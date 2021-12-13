@@ -30,7 +30,7 @@ fn main() {
     let start = SystemTime::now();
 
     let formula : String = "!{var}: AG EF {var}".to_string();
-    let filename : String = "models/[var11]__[id095]__[FISSION-YEAST-2008]/model.aeon".to_string();
+    let filename : String = "models/[var27]__[id098]__[WG-SIGNALING-PATHWAY]/model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
         Err(e) => {
@@ -57,7 +57,7 @@ fn main() {
             println!("Computation time: {}ms", start.elapsed().unwrap().as_millis());
             println!("{} results in total", result.approx_cardinality());
             println!("{} colors in total", result.colors().approx_cardinality());
-            println!("{} vertices in total", result.vertices().approx_cardinality());
+            println!("{} states in total", result.vertices().approx_cardinality());
 
             /*
             let mut counter = 0;

@@ -1,0 +1,4 @@
+ID          Time rust       Time cython
+003         600s            10s
+098         6s              5s
+103         133s            7s
