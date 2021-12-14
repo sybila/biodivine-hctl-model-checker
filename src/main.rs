@@ -30,7 +30,8 @@ fn main() {
     let start = SystemTime::now();
 
     let formula : String = "!{var}: AG EF {var}".to_string();
-    let filename : String = "models/[var27]__[id098]__[WG-SIGNALING-PATHWAY]/model.aeon".to_string();
+    // let filename : String = "models/[var27]__[id098]__[WG-SIGNALING-PATHWAY]/model.aeon".to_string();
+    let filename : String = "test_model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
         Err(e) => {
@@ -46,10 +47,11 @@ fn main() {
             let aeon_string = read_to_string(filename).unwrap();
             let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
             let graph = SymbolicAsyncGraph::new(bn).unwrap();
+            println!("Graph creation time: {}ms", start.elapsed().unwrap().as_millis());
 
             let (new_tree, _) = minimize_number_of_state_vars(
                 *tree, HashMap::new(), String::new(), 0);
-            println!("formula with renamed vars: {}", new_tree.subform_str);
+            // println!("renamed formula: {}", new_tree.subform_str);
 
             let mut duplicates = mark_duplicates(&new_tree);
             let result = eval_node(new_tree, &graph, &mut duplicates);
