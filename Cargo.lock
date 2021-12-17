@@ -101,24 +101,15 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "biodivine-aeon-server"
 version = "0.4.1"
-source = "git+https://github.com/sybila/biodivine-aeon-server?branch=hctl-experimental#98eea105394e3150dc1263adeb7613a4dd92127d"
+source = "git+https://github.com/sybila/biodivine-aeon-server?branch=hctl-experimental#d89d50dd89a7789db6de1a8a0fe77741a7ec9582"
 dependencies = [
- "biodivine-lib-bdd 0.2.1",
- "biodivine-lib-param-bn 0.1.0",
+ "biodivine-lib-bdd",
+ "biodivine-lib-param-bn",
  "json",
  "lazy_static",
  "rand 0.8.4",
  "regex",
  "rocket",
-]
-
-[[package]]
-name = "biodivine-lib-bdd"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7b53a1bcd332b83b8f319bfb97cc113307c2512cf0c72f70f5e5184f7a622c3"
-dependencies = [
- "fxhash",
 ]
 
 [[package]]
@@ -133,23 +124,10 @@ dependencies = [
 
 [[package]]
 name = "biodivine-lib-param-bn"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad744f7e529d9ca822f836b131a74cb1aa4467df17c0bb94885c1b860647097d"
-dependencies = [
- "biodivine-lib-bdd 0.2.1",
- "bitvector",
- "lazy_static",
- "regex",
- "roxmltree",
-]
-
-[[package]]
-name = "biodivine-lib-param-bn"
 version = "0.2.0-SNAPSHOT"
-source = "git+https://github.com/sybila/biodivine-lib-param-bn.git?branch=hctl-experimental#7ae1668cb37a23a5751810d9ffa9d61b276a78bc"
+source = "git+https://github.com/sybila/biodivine-lib-param-bn.git?branch=hctl-experimental#f2c351d0fa47afbeb7f3a829b0148196d3725fbe"
 dependencies = [
- "biodivine-lib-bdd 0.3.0",
+ "biodivine-lib-bdd",
  "bitvector",
  "lazy_static",
  "regex",
@@ -740,8 +718,8 @@ name = "rust_project"
 version = "0.1.0"
 dependencies = [
  "biodivine-aeon-server",
- "biodivine-lib-bdd 0.3.0",
- "biodivine-lib-param-bn 0.2.0-SNAPSHOT",
+ "biodivine-lib-bdd",
+ "biodivine-lib-param-bn",
  "termcolor",
 ]
 
