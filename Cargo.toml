@@ -1,13 +1,13 @@
 [package]
 name = "rust_project"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn.git", branch = "hctl-experimental" }
 biodivine-lib-bdd = "0.3.0"
-biodivine-aeon-server = { git = "https://github.com/sybila/biodivine-aeon-server", branch = "master" }
+biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn.git", branch = "hctl-experimental" }
+biodivine-aeon-server = { git = "https://github.com/sybila/biodivine-aeon-server", branch = "hctl-experimental" }
 termcolor = "1.1.2"
 

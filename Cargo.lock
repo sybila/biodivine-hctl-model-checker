@@ -101,7 +101,7 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 [[package]]
 name = "biodivine-aeon-server"
 version = "0.4.1"
-source = "git+https://github.com/sybila/biodivine-aeon-server?branch=master#3a583d0c8b1933123d2ce056c3c3b97a7144cb3f"
+source = "git+https://github.com/sybila/biodivine-aeon-server?branch=hctl-experimental#98eea105394e3150dc1263adeb7613a4dd92127d"
 dependencies = [
  "biodivine-lib-bdd 0.2.1",
  "biodivine-lib-param-bn 0.1.0",
@@ -147,7 +147,7 @@ dependencies = [
 [[package]]
 name = "biodivine-lib-param-bn"
 version = "0.2.0-SNAPSHOT"
-source = "git+https://github.com/sybila/biodivine-lib-param-bn.git?branch=hctl-experimental#4522eed286a90ed516ea94b4504debc8fde08fd5"
+source = "git+https://github.com/sybila/biodivine-lib-param-bn.git?branch=hctl-experimental#7ae1668cb37a23a5751810d9ffa9d61b276a78bc"
 dependencies = [
  "biodivine-lib-bdd 0.3.0",
  "bitvector",
