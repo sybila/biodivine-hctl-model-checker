@@ -1,0 +1,210 @@
+AXIN2 -? AXIN2
+TCF_LEF -? AXIN2
+Csn -? BTrCP
+Bcatenin_nuc -? Bcatenin_memb
+Ecadherin -? Bcatenin_memb
+Bcatenin_memb -? Bcatenin_nuc
+Dest_compl -? Bcatenin_nuc
+Ecadherin -? Bcatenin_nuc
+SUFU -? Bcatenin_nuc
+TCF_LEF -? CD44
+CHD1L -? CDC42
+TGFBR -? CDC42
+0 -? CHD1L
+NOTCH_ic -? Csl
+NFKB -? Csn
+RAS -? DELTA
+Frizzled -? DSH
+AXIN2 -? Dest_compl
+Bcatenin_nuc -? Dest_compl
+Dest_compl -? Dest_compl
+GSK3B -? Dest_compl
+0 -? EGF
+EGF -? EGFR
+cfos -? EGR1
+Ecadherin -? EMT
+MEK -? ERK
+Bcatenin_memb -? Ecadherin
+FOXC2 -? Ecadherin
+HEY1 -? Ecadherin
+SNAI1 -? Ecadherin
+SNAI2 -? Ecadherin
+TWIST1 -? Ecadherin
+ZEB1 -? Ecadherin
+ZEB2 -? Ecadherin
+0 -? FGF
+FGF -? FGFR
+Goosecoid -? FOXC2
+SNAI1 -? FOXC2
+TWIST1 -? FOXC2
+SMO -? FUS
+Wnt -? Frizzled
+SUFU -? GLI
+TCF_LEF -? GLI
+AKT -? GSK3B
+Csn -? GSK3B
+DSH -? GSK3B
+Dest_compl -? GSK3B
+ERK -? GSK3B
+0 -? Goosecoid
+Csl -? HEY1
+SMAD -? HEY1
+0 -? HGF
+Hypoxia -? HIF1A
+0 -? Hypoxia
+0 -? IGF1
+IGF1 -? IGF1R
+AKT -? IKKA
+SMAD -? ILK
+SMAD -? Jagged
+TCF_LEF -? Jagged
+STAT -? LIV1
+HIF1A -? LOXL23
+RAF -? MEK
+RKIP -? MEK
+IKKA -? NFKB
+DELTA -? NOTCH
+Jagged -? NOTCH
+NOTCH -? NOTCH_ic
+CDC42 -? PAK1
+0 -? PDGF
+PDGF -? PDGFR
+RAS -? PI3K
+SHH -? Patched
+RAS -? RAF
+GSK3B -? RAS
+SOS_GRB2 -? RAS
+SRC -? RAS
+TCF_LEF -? RAS
+ERK -? RKIP
+SNAI1 -? RKIP
+GLI -? SHH
+SMAD -? SHH
+ERK -? SMAD
+TGFBR -? SMAD
+ZEB1 -? SMAD
+ZEB2 -? SMAD
+Patched -? SMO
+BTrCP -? SNAI1
+Csl -? SNAI1
+EGR1 -? SNAI1
+GLI -? SNAI1
+GSK3B -? SNAI1
+Goosecoid -? SNAI1
+LIV1 -? SNAI1
+LOXL23 -? SNAI1
+PAK1 -? SNAI1
+SMAD -? SNAI1
+Bcatenin_nuc -? SNAI2
+ERK -? SNAI2
+SNAI2 -? SNAI2
+TWIST1 -? SNAI2
+EGFR -? SOS_GRB2
+ERK -? SOS_GRB2
+FGFR -? SOS_GRB2
+IGF1R -? SOS_GRB2
+PDGFR -? SOS_GRB2
+TGFBR -? SOS_GRB2
+cMet -? SOS_GRB2
+EGFR -? SRC
+FGFR -? SRC
+IGF1R -? SRC
+PDGFR -? SRC
+cMet -? SRC
+SRC -? STAT
+FUS -? SUFU
+Bcatenin_nuc -? TCF_LEF
+GLI -? TGFB
+Goosecoid -? TGFB
+SNAI1 -? TGFB
+TWIST1 -? TGFB
+TGFB -? TGFBR
+Goosecoid -? TWIST1
+HIF1A -? TWIST1
+NFKB -? TWIST1
+SNAI1 -? TWIST1
+TCF_LEF -? TWIST1
+GLI -? Wnt
+Goosecoid -? ZEB1
+HIF1A -? ZEB1
+SNAI1 -? ZEB1
+miR200 -? ZEB1
+Goosecoid -? ZEB2
+HIF1A -? ZEB2
+SNAI1 -? ZEB2
+miR200 -? ZEB2
+CD44 -? cMet
+HGF -? cMet
+ERK -? cfos
+SNAI1 -? miR200
+ZEB1 -? miR200
+ZEB2 -? miR200
+$AXIN2: (AXIN2 | TCF_LEF)
+$BTrCP: !Csn
+$Bcatenin_memb: (Ecadherin & !Bcatenin_nuc)
+$Bcatenin_nuc: (!Dest_compl & (!Bcatenin_memb & (!SUFU | !Ecadherin)))
+$CD44: TCF_LEF
+$CDC42: (TGFBR | CHD1L)
+$CHD1L: 0
+$Csl: NOTCH_ic
+$Csn: NFKB
+$DELTA: RAS
+$DSH: Frizzled
+$Dest_compl: ((GSK3B & (AXIN2 & Bcatenin_nuc)) | (GSK3B & Dest_compl))
+$EGF: 0
+$EGFR: EGF
+$EGR1: cfos
+$EMT: !Ecadherin
+$ERK: MEK
+$Ecadherin: (Bcatenin_memb & (!SNAI1 | (!HEY1 | (!ZEB1 | (!ZEB2 | (!FOXC2 | (!TWIST1 | !SNAI2)))))))
+$FGF: 0
+$FGFR: FGF
+$FOXC2: (Goosecoid | (SNAI1 | TWIST1))
+$FUS: SMO
+$Frizzled: Wnt
+$GLI: (TCF_LEF | !SUFU)
+$GSK3B: (!DSH & (!AKT & (!Csn | (!ERK | !Dest_compl))))
+$Goosecoid: 0
+$HEY1: (Csl | SMAD)
+$HGF: 0
+$HIF1A: Hypoxia
+$Hypoxia: 0
+$IGF1: 0
+$IGF1R: IGF1
+$IKKA: AKT
+$ILK: SMAD
+$Jagged: (TCF_LEF | SMAD)
+$LIV1: STAT
+$LOXL23: HIF1A
+$MEK: (RAF | !RKIP)
+$NFKB: IKKA
+$NOTCH: (DELTA | Jagged)
+$NOTCH_ic: NOTCH
+$PAK1: CDC42
+$PDGF: 0
+$PDGFR: PDGF
+$PI3K: RAS
+$Patched: !SHH
+$RAF: RAS
+$RAS: (SOS_GRB2 | (SRC | (!GSK3B | TCF_LEF)))
+$RKIP: (!ERK | !SNAI1)
+$SHH: (SMAD | GLI)
+$SMAD: ((ERK | TGFBR) & (ZEB1 | !ZEB2))
+$SMO: !Patched
+$SNAI1: (GLI | (LOXL23 | (SMAD | (LIV1 | (PAK1 | (Csl | (EGR1 | (Goosecoid | (!BTrCP | !GSK3B)))))))))
+$SNAI2: (ERK | (Bcatenin_nuc | (SNAI2 | TWIST1)))
+$SOS_GRB2: ((PDGFR | (cMet | (TGFBR | (FGFR | (IGF1R | EGFR))))) & !ERK)
+$SRC: (PDGFR | (EGFR | (FGFR | (cMet | IGF1R))))
+$STAT: SRC
+$SUFU: !FUS
+$TCF_LEF: Bcatenin_nuc
+$TGFB: (Goosecoid | (SNAI1 | (TWIST1 | GLI)))
+$TGFBR: TGFB
+$TWIST1: (NFKB | (HIF1A | (TCF_LEF | (Goosecoid | SNAI1))))
+$Wnt: GLI
+$ZEB1: ((HIF1A | (SNAI1 | Goosecoid)) & !miR200)
+$ZEB2: ((HIF1A | (SNAI1 | Goosecoid)) & !miR200)
+$cMet: (HGF | CD44)
+$cfos: ERK
+$miR200: (!SNAI1 & (!ZEB1 & !ZEB2))
+
