@@ -17,7 +17,8 @@ use std::str::Chars;
 /* TODOs for evaluation specifically */
 // TODO: equivalence, nonequivalence, implication on GraphColoredVertices using bdds
 // TODO: caching for evaluator
-// TODO: special cases handling (attractors, stable states...)
+// TODO: SCC computation without the prints
+// TODO: special cases handling (attractors, stable states...) - ONLY SOMETIMES (lot props)
 // TODO: possible optimalisations (changing tree, or during evaluation)
 
 fn is_attractor_pattern(node: Node) -> bool {
@@ -42,21 +43,50 @@ fn is_attractor_pattern(node: Node) -> bool {
     }
 }
 
+/// TODO: fix cache
 pub fn eval_node(
     node: Node,
     graph: &SymbolicAsyncGraph,
-    duplicates: &mut HashMap<String, i32>
+    duplicates: &mut HashMap<String, i32>,
+    cache: &mut HashMap<String, GraphColoredVertices>
 ) -> GraphColoredVertices {
-    // println!("{}", get_canonical(node.subform_str));
+    // first check whether this node does not belong in the duplicates
+    let mut save_to_cache = false;
+    if duplicates.contains_key(node.subform_str.as_str()) {
+        if cache.contains_key(node.subform_str.as_str()) {
+            // decrement number of duplicates left
+            *duplicates.get_mut(node.subform_str.as_str()).unwrap() -= 1;
+
+            // we will get bdd, but sometimes we must rename its vars
+            // because it might have differently named state variables before
+            let result = cache.get(node.subform_str.as_str()).unwrap().clone();
+
+            // if we already visited all of the duplicates, lets delete the cached value
+            if duplicates[node.subform_str.as_str()] == 0 {
+                duplicates.remove(node.subform_str.as_str());
+                cache.remove(node.subform_str.as_str());
+            }
+            // since we are working with canonical cache, we must rename vars in result bdd
+            return result;
+        }
+        else {
+            // if the cache does not contain result for this subformula, set insert flag
+            save_to_cache = true;
+        }
+    }
 
     // first lets check for special cases
     // attractors
     if is_attractor_pattern(node.clone()) {
-        return compute_terminal_scc(graph);
+        let result = compute_terminal_scc(graph);
+        if save_to_cache {
+            cache.insert(node.subform_str.clone(), result.clone());
+        }
+        return result;
     }
-    // TODO: stable states
+    // TODO: stable states pattern
 
-    return match node.node_type {
+    let result = match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
                 Atomic::True => graph.mk_unit_colored_vertices(),
                 Atomic::False => graph.mk_empty_vertices(),
@@ -64,31 +94,55 @@ pub fn eval_node(
                 Atomic::Prop(name) => labeled_by(graph, &name)
         }
         NodeType::UnaryNode(op, child) => match op {
-            UnaryOp::Not => negate_set(graph, &eval_node(*child, graph, duplicates)),
-            UnaryOp::Ex => graph.pre(&eval_node(*child, graph, duplicates)),
-            UnaryOp::Ax => ax(graph, &eval_node(*child, graph, duplicates)),
-            UnaryOp::Ef => ef_saturated(graph, &eval_node(*child, graph, duplicates)),
-            UnaryOp::Af => af(graph, &eval_node(*child, graph, duplicates)),
-            UnaryOp::Eg => eg(graph, &eval_node(*child, graph, duplicates)),
-            UnaryOp::Ag => ag(graph, &eval_node(*child, graph, duplicates)),
+            UnaryOp::Not => negate_set(graph, &eval_node(*child, graph, duplicates, cache)),
+            UnaryOp::Ex => graph.pre(&eval_node(*child, graph, duplicates, cache)),
+            UnaryOp::Ax => ax(graph, &eval_node(*child, graph, duplicates, cache)),
+            UnaryOp::Ef => ef_saturated(graph, &eval_node(*child, graph, duplicates, cache)),
+            UnaryOp::Af => af(graph, &eval_node(*child, graph, duplicates, cache)),
+            UnaryOp::Eg => eg(graph, &eval_node(*child, graph, duplicates, cache)),
+            UnaryOp::Ag => ag(graph, &eval_node(*child, graph, duplicates, cache)),
         }
         NodeType::BinaryNode(op, left, right) => match op {
-            BinaryOp::And => eval_node(*left, graph, duplicates).intersect(&eval_node(*right, graph, duplicates)),
-            BinaryOp::Or => eval_node(*left, graph, duplicates).union(&eval_node(*right, graph, duplicates)),
-            BinaryOp::Xor => non_equiv(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
-            BinaryOp::Imp => imp(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
-            BinaryOp::Iff => equiv(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
-            BinaryOp::Eu => eu(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
-            BinaryOp::Au => au(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
-            BinaryOp::Ew => ew(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
-            BinaryOp::Aw => aw(graph, &eval_node(*left, graph, duplicates), &eval_node(*right, graph, duplicates)),
+            BinaryOp::And => eval_node(*left, graph, duplicates, cache)
+                .intersect(&eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::Or => eval_node(*left, graph, duplicates, cache)
+                .union(&eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::Xor => non_equiv(graph, &eval_node(*left, graph, duplicates, cache),
+                                       &eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::Imp => imp(graph, &eval_node(*left, graph, duplicates, cache),
+                                 &eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::Iff => equiv(graph, &eval_node(*left, graph, duplicates, cache),
+                                   &eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::Eu => eu(graph, &eval_node(*left, graph, duplicates, cache),
+                               &eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::Au => au(graph, &eval_node(*left, graph, duplicates, cache),
+                               &eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::Ew => ew(graph, &eval_node(*left, graph, duplicates, cache),
+                               &eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::Aw => aw(graph, &eval_node(*left, graph, duplicates, cache),
+                               &eval_node(*right, graph, duplicates, cache)),
         },
         NodeType::HybridNode(op, var, child) => match op {
-            HybridOp::Bind => bind(graph, &eval_node(*child, graph, duplicates), var.as_str()),
-            HybridOp::Jump => jump(graph, &eval_node(*child, graph, duplicates), var.as_str()),
-            HybridOp::Exist => existential(graph, &eval_node(*child, graph, duplicates), var.as_str()),
+            HybridOp::Bind => bind(graph, &eval_node(*child, graph, duplicates, cache), var.as_str()),
+            HybridOp::Jump => jump(graph, &eval_node(*child, graph, duplicates, cache), var.as_str()),
+            HybridOp::Exist => existential(graph, &eval_node(*child, graph, duplicates, cache), var.as_str()),
         }
     };
+
+    if save_to_cache {
+        cache.insert(node.subform_str.clone(), result.clone());
+    }
+    result
+}
+
+pub fn eval_tree(tree: Box<Node>, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+    let new_tree = minimize_number_of_state_vars(
+        *tree, HashMap::new(), String::new(), 0).0;
+    // println!("renamed formula: {}", new_tree.subform_str);
+
+    let mut duplicates = mark_duplicates(&new_tree);
+    let mut cache : HashMap<String, GraphColoredVertices> = HashMap::new();
+    eval_node(new_tree, &graph, &mut duplicates, &mut cache)
 }
 
 /// returns string representing the same subformula, but with canonized var names (var0, var1...)
@@ -169,11 +223,20 @@ fn canonize_subform(
     (subform_chars, canonical, mapping_dict, stack_len)
 }
 
-/// returns semantically same subformula, but with "canonized" var names
+#[allow(dead_code)]
+/// returns string of the semantically same subformula, but with "canonized" var names
 fn get_canonical(subform_string: String) -> String {
-    return canonize_subform(subform_string.chars().peekable(), HashMap::new(), String::new(), 0).1;
+    canonize_subform(subform_string.chars().peekable(), HashMap::new(), String::new(), 0).1
 }
 
+#[allow(dead_code)]
+/// returns tuple with the canonized subformula string and mapping dictionary used for canonization
+fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<String, String>) {
+    let tuple = canonize_subform(subform_string.chars().peekable(), HashMap::new(), String::new(), 0);
+    (tuple.1, tuple.2)
+}
+
+/*
 /// find out if we have some duplicate nodes in our parse tree
 /// marks duplicate node's string together with number of its appearances
 /// uses some kind of canonization - EX{x} and EX{y} recognized as duplicates
@@ -217,6 +280,70 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
             last_height = node.height;
             same_height_node_strings.clear();
             same_height_node_strings.insert(get_canonical(node.subform_str.clone()));
+        }
+
+        // add children of node to the heap_queue
+        match &node.node_type {
+            NodeType::TerminalNode(_) => {}
+            NodeType::UnaryNode(_, child) => {
+                heap_queue.push(child);
+            }
+            NodeType::BinaryNode(_, left, right) => {
+                heap_queue.push(left);
+                heap_queue.push(right);
+            }
+            NodeType::HybridNode(_, _, child) => {
+                heap_queue.push(child);
+            }
+        }
+    }
+    duplicates
+}
+ */
+
+/// TEMPORARY VERSION FOR NOW, FIX CACHE AND USE VERSION ABOVE in future (this one does not use canonical forms)
+/// find out if we have some duplicate nodes in our parse tree
+/// marks duplicate node's string together with number of its appearances
+/// uses some kind of canonization - EX{x} and EX{y} recognized as duplicates
+pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
+    // go through the nodes from top, use height to compare only those with the same level
+    // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
+    let mut duplicates: HashMap<String, i32> = HashMap::new();
+    let mut heap_queue: BinaryHeap<&Node> = BinaryHeap::new();
+
+    let mut last_height = root_node.height.clone();
+    let mut same_height_node_strings: HashSet<String> = HashSet::new();
+    heap_queue.push(root_node);
+
+    // because we are traversing a tree, we dont care about cycles
+    while let Some(node) = heap_queue.pop() {
+        let mut skip = false;
+
+        if last_height == node.height {
+            // if we have saved some nodes of the same height, lets compare them
+            for other_string in same_height_node_strings.clone() {
+                // TODO: check this - if we dont compare node with itself
+                if other_string == node.subform_str.as_str() {
+                    if duplicates.contains_key(node.subform_str.as_str()) {
+                        duplicates.insert(node.subform_str.clone(),duplicates[&node.subform_str] + 1);
+                    }
+                    else {
+                        duplicates.insert(node.subform_str.clone(),1);
+                    }
+                    skip = true; // skip the descendants of the duplicate node
+                    break;
+                }
+            }
+
+            // do not include subtree of the duplicate in the traversing (will be cached during eval)
+            if skip { continue; }
+            same_height_node_strings.insert(node.subform_str.clone());
+        }
+        else {
+            // else we got node from lower level, so we empty the set of nodes to compare
+            last_height = node.height;
+            same_height_node_strings.clear();
+            same_height_node_strings.insert(node.subform_str.clone());
         }
 
         // add children of node to the heap_queue

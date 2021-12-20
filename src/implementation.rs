@@ -56,6 +56,7 @@ pub fn labeled_by(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertice
 /// creates comparator between variables from network and corresponding HCTL var' components
 /// it will be a set representing expression "(s__1 <=> var__1) & (s__2 <=> var__2) ... "
 pub fn create_comparator(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> GraphColoredVertices {
+    // TODO: use eval_expression_string() method
     let reg_graph = graph.as_network().as_graph();
     let mut comparator = graph.mk_unit_colored_vertices().as_bdd().clone();
 

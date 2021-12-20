@@ -6,14 +6,14 @@ mod evaluator;
 mod compute_scc;
 mod io;
 
-use tokenizer::tokenize_recursive;
-use parser::parse_hctl_formula;
-use evaluator::{mark_duplicates, eval_node, minimize_number_of_state_vars};
 #[allow(unused_imports)]
 use io::{print_results_fast, print_results};
+#[allow(unused_imports)]
+use tokenizer::{tokenize_recursive, print_tokens};
+use parser::parse_hctl_formula;
+use evaluator::eval_tree;
 
 use std::fs::read_to_string;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::time::SystemTime;
 
@@ -21,7 +21,7 @@ use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
 
 /* TODOs to implement in the whole project */
-// TODO: IMPLEMENT CACHE FOR EVALUATOR
+// TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: SPECIAL CASES FOR EVALUATOR (attractors, stable states...)
 // TODO: optims for evaluator
 // TODO: safe version for labeled_by (does not ignore error)
@@ -30,10 +30,14 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: more efficient operators on GraphColoredVertices (like imp, xor, equiv)?
 // TODO: printer for all correct valuations in all three color/vertex sets
 
+/* BUGs to fix */
+// TODO: "!{var}: AG EF {var} & & !{var}: AG EF {var}" DOES NOT CAUSE ERROR
+// TODO: "!{var}: AG EF {var} & !{var}: AG EF {var}" DOES NOT PARSE CORRECTLY
+
 fn main() {
     let start = SystemTime::now();
 
-    let formula : String = "!{var}: AG EF {var}".to_string();
+    let formula : String = "(!{var}: AG EF {var}) & (!{var}: AG EF {var})".to_string();
     //let filename : String = "models/[var27]__[id098]__[WG-SIGNALING-PATHWAY]/model.aeon".to_string();
     let filename : String = "test_model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
@@ -43,7 +47,7 @@ fn main() {
             Vec::new()
         }
     };
-    // print_tokens(&tokens);
+    print_tokens(&tokens);
 
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
@@ -54,12 +58,7 @@ fn main() {
 
             println!("Graph creation time: {}ms", start.elapsed().unwrap().as_millis());
 
-            let (new_tree, _) = minimize_number_of_state_vars(
-                *tree, HashMap::new(), String::new(), 0);
-            // println!("renamed formula: {}", new_tree.subform_str);
-
-            let mut duplicates = mark_duplicates(&new_tree);
-            let result = eval_node(new_tree, &graph, &mut duplicates);
+            let result = eval_tree(tree, &graph);
 
             println!("Computation time: {}ms", start.elapsed().unwrap().as_millis());
             //print_results(&graph, &result, true);
