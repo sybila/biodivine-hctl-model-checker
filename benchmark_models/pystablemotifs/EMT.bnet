@@ -1,3 +1,4 @@
+AKT, ILK | PI3K
 Dest_compl, (GSK3B & AXIN2 & Bcatenin_nuc) | (GSK3B & Dest_compl)
 AXIN2, AXIN2 | TCF_LEF
 Bcatenin_memb, Ecadherin & ! Bcatenin_nuc
