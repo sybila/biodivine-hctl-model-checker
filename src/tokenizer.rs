@@ -198,6 +198,7 @@ impl fmt::Display for Token {
     }
 }
 
+#[allow(dead_code)]
 pub fn print_tokens(tokens: &Vec<Token>) {
     for token in tokens {
         print!("{} ", token);
