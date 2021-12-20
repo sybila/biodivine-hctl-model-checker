@@ -8,7 +8,6 @@ mod compute_scc;
 use tokenizer::tokenize_recursive;
 use parser::parse_hctl_formula;
 use evaluator::{mark_duplicates, eval_node, minimize_number_of_state_vars};
-use compute_scc::compute_scc;
 
 use std::fs::read_to_string;
 use std::collections::HashMap;
@@ -17,15 +16,19 @@ use std::io::Write;
 use std::time::SystemTime;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphVertices, GraphColoredVertices, SymbolicAsyncGraph};
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
 use biodivine_lib_param_bn::biodivine_std::bitvector::BitVector;
 
 
+/* TODOs to implement in the whole project */
+// TODO: IMPLEMENT CACHE FOR EVALUATOR
+// TODO: SPECIAL CASES FOR EVALUATOR (attractors, stable states...)
+// TODO: optims for evaluator
 // TODO: safe version for labeled_by (does not ignore error)
 // TODO: iterator for GraphColoredVertices sets - we only have for vertices (or something like that)
 // TODO: maybe - exact set size for GraphColoredVertices, GraphColors, GraphVertices - idk
-// TODO: better operators on GraphColoredVertices (like imp, xor, equiv)?
+// TODO: more efficient operators on GraphColoredVertices (like imp, xor, equiv)?
 // TODO: printer for all correct valuations in all three color/vertex sets
 
 #[allow(dead_code)]
@@ -113,10 +116,9 @@ fn main() {
             let mut duplicates = mark_duplicates(&new_tree);
             let result = eval_node(new_tree, &graph, &mut duplicates);
 
-            // let result = compute_scc(&graph);
-
             println!("Computation time: {}ms", start.elapsed().unwrap().as_millis());
-            print_results(&graph, &result, true);
+            //print_results(&graph, &result, true);
+            print_results_fast(&result);
         },
         Err(message) => println!("{}", message),
     }

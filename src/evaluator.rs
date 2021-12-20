@@ -3,6 +3,7 @@ use crate::parser::{Node, NodeType};
 use crate::operation_enums::*;
 use crate::implementation::*;
 use crate::parser::*;
+use crate::compute_scc::compute_terminal_scc;
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
@@ -13,22 +14,52 @@ use std::collections::BinaryHeap;
 use std::iter::Peekable;
 use std::str::Chars;
 
+/* TODOs for evaluation specifically */
+// TODO: equivalence, nonequivalence, implication on GraphColoredVertices using bdds
+// TODO: caching for evaluator
+// TODO: special cases handling (attractors, stable states...)
+// TODO: possible optimalisations (changing tree, or during evaluation)
 
-// TODO: equivalence, nonequivalence, implication of GraphColoredVertices using bdds
-// TODO: evaluation of hybrid variables and operators
+fn is_attractor_pattern(node: Node) -> bool {
+    return match node.node_type {
+        NodeType::HybridNode(HybridOp::Bind, var1, child1) => {
+            match (*child1).node_type {
+                NodeType::UnaryNode(UnaryOp::Ag, child2) => {
+                    match (*child2).node_type {
+                        NodeType::UnaryNode(UnaryOp::Ef, child3) => {
+                            match (*child3).node_type {
+                                NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
+                                _ => false
+                            }
+                        }
+                        _ => false
+                    }
+                }
+                _ => false
+            }
+        }
+        _ => false
+    }
+}
 
 pub fn eval_node(
     node: Node,
     graph: &SymbolicAsyncGraph,
     duplicates: &mut HashMap<String, i32>
 ) -> GraphColoredVertices {
-    let empty_set = graph.mk_empty_vertices();
     // println!("{}", get_canonical(node.subform_str));
+
+    // first lets check for special cases
+    // attractors
+    if is_attractor_pattern(node.clone()) {
+        return compute_terminal_scc(graph);
+    }
+    // TODO: stable states
 
     return match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
                 Atomic::True => graph.mk_unit_colored_vertices(),
-                Atomic::False => empty_set,
+                Atomic::False => graph.mk_empty_vertices(),
                 Atomic::Var(name) => create_comparator(graph, name.as_str()),
                 Atomic::Prop(name) => labeled_by(graph, &name)
         }

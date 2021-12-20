@@ -66,7 +66,7 @@ pub fn xie_beerel_attractors_collect(
     components
 }
 
-pub fn compute_scc(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+pub fn compute_terminal_scc(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     let task_context = GraphTaskContext::new();
     task_context.restart(graph);
 
