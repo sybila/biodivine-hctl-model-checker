@@ -199,10 +199,19 @@ impl fmt::Display for Token {
 }
 
 #[allow(dead_code)]
-pub fn print_tokens(tokens: &Vec<Token>) {
+fn print_tokens_recursively(tokens: &Vec<Token>) -> () {
     for token in tokens {
-        print!("{} ", token);
+        match token {
+            Token::Tokens(token_vec) => print_tokens_recursively(token_vec),
+            _ => print!("{} ", token),
+        }
     }
-    println!()
 }
+
+#[allow(dead_code)]
+pub fn print_tokens(tokens: &Vec<Token>) -> () {
+    print_tokens_recursively(tokens);
+    println!();
+}
+
 
