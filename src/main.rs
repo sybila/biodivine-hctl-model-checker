@@ -10,6 +10,8 @@ mod io;
 use io::{print_results_fast, print_results};
 #[allow(unused_imports)]
 use tokenizer::{tokenize_recursive, print_tokens};
+#[allow(unused_imports)]
+use compute_scc::write_attractors_to_file;
 use parser::parse_hctl_formula;
 use evaluator::eval_tree;
 
@@ -37,9 +39,8 @@ use biodivine_lib_param_bn::BooleanNetwork;
 fn main() {
     let start = SystemTime::now();
 
-    let formula : String = "(!{var}: AG EF {var}) & (!{var}: AG EF {var})".to_string();
-    //let filename : String = "models/[var27]__[id098]__[WG-SIGNALING-PATHWAY]/model.aeon".to_string();
-    let filename : String = "test_model.aeon".to_string();
+    let formula = "!{var}: AG EF {var}".to_string();
+    let filename = "test_model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
         Err(e) => {
@@ -59,12 +60,12 @@ fn main() {
             println!("Graph creation time: {}ms", start.elapsed().unwrap().as_millis());
 
             let result = eval_tree(tree, &graph);
+            //write_attractors_to_file(&graph, "attractor_output.txt");
 
             println!("Computation time: {}ms", start.elapsed().unwrap().as_millis());
+            println!("{} vars in network", graph.as_network().num_vars());
             //print_results(&graph, &result, true);
             print_results_fast(&result);
-
-            //write_attractors_to_file(&graph, "attractor_output.txt");
         },
         Err(message) => println!("{}", message),
     }
