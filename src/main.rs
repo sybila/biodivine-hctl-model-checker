@@ -4,12 +4,13 @@ mod operation_enums;
 mod implementation;
 mod evaluator;
 mod compute_scc;
-mod print_results;
+mod io;
 
 use tokenizer::tokenize_recursive;
 use parser::parse_hctl_formula;
 use evaluator::{mark_duplicates, eval_node, minimize_number_of_state_vars};
-use print_results::{print_results_fast,print_results};
+#[allow(unused_imports)]
+use io::{print_results_fast, print_results};
 
 use std::fs::read_to_string;
 use std::collections::HashMap;
@@ -63,6 +64,8 @@ fn main() {
             println!("Computation time: {}ms", start.elapsed().unwrap().as_millis());
             //print_results(&graph, &result, true);
             print_results_fast(&result);
+
+            //write_attractors_to_file(&graph, "attractor_output.txt");
         },
         Err(message) => println!("{}", message),
     }

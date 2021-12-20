@@ -1,14 +1,19 @@
 use biodivine_aeon_server::scc::algo_interleaved_transition_guided_reduction::interleaved_transition_guided_reduction;
 use biodivine_aeon_server::GraphTaskContext;
+use biodivine_aeon_server::scc::algo_saturated_reachability::{reach_bwd, reachability_step};
+use biodivine_aeon_server::scc::algo_xie_beerel::xie_beerel_attractors;
+
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
-
-use biodivine_aeon_server::scc::algo_saturated_reachability::{reach_bwd, reachability_step};
 use biodivine_lib_param_bn::VariableId;
+
+use std::fs::File;
+use crate::io::write_states_to_file;
+
 
 /// Uses a simplified Xie-Beerel algorithm adapted to coloured setting to find all bottom
 /// SCCs in the given `universe` set. It only tests transitions using `active_variables`.
-/// Resulting components are collected into `components`.
+/// All resulting components are collected into the `components` set.
 pub fn xie_beerel_attractors_collect(
     ctx: &GraphTaskContext,
     graph: &SymbolicAsyncGraph,
@@ -66,11 +71,10 @@ pub fn xie_beerel_attractors_collect(
     components
 }
 
+/// Computes the set of colored states contained in terminal SCCs
 pub fn compute_terminal_scc(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     let task_context = GraphTaskContext::new();
     task_context.restart(graph);
-
-    // Now we can actually start the computation...
 
     // First, perform ITGR reduction.
     let (universe, active_variables) = interleaved_transition_guided_reduction(
@@ -87,4 +91,33 @@ pub fn compute_terminal_scc(graph: &SymbolicAsyncGraph) -> GraphColoredVertices 
         &active_variables,
         graph.mk_empty_vertices()
     )
+}
+
+#[allow(dead_code)]
+/// Computes terminal SCCs and writes the contained states to the given file
+/// Is separate from previous fn because of performance and different return types
+pub fn write_attractors_to_file(graph: &SymbolicAsyncGraph, file_name: &str) -> () {
+    let task_context = GraphTaskContext::new();
+    task_context.restart(graph);
+
+    // First, perform ITGR reduction.
+    let (universe, active_variables) = interleaved_transition_guided_reduction(
+        &task_context,
+        &graph,
+        graph.mk_unit_colored_vertices(),
+    );
+
+    // open the file for outputs
+    let output_file = File::create(file_name).unwrap();
+
+    // Then run Xie-Beerel to actually detect the components, write the states to file
+    xie_beerel_attractors(
+        &task_context,
+        &graph,
+        &universe,
+        &active_variables,
+        |component| {
+            write_states_to_file(&output_file, &component);
+        },
+    );
 }
