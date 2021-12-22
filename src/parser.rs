@@ -16,11 +16,30 @@ pub enum NodeType {
 }
 
 /// Node structure for HCTL formula parse tree
-#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Node {
     pub subform_str: String,
     pub height: i32,
     pub node_type: NodeType,
+}
+
+/// Nodes are ordered by their height
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.height.cmp(&other.height))
+    }
+    fn lt(&self, other: &Self) -> bool {
+        self.height.lt(&other.height)
+    }
+    fn le(&self, other: &Self) -> bool {
+        self.height.le(&other.height)
+    }
+    fn gt(&self, other: &Self) -> bool {
+        self.height.gt(&other.height)
+    }
+    fn ge(&self, other: &Self) -> bool {
+        self.height.ge(&other.height)
+    }
 }
 
 /// Nodes are ordered by their height
