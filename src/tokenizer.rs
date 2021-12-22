@@ -27,7 +27,6 @@ pub fn tokenize_recursive(
 
         match c {
             c if c.is_whitespace() => {} // skip whitespace
-            // TODO
             '~' => output.push(Token::Unary(UnaryOp::Not)),
             '&' => output.push(Token::Binary(BinaryOp::And)),
             '|' => output.push(Token::Binary(BinaryOp::Or)),
@@ -54,8 +53,18 @@ pub fn tokenize_recursive(
             // '>' is invalid as a start of a token
             '>' => return Result::Err("Unexpected '>'.".to_string()),
 
-            'E' => {
+            // pattern E{temporal}, must not be just a part of some proposition name
+            'E' if is_valid_temp_op(input_chars.peek()) => {
                 if let Some(c2) = input_chars.next() {
+                    // check that it is not just a part of some proposition name
+                    if let Some(c3) = input_chars.peek() {
+                        if is_valid_in_name(*c3) {
+                            let name = collect_name(input_chars)?;
+                            output.push(Token::Atom(Atomic::Prop(c.to_string() + c2.to_string().as_str() + &name)));
+                            continue;
+                        }
+                    }
+
                     match c2 {
                         'X' => output.push(Token::Unary(UnaryOp::Ex)),
                         'F' => output.push(Token::Unary(UnaryOp::Ef)),
@@ -69,8 +78,18 @@ pub fn tokenize_recursive(
                     return Result::Err("Expected one of '{X,F,G,U,W}' after 'E'.".to_string());
                 }
             }
-            'A' => {
+
+            // pattern A{temporal}, must not be just a part of some proposition name
+            'A' if is_valid_temp_op(input_chars.peek()) => {
                 if let Some(c2) = input_chars.next() {
+                    // check that it is not just a part of some proposition name
+                    if let Some(c3) = input_chars.peek() {
+                        if is_valid_in_name(*c3) {
+                            let name = collect_name(input_chars)?;
+                            output.push(Token::Atom(Atomic::Prop(c.to_string() + c2.to_string().as_str() + &name)));
+                            continue;
+                        }
+                    }
                     match c2 {
                         'X' => output.push(Token::Unary(UnaryOp::Ax)),
                         'F' => output.push(Token::Unary(UnaryOp::Af)),
@@ -135,6 +154,24 @@ pub fn tokenize_recursive(
     }
 }
 
+/// Check if given char can appear in a name.
+fn is_valid_in_name(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// Check if given optional char represents valid temporal operator
+fn is_valid_temp_op(option_char: Option<&char>) -> bool {
+    if let Some(c) = option_char {
+        match c {
+            'X' | 'F' | 'G' | 'U' | 'W' => true,
+            _ => false,
+        }
+    }
+    else {
+        false
+    }
+}
+
 fn collect_name(
     input_chars: &mut Peekable<Chars>,
 ) -> Result<String, String> {
@@ -171,11 +208,6 @@ fn collect_var_from_operator(
         return Result::Err("Expected ':'.".to_string());
     }
     Ok(name)
-}
-
-///  Check if given char can appear in a name.
-fn is_valid_in_name(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
 }
 
 impl fmt::Display for Token {
