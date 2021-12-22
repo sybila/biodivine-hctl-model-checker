@@ -15,11 +15,13 @@ use crate::tokenizer::tokenize_recursive;
 
 
 /*
+#[allow(dead_code)]
 pub fn parse_for_infer(file_name: String) -> (SymbolicAsyncGraph, Vec<GraphVertices>) {
 
 }
  */
 
+#[allow(dead_code)]
 pub fn parse_and_infer(graph: &SymbolicAsyncGraph, attractor_state_formulas: Vec<String>) {
     let mut measured_attractor_states: Vec<GraphColoredVertices> = Vec::new();
 
@@ -44,7 +46,8 @@ pub fn parse_and_infer(graph: &SymbolicAsyncGraph, attractor_state_formulas: Vec
     infer_nw(graph, measured_attractor_states);
 }
 
-pub fn infer_nw(
+#[allow(dead_code)]
+fn infer_nw(
     graph: &SymbolicAsyncGraph,
     measured_attractor_states: Vec<GraphColoredVertices>
 ) -> () {
@@ -77,7 +80,8 @@ pub fn infer_nw(
     );
 }
 
-pub fn xie_beerel_attractors_infer_gradually(
+#[allow(dead_code)]
+fn xie_beerel_attractors_infer_gradually(
     ctx: &GraphTaskContext,
     graph: &SymbolicAsyncGraph,
     universe: &GraphColoredVertices,

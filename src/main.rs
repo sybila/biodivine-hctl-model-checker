@@ -15,7 +15,6 @@ use crate::tokenizer::{tokenize_recursive, print_tokens};
 use crate::compute_scc::write_attractors_to_file;
 use crate::parser::parse_hctl_formula;
 use crate::evaluator::eval_tree;
-use crate::infer_networks::parse_and_infer;
 
 use std::fs::read_to_string;
 use std::convert::TryFrom;
@@ -34,12 +33,13 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: maybe - exact set size for GraphColoredVertices, GraphColors, GraphVertices - idk
 // TODO: more efficient operators on GraphColoredVertices (like imp, xor, equiv)?
 // TODO: printer for all correct valuations in all three color/vertex sets
+// TODO: do not cache propositions and stuff (not save as duplicate)
+// TODO: documentation
 
 /* BUGs to fix */
-// TODO: FIX TOKENIZING - NAMES STARTING WITH A/E DOES NOT PARSE (because of AG, EF...)
 // TODO: "!{var}: AG EF {var} & & !{var}: AG EF {var}" DOES NOT CAUSE ERROR
 // TODO: "!{var}: AG EF {var} & !{var}: AG EF {var}" DOES NOT PARSE CORRECTLY
-// TODO: check that w dont have formula like "!x (EF (!x x)) - same var quantified more times
+// TODO: check that formula doesnt contain stuff like "!x (EF (!x x)) - same var quantified more times
 
 /* TODOs to implement for the inference part */
 // TODO: parse attractors from file
@@ -50,8 +50,9 @@ use biodivine_lib_param_bn::BooleanNetwork;
 fn main() {
     let start = SystemTime::now();
 
-    let formula = "!{var}: AG EF {var}".to_string();
-    //let formula = "(3{x}: (@{x}: (aGO1 & ~aGO10 & ~aGO7 & aNT & aRF4 & ~aS1 & ~aS2 & eTT & FIL & KaN1 & miR165 & miR390 & ~ReV & ~TaS3siRNa & aGO1_miR165 & ~aGO7_miR390 & ~aS1_aS2 & aUXINh & ~CKh & ~GTe6 & ~IPT5 & (!{y}: AG EF {y})))) & (3{x}: (@{x}: (~aGO1 & aGO10 & aGO7 & aNT & ~aRF4 & aS1 & aS2 & ~eTT & ~FIL & ~KaN1 & ~miR165 & miR390 & ReV & TaS3siRNa & ~aGO1_miR165 & aGO7_miR390 & aS1_aS2 & aUXINh & CKh & GTe6 & IPT5 & (!{y}: AG EF {y}))))".to_string();
+    //let formula = "!{var}: AG EF {var}".to_string();
+    let formula = "(3{x}: (@{x}: (AGO1 & ~AGO10 & ~AGO7 & ANT & ARF4 & ~AS1 & ~AS2 & ETT & FIL & KAN1 & miR165 & miR390 & ~REV & ~TAS3siRNA & AGO1_miR165 & ~AGO7_miR390 & ~AS1_AS2 & AUXINh & ~CKh & ~GTE6 & ~IPT5 & (!{y}: AG EF {y})))) & (3{x}: (@{x}: (~AGO1 & AGO10 & AGO7 & ANT & ~ARF4 & AS1 & AS2 & ~ETT & ~FIL & ~KAN1 & ~miR165 & miR390 & REV & TAS3siRNA & ~AGO1_miR165 & AGO7_miR390 & AS1_AS2 & AUXINh & CKh & GTE6 & IPT5 & (!{y}: AG EF {y}))))".to_string();
+
     let model_file = "test_model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
@@ -60,7 +61,7 @@ fn main() {
             Vec::new()
         }
     };
-    print_tokens(&tokens);
+    //print_tokens(&tokens);
 
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {

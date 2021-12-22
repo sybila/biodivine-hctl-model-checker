@@ -21,27 +21,17 @@ use std::str::Chars;
 // TODO: special cases handling (attractors, stable states...) - ONLY SOMETIMES (lot props)
 // TODO: possible optimalisations (changing tree, or during evaluation)
 
-fn is_attractor_pattern(node: Node) -> bool {
-    return match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, child1) => {
-            match (*child1).node_type {
-                NodeType::UnaryNode(UnaryOp::Ag, child2) => {
-                    match (*child2).node_type {
-                        NodeType::UnaryNode(UnaryOp::Ef, child3) => {
-                            match (*child3).node_type {
-                                NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
-                                _ => false
-                            }
-                        }
-                        _ => false
-                    }
-                }
-                _ => false
-            }
-        }
-        _ => false
-    }
+
+pub fn eval_tree(tree: Box<Node>, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+    let new_tree = minimize_number_of_state_vars(
+        *tree, HashMap::new(), String::new(), 0).0;
+    //println!("modified formula: {}", new_tree.subform_str);
+
+    let mut duplicates = mark_duplicates(&new_tree);
+    let mut cache : HashMap<String, GraphColoredVertices> = HashMap::new();
+    eval_node(new_tree, &graph, &mut duplicates, &mut cache)
 }
+
 
 /// TODO: fix cache
 pub fn eval_node(
@@ -135,15 +125,28 @@ pub fn eval_node(
     result
 }
 
-pub fn eval_tree(tree: Box<Node>, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
-    let new_tree = minimize_number_of_state_vars(
-        *tree, HashMap::new(), String::new(), 0).0;
-    // println!("renamed formula: {}", new_tree.subform_str);
-
-    let mut duplicates = mark_duplicates(&new_tree);
-    let mut cache : HashMap<String, GraphColoredVertices> = HashMap::new();
-    eval_node(new_tree, &graph, &mut duplicates, &mut cache)
+fn is_attractor_pattern(node: Node) -> bool {
+    return match node.node_type {
+        NodeType::HybridNode(HybridOp::Bind, var1, child1) => {
+            match (*child1).node_type {
+                NodeType::UnaryNode(UnaryOp::Ag, child2) => {
+                    match (*child2).node_type {
+                        NodeType::UnaryNode(UnaryOp::Ef, child3) => {
+                            match (*child3).node_type {
+                                NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
+                                _ => false
+                            }
+                        }
+                        _ => false
+                    }
+                }
+                _ => false
+            }
+        }
+        _ => false
+    }
 }
+
 
 /// returns string representing the same subformula, but with canonized var names (var0, var1...)
 /// subform must be valid HCTL formula, minimized by minimize_number_of_state_vars function
@@ -322,7 +325,6 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
         if last_height == node.height {
             // if we have saved some nodes of the same height, lets compare them
             for other_string in same_height_node_strings.clone() {
-                // TODO: check this - if we dont compare node with itself
                 if other_string == node.subform_str.as_str() {
                     if duplicates.contains_key(node.subform_str.as_str()) {
                         duplicates.insert(node.subform_str.clone(),duplicates[&node.subform_str] + 1);
