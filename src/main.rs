@@ -33,7 +33,6 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: maybe - exact set size for GraphColoredVertices, GraphColors, GraphVertices - idk
 // TODO: more efficient operators on GraphColoredVertices (like imp, xor, equiv)?
 // TODO: printer for all correct valuations in all three color/vertex sets
-// TODO: do not cache propositions and stuff (not save as duplicate)
 // TODO: documentation
 
 /* BUGs to fix */

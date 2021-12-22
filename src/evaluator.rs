@@ -240,8 +240,8 @@ fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<String,
 }
 
 /*
-/// find out if we have some duplicate nodes in our parse tree
-/// marks duplicate node's string together with number of its appearances
+/// find out if we have some duplicate subtrees in our syntax tree
+/// marks duplicate nodes' string + the number of its appearances
 /// uses some kind of canonization - EX{x} and EX{y} recognized as duplicates
 pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
     // go through the nodes from top, use height to compare only those with the same level
@@ -304,10 +304,11 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
 }
  */
 
-/// TEMPORARY VERSION FOR NOW, FIX CACHE AND USE VERSION ABOVE in future (this one does not use canonical forms)
-/// find out if we have some duplicate nodes in our parse tree
-/// marks duplicate node's string together with number of its appearances
-/// uses some kind of canonization - EX{x} and EX{y} recognized as duplicates
+/// TEMPORARY VERSION FOR NOW, FIX CACHE AND >UPDATE< VERSION ABOVE in future (this one does not use canonical forms)
+/// find out if we have some duplicate subtrees in our syntax tree
+/// marks duplicate nodes' string + the number of its appearances
+/// this version does not consider canonical forms
+/// it also does not mark terminal node duplicates (not worth)
 pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
     // go through the nodes from top, use height to compare only those with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
@@ -320,8 +321,10 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
 
     // because we are traversing a tree, we dont care about cycles
     while let Some(node) = heap_queue.pop() {
-        let mut skip = false;
+        // lets stop the process when we hit terminal nodes, not worth marking
+        if node.height == 0 { break; }
 
+        let mut skip = false;
         if last_height == node.height {
             // if we have saved some nodes of the same height, lets compare them
             for other_string in same_height_node_strings.clone() {
