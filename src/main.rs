@@ -36,6 +36,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: documentation
 
 /* BUGs to fix */
+// TODO: formula 4 from TACAS and CAV does not work? - but stuff like "!{x}: AG EF {x}" works fine
 // TODO: "!{var}: AG EF {var} & & !{var}: AG EF {var}" DOES NOT CAUSE ERROR
 // TODO: "!{var}: AG EF {var} & !{var}: AG EF {var}" DOES NOT PARSE CORRECTLY
 // TODO: check that formula doesnt contain stuff like "!x (EF (!x x)) - same var quantified more times
@@ -49,8 +50,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 fn main() {
     let start = SystemTime::now();
 
-    //let formula = "!{var}: AG EF {var}".to_string();
-    let formula = "(3{x}: (@{x}: (AGO1 & ~AGO10 & ~AGO7 & ANT & ARF4 & ~AS1 & ~AS2 & ETT & FIL & KAN1 & miR165 & miR390 & ~REV & ~TAS3siRNA & AGO1_miR165 & ~AGO7_miR390 & ~AS1_AS2 & AUXINh & ~CKh & ~GTE6 & ~IPT5 & (!{y}: AG EF {y})))) & (3{x}: (@{x}: (~AGO1 & AGO10 & AGO7 & ANT & ~ARF4 & AS1 & AS2 & ~ETT & ~FIL & ~KAN1 & ~miR165 & miR390 & REV & TAS3siRNA & ~AGO1_miR165 & AGO7_miR390 & AS1_AS2 & AUXINh & CKh & GTE6 & IPT5 & (!{y}: AG EF {y}))))".to_string();
+    let formula = "!{x}: AG EF {x}".to_string();
 
     let model_file = "test_model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {

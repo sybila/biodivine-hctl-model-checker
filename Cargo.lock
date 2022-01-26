@@ -125,7 +125,7 @@ dependencies = [
 [[package]]
 name = "biodivine-lib-param-bn"
 version = "0.2.0-SNAPSHOT"
-source = "git+https://github.com/sybila/biodivine-lib-param-bn.git?branch=hctl-experimental#f2c351d0fa47afbeb7f3a829b0148196d3725fbe"
+source = "git+https://github.com/sybila/biodivine-lib-param-bn.git?branch=hctl-experimental#732e16159c40180de3bae01f4c23c37388a8f38a"
 dependencies = [
  "biodivine-lib-bdd",
  "bitvector",
