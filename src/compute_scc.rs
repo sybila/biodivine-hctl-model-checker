@@ -1,15 +1,14 @@
 use biodivine_aeon_server::scc::algo_interleaved_transition_guided_reduction::interleaved_transition_guided_reduction;
-use biodivine_aeon_server::GraphTaskContext;
 use biodivine_aeon_server::scc::algo_saturated_reachability::{reach_bwd, reachability_step};
 use biodivine_aeon_server::scc::algo_xie_beerel::xie_beerel_attractors;
+use biodivine_aeon_server::GraphTaskContext;
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::VariableId;
 
-use std::fs::File;
 use crate::io::write_states_to_file;
-
+use std::fs::File;
 
 /// Uses a simplified Xie-Beerel algorithm adapted to coloured setting to find all bottom
 /// SCCs in the given `universe` set. It only tests transitions using `active_variables`.
@@ -19,9 +18,8 @@ pub fn xie_beerel_attractors_collect(
     graph: &SymbolicAsyncGraph,
     universe: &GraphColoredVertices,
     active_variables: &[VariableId],
-    mut components: GraphColoredVertices
-) -> GraphColoredVertices
-{
+    mut components: GraphColoredVertices,
+) -> GraphColoredVertices {
     let mut universe = universe.clone();
     while !universe.is_empty() {
         // Check cancellation and update remaining progress
@@ -89,7 +87,7 @@ pub fn compute_terminal_scc(graph: &SymbolicAsyncGraph) -> GraphColoredVertices 
         &graph,
         &universe,
         &active_variables,
-        graph.mk_empty_vertices()
+        graph.mk_empty_vertices(),
     )
 }
 

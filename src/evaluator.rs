@@ -1,15 +1,14 @@
-use crate::parser::{Node, NodeType};
-use crate::operation_enums::*;
-use crate::implementation::*;
-use crate::parser::*;
 use crate::compute_scc::compute_terminal_scc;
+use crate::implementation::*;
+use crate::operation_enums::*;
+use crate::parser::*;
 
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
+use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::collections::BinaryHeap;
 use std::iter::Peekable;
 use std::str::Chars;
 
@@ -20,24 +19,21 @@ use std::str::Chars;
 // TODO: special cases handling (attractors, stable states...) - ONLY SOMETIMES (lot props)
 // TODO: possible optimalisations (changing tree, or during evaluation)
 
-
 pub fn eval_tree(tree: Box<Node>, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
-    let new_tree = minimize_number_of_state_vars(
-        *tree, HashMap::new(), String::new());
+    let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
     println!("modified formula: {}", new_tree.subform_str);
 
     let mut duplicates = mark_duplicates(&new_tree);
-    let mut cache : HashMap<String, GraphColoredVertices> = HashMap::new();
+    let mut cache: HashMap<String, GraphColoredVertices> = HashMap::new();
     eval_node(new_tree, &graph, &mut duplicates, &mut cache)
 }
-
 
 /// TODO: fix cache
 pub fn eval_node(
     node: Node,
     graph: &SymbolicAsyncGraph,
     duplicates: &mut HashMap<String, i32>,
-    cache: &mut HashMap<String, GraphColoredVertices>
+    cache: &mut HashMap<String, GraphColoredVertices>,
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
     let mut save_to_cache = false;
@@ -57,8 +53,7 @@ pub fn eval_node(
             }
             // since we are working with canonical cache, we must rename vars in result bdd
             return result;
-        }
-        else {
+        } else {
             // if the cache does not contain result for this subformula, set insert flag
             save_to_cache = true;
         }
@@ -77,11 +72,11 @@ pub fn eval_node(
 
     let result = match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
-                Atomic::True => graph.mk_unit_colored_vertices(),
-                Atomic::False => graph.mk_empty_vertices(),
-                Atomic::Var(name) => create_comparator(graph, name.as_str()),
-                Atomic::Prop(name) => labeled_by(graph, &name)
-        }
+            Atomic::True => graph.mk_unit_colored_vertices(),
+            Atomic::False => graph.mk_empty_vertices(),
+            Atomic::Var(name) => create_comparator(graph, name.as_str()),
+            Atomic::Prop(name) => labeled_by(graph, &name),
+        },
         NodeType::UnaryNode(op, child) => match op {
             UnaryOp::Not => negate_set(graph, &eval_node(*child, graph, duplicates, cache)),
             UnaryOp::Ex => graph.pre(&eval_node(*child, graph, duplicates, cache)),
@@ -90,32 +85,65 @@ pub fn eval_node(
             UnaryOp::Af => af(graph, &eval_node(*child, graph, duplicates, cache)),
             UnaryOp::Eg => eg(graph, &eval_node(*child, graph, duplicates, cache)),
             UnaryOp::Ag => ag(graph, &eval_node(*child, graph, duplicates, cache)),
-        }
+        },
         NodeType::BinaryNode(op, left, right) => match op {
             BinaryOp::And => eval_node(*left, graph, duplicates, cache)
                 .intersect(&eval_node(*right, graph, duplicates, cache)),
             BinaryOp::Or => eval_node(*left, graph, duplicates, cache)
                 .union(&eval_node(*right, graph, duplicates, cache)),
-            BinaryOp::Xor => non_equiv(graph, &eval_node(*left, graph, duplicates, cache),
-                                       &eval_node(*right, graph, duplicates, cache)),
-            BinaryOp::Imp => imp(graph, &eval_node(*left, graph, duplicates, cache),
-                                 &eval_node(*right, graph, duplicates, cache)),
-            BinaryOp::Iff => equiv(graph, &eval_node(*left, graph, duplicates, cache),
-                                   &eval_node(*right, graph, duplicates, cache)),
-            BinaryOp::Eu => eu(graph, &eval_node(*left, graph, duplicates, cache),
-                               &eval_node(*right, graph, duplicates, cache)),
-            BinaryOp::Au => au(graph, &eval_node(*left, graph, duplicates, cache),
-                               &eval_node(*right, graph, duplicates, cache)),
-            BinaryOp::Ew => ew(graph, &eval_node(*left, graph, duplicates, cache),
-                               &eval_node(*right, graph, duplicates, cache)),
-            BinaryOp::Aw => aw(graph, &eval_node(*left, graph, duplicates, cache),
-                               &eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::Xor => non_equiv(
+                graph,
+                &eval_node(*left, graph, duplicates, cache),
+                &eval_node(*right, graph, duplicates, cache),
+            ),
+            BinaryOp::Imp => imp(
+                graph,
+                &eval_node(*left, graph, duplicates, cache),
+                &eval_node(*right, graph, duplicates, cache),
+            ),
+            BinaryOp::Iff => equiv(
+                graph,
+                &eval_node(*left, graph, duplicates, cache),
+                &eval_node(*right, graph, duplicates, cache),
+            ),
+            BinaryOp::Eu => eu(
+                graph,
+                &eval_node(*left, graph, duplicates, cache),
+                &eval_node(*right, graph, duplicates, cache),
+            ),
+            BinaryOp::Au => au(
+                graph,
+                &eval_node(*left, graph, duplicates, cache),
+                &eval_node(*right, graph, duplicates, cache),
+            ),
+            BinaryOp::Ew => ew(
+                graph,
+                &eval_node(*left, graph, duplicates, cache),
+                &eval_node(*right, graph, duplicates, cache),
+            ),
+            BinaryOp::Aw => aw(
+                graph,
+                &eval_node(*left, graph, duplicates, cache),
+                &eval_node(*right, graph, duplicates, cache),
+            ),
         },
         NodeType::HybridNode(op, var, child) => match op {
-            HybridOp::Bind => bind(graph, &eval_node(*child, graph, duplicates, cache), var.as_str()),
-            HybridOp::Jump => jump(graph, &eval_node(*child, graph, duplicates, cache), var.as_str()),
-            HybridOp::Exist => existential(graph, &eval_node(*child, graph, duplicates, cache), var.as_str()),
-        }
+            HybridOp::Bind => bind(
+                graph,
+                &eval_node(*child, graph, duplicates, cache),
+                var.as_str(),
+            ),
+            HybridOp::Jump => jump(
+                graph,
+                &eval_node(*child, graph, duplicates, cache),
+                var.as_str(),
+            ),
+            HybridOp::Exist => existential(
+                graph,
+                &eval_node(*child, graph, duplicates, cache),
+                var.as_str(),
+            ),
+        },
     };
 
     if save_to_cache {
@@ -126,26 +154,19 @@ pub fn eval_node(
 
 fn is_attractor_pattern(node: Node) -> bool {
     return match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, child1) => {
-            match (*child1).node_type {
-                NodeType::UnaryNode(UnaryOp::Ag, child2) => {
-                    match (*child2).node_type {
-                        NodeType::UnaryNode(UnaryOp::Ef, child3) => {
-                            match (*child3).node_type {
-                                NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
-                                _ => false
-                            }
-                        }
-                        _ => false
-                    }
-                }
-                _ => false
-            }
-        }
-        _ => false
-    }
+        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match (*child1).node_type {
+            NodeType::UnaryNode(UnaryOp::Ag, child2) => match (*child2).node_type {
+                NodeType::UnaryNode(UnaryOp::Ef, child3) => match (*child3).node_type {
+                    NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
+                    _ => false,
+                },
+                _ => false,
+            },
+            _ => false,
+        },
+        _ => false,
+    };
 }
-
 
 /// returns string representing the same subformula, but with canonized var names (var0, var1...)
 /// subform must be valid HCTL formula, minimized by minimize_number_of_state_vars function
@@ -182,7 +203,9 @@ fn canonize_subform(
                 subform_chars.next();
                 let mut var_name = String::new();
                 while let Some(name_char) = subform_chars.next() {
-                    if name_char == '}' { break; }
+                    if name_char == '}' {
+                        break;
+                    }
                     var_name.push(name_char);
                 }
                 // skip ':'
@@ -197,7 +220,9 @@ fn canonize_subform(
             '{' => {
                 let mut var_name = String::new();
                 while let Some(name_char) = subform_chars.next() {
-                    if name_char == '}' { break; }
+                    if name_char == '}' {
+                        break;
+                    }
                     var_name.push(name_char);
                 }
 
@@ -210,17 +235,22 @@ fn canonize_subform(
 
                 if let Some(canonical_name) = mapping_dict.get(var_name.as_str()) {
                     canonical.push_str(format!("{{{}}}", canonical_name).as_str());
-                }
-                else {
+                } else {
                     // This branch should never happen
-                    println!("{}", format!("Canonical name was not found for {}", var_name));
+                    println!(
+                        "{}",
+                        format!("Canonical name was not found for {}", var_name)
+                    );
                 }
             }
             // all the other character, including boolean+temporal operators, '@', prop names
-            _ => { canonical.push(ch); }
+            _ => {
+                canonical.push(ch);
+            }
         }
-        if should_return { break; }
-
+        if should_return {
+            break;
+        }
     }
     (subform_chars, canonical, mapping_dict, stack_len)
 }
@@ -228,14 +258,25 @@ fn canonize_subform(
 #[allow(dead_code)]
 /// returns string of the semantically same subformula, but with "canonized" var names
 fn get_canonical(subform_string: String) -> String {
-    canonize_subform(subform_string.chars().peekable(), HashMap::new(), String::new(), 0).1
+    let canonized_tuple = canonize_subform(
+        subform_string.chars().peekable(),
+        HashMap::new(),
+        String::new(),
+        0,
+    );
+    canonized_tuple.1
 }
 
 #[allow(dead_code)]
 /// returns tuple with the canonized subformula string and mapping dictionary used for canonization
 fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<String, String>) {
-    let tuple = canonize_subform(subform_string.chars().peekable(), HashMap::new(), String::new(), 0);
-    (tuple.1, tuple.2)
+    let canonized_tuple = canonize_subform(
+        subform_string.chars().peekable(),
+        HashMap::new(),
+        String::new(),
+        0,
+    );
+    (canonized_tuple.1, canonized_tuple.2)
 }
 
 /*
@@ -321,7 +362,9 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
     // because we are traversing a tree, we dont care about cycles
     while let Some(node) = heap_queue.pop() {
         // lets stop the process when we hit terminal nodes, not worth marking
-        if node.height == 0 { break; }
+        if node.height == 0 {
+            break;
+        }
 
         let mut skip = false;
         if last_height == node.height {
@@ -329,10 +372,10 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
             for other_string in same_height_node_strings.clone() {
                 if other_string == node.subform_str.as_str() {
                     if duplicates.contains_key(node.subform_str.as_str()) {
-                        duplicates.insert(node.subform_str.clone(),duplicates[&node.subform_str] + 1);
-                    }
-                    else {
-                        duplicates.insert(node.subform_str.clone(),1);
+                        duplicates
+                            .insert(node.subform_str.clone(), duplicates[&node.subform_str] + 1);
+                    } else {
+                        duplicates.insert(node.subform_str.clone(), 1);
                     }
                     skip = true; // skip the descendants of the duplicate node
                     break;
@@ -340,10 +383,11 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
             }
 
             // do not include subtree of the duplicate in the traversing (will be cached during eval)
-            if skip { continue; }
+            if skip {
+                continue;
+            }
             same_height_node_strings.insert(node.subform_str.clone());
-        }
-        else {
+        } else {
             // else we got node from lower level, so we empty the set of nodes to compare
             last_height = node.height;
             same_height_node_strings.clear();
@@ -379,32 +423,30 @@ pub fn minimize_number_of_state_vars(
     // If we find hybrid node with bind or exist, we add new var-name to rename_dict and stack (x, xx, xxx...)
     // After we leave this binder/exist, we remove its var from rename_dict
     // When we find terminal with free var or jump node, we rename the var using rename-dict
-    match orig_node.node_type {
+    return match orig_node.node_type {
         // rename vars in terminal state-var nodes
         NodeType::TerminalNode(ref atom) => match atom {
             Atomic::Var(name) => {
                 let renamed_var = mapping_dict.get(name.as_str()).unwrap();
-                return Node {
+                Node {
                     subform_str: format!("{{{}}}", renamed_var.to_string()),
                     height: 0,
                     node_type: NodeType::TerminalNode(Atomic::Var(renamed_var.to_string())),
-                };
+                }
             }
-            _ => { return orig_node; }
-        }
+            _ => return orig_node
+        },
         // just dive one level deeper for unary nodes, and rename string
         NodeType::UnaryNode(op, child) => {
-            let node = minimize_number_of_state_vars(
-                *child, mapping_dict, last_used_name.clone());
-            return create_unary(Box::new(node), op);
+            let node = minimize_number_of_state_vars(*child, mapping_dict, last_used_name.clone());
+            create_unary(Box::new(node), op)
         }
         // just dive deeper for binary nodes, and rename string
         NodeType::BinaryNode(op, left, right) => {
-            let node1 = minimize_number_of_state_vars(
-                *left, mapping_dict.clone(), last_used_name.clone());
-            let node2 = minimize_number_of_state_vars(
-                *right, mapping_dict, last_used_name);
-            return create_binary(Box::new(node1), Box::new(node2), op)
+            let node1 =
+                minimize_number_of_state_vars(*left, mapping_dict.clone(), last_used_name.clone());
+            let node2 = minimize_number_of_state_vars(*right, mapping_dict, last_used_name);
+            create_binary(Box::new(node1), Box::new(node2), op)
         }
         // hybrid nodes are more complicated
         NodeType::HybridNode(op, var, child) => {
@@ -412,19 +454,19 @@ pub fn minimize_number_of_state_vars(
             // no need to do this for jump, jump is not quantifier
             match op {
                 HybridOp::Bind | HybridOp::Exist => {
-                    last_used_name.push('x');  // this represents adding to stack
+                    last_used_name.push('x'); // this represents adding to stack
                     mapping_dict.insert(var.clone(), last_used_name.clone());
                 }
                 _ => {}
             }
 
             // dive deeper
-            let node = minimize_number_of_state_vars(
-                *child, mapping_dict.clone(), last_used_name.clone());
+            let node =
+                minimize_number_of_state_vars(*child, mapping_dict.clone(), last_used_name.clone());
 
             // rename the variable in the node
             let renamed_var = mapping_dict.get(var.as_str()).unwrap();
-            return create_hybrid(Box::new(node), renamed_var.clone(), op)
+            create_hybrid(Box::new(node), renamed_var.clone(), op)
         }
-    }
+    };
 }
