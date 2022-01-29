@@ -420,9 +420,11 @@ pub fn minimize_number_of_state_vars(
 
             // dive deeper
             let node = minimize_number_of_state_vars(
-                *child, mapping_dict, last_used_name.clone());
+                *child, mapping_dict.clone(), last_used_name.clone());
 
-            return create_hybrid(Box::new(node), last_used_name, op)
+            // rename the variable in the node
+            let renamed_var = mapping_dict.get(var.as_str()).unwrap();
+            return create_hybrid(Box::new(node), renamed_var.clone(), op)
         }
     }
 }
