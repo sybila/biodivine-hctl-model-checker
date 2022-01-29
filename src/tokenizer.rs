@@ -1,9 +1,8 @@
+use std::fmt;
 use std::iter::Peekable;
 use std::str::Chars;
-use std::fmt;
 
 use crate::operation_enums::*;
-
 
 /// Enum of all possible tokens occurring in a HCTL formula string
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -42,8 +41,7 @@ pub fn tokenize_recursive(
                 if Some('=') == input_chars.next() {
                     if Some('>') == input_chars.next() {
                         output.push(Token::Binary(BinaryOp::Iff));
-                    }
-                    else {
+                    } else {
                         return Result::Err("Expected '>' after '<='.".to_string());
                     }
                 } else {
@@ -60,7 +58,9 @@ pub fn tokenize_recursive(
                     if let Some(c3) = input_chars.peek() {
                         if is_valid_in_name(*c3) {
                             let name = collect_name(input_chars)?;
-                            output.push(Token::Atom(Atomic::Prop(c.to_string() + c2.to_string().as_str() + &name)));
+                            output.push(Token::Atom(Atomic::Prop(
+                                c.to_string() + c2.to_string().as_str() + &name,
+                            )));
                             continue;
                         }
                     }
@@ -73,8 +73,7 @@ pub fn tokenize_recursive(
                         'W' => output.push(Token::Binary(BinaryOp::Ew)),
                         _ => return Result::Err(format!("Unexpected char '{}' after 'E'.", c2)),
                     }
-                }
-                else {
+                } else {
                     return Result::Err("Expected one of '{X,F,G,U,W}' after 'E'.".to_string());
                 }
             }
@@ -86,7 +85,9 @@ pub fn tokenize_recursive(
                     if let Some(c3) = input_chars.peek() {
                         if is_valid_in_name(*c3) {
                             let name = collect_name(input_chars)?;
-                            output.push(Token::Atom(Atomic::Prop(c.to_string() + c2.to_string().as_str() + &name)));
+                            output.push(Token::Atom(Atomic::Prop(
+                                c.to_string() + c2.to_string().as_str() + &name,
+                            )));
                             continue;
                         }
                     }
@@ -98,8 +99,7 @@ pub fn tokenize_recursive(
                         'W' => output.push(Token::Binary(BinaryOp::Aw)),
                         _ => return Result::Err(format!("Unexpected char '{}' after 'A'.", c2)),
                     }
-                }
-                else {
+                } else {
                     return Result::Err("Expected one of '{X,F,G,U,W}' after 'A'.".to_string());
                 }
             }
@@ -167,14 +167,10 @@ fn is_valid_temp_op(option_char: Option<&char>) -> bool {
             _ => false,
         }
     }
-    else {
-        false
-    }
+    false
 }
 
-fn collect_name(
-    input_chars: &mut Peekable<Chars>,
-) -> Result<String, String> {
+fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     let mut name = Vec::new();
     while let Some(c) = input_chars.peek() {
         if c.is_whitespace() || !is_valid_in_name(*c) {
@@ -189,7 +185,7 @@ fn collect_name(
 
 fn collect_var_from_operator(
     input_chars: &mut Peekable<Chars>,
-    operator: char
+    operator: char,
 ) -> Result<String, String> {
     // there might be few spaces first
     let _ = input_chars.take_while(|c| c.is_whitespace());
@@ -219,13 +215,13 @@ impl fmt::Display for Token {
             Token::Binary(BinaryOp::Xor) => write!(f, "^"),
             Token::Binary(BinaryOp::Imp) => write!(f, "=>"),
             Token::Binary(BinaryOp::Iff) => write!(f, "<=>"),
-            Token::Unary(c) => write!(f, "{}",format!("{:?}", c)),
+            Token::Unary(c) => write!(f, "{}", format!("{:?}", c)),
             Token::Binary(c) => write!(f, "{}", format!("{:?}", c)),
-            Token::Hybrid(op, var) => write!(f, "{}",format!("{:?} {{{}}}:", op, var)),
+            Token::Hybrid(op, var) => write!(f, "{}", format!("{:?} {{{}}}:", op, var)),
             Token::Atom(Atomic::Prop(name)) => write!(f, "{}", name),
             Token::Atom(Atomic::Var(name)) => write!(f, "{{{}}}", name),
             Token::Atom(constant) => write!(f, "{:?}", constant),
-            _ => write!(f, "( TOKENS )")
+            _ => write!(f, "( TOKENS )"),
         }
     }
 }
@@ -245,5 +241,3 @@ pub fn print_tokens(tokens: &Vec<Token>) -> () {
     print_tokens_recursively(tokens);
     println!();
 }
-
-

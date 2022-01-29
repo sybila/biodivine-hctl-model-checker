@@ -1,23 +1,22 @@
-mod tokenizer;
-mod parser;
-mod operation_enums;
-mod implementation;
 mod evaluator;
-mod compute_scc;
-mod io;
+mod implementation;
 mod infer_networks;
+mod io;
+mod operation_enums;
+mod parser;
+mod tokenizer;
 
-#[allow(unused_imports)]
-use crate::io::{print_results_fast, print_results};
-#[allow(unused_imports)]
-use crate::tokenizer::{tokenize_recursive, print_tokens};
-#[allow(unused_imports)]
 use crate::compute_scc::write_attractors_to_file;
-use crate::parser::parse_hctl_formula;
 use crate::evaluator::eval_tree;
+#[allow(unused_imports)]
+use crate::io::{print_results, print_results_fast};
+#[allow(unused_imports)]
+use crate::parser::parse_hctl_formula;
+#[allow(unused_imports)]
+use crate::tokenizer::{print_tokens, tokenize_recursive};
 
-use std::fs::read_to_string;
 use std::convert::TryFrom;
+use std::fs::read_to_string;
 use std::time::SystemTime;
 
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
@@ -49,7 +48,6 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: create separate binaries
 // TODO: printing satisfying BNs? or do something with the resulting colors
 
-
 fn analyze_property(model_file_path: String, formula: String) {
     let start = SystemTime::now();
 
@@ -69,20 +67,22 @@ fn analyze_property(model_file_path: String, formula: String) {
             let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
             let graph = SymbolicAsyncGraph::new(bn).unwrap();
 
-            println!("Graph creation time: {}ms", start.elapsed().unwrap().as_millis());
+            println!(
+                "Graph build time: {}ms",
+                start.elapsed().unwrap().as_millis()
+            );
 
             let result = eval_tree(tree, &graph);
             //write_attractors_to_file(&graph, "attractor_output.txt");
 
-            println!("Computation time: {}ms", start.elapsed().unwrap().as_millis());
+            println!("Eval time: {}ms", start.elapsed().unwrap().as_millis());
             println!("{} vars in network", graph.as_network().num_vars());
             //print_results(&graph, &result, true);
             print_results_fast(&result);
-        },
+        }
         Err(message) => println!("{}", message),
     }
 }
-
 
 fn main() {
     let formula = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & !{z}: AX {z}) & EF ({y} & !{z}: AX {z}) & AX (EF ({x} & !{z}: AX {z}) ^ EF ({y} & !{z}: AX {z}))".to_string();
@@ -90,14 +90,13 @@ fn main() {
     analyze_property(model_file, formula);
 }
 
-
 #[cfg(test)]
 mod tests {
-    use biodivine_lib_param_bn::BooleanNetwork;
-    use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
     use crate::evaluator::eval_tree;
     use crate::parser::parse_hctl_formula;
     use crate::tokenizer::tokenize_recursive;
+    use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+    use biodivine_lib_param_bn::BooleanNetwork;
 
     const BNET_MODEL: &str = r"
 targets,factors
@@ -144,7 +143,10 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(60., result.vertices().approx_cardinality());
 
-        result = check_formula("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string(), &stg);
+        result = check_formula(
+            "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string(),
+            &stg,
+        );
         assert_eq!(12., result.approx_cardinality());
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(12., result.vertices().approx_cardinality());

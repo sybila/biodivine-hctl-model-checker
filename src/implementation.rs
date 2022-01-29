@@ -1,6 +1,7 @@
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+use biodivine_lib_bdd::BddVariable;
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
-use biodivine_lib_bdd::{BddVariable};
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+
 // TODO
 /*
 create_comparator
@@ -17,25 +18,24 @@ pub fn negate_set(graph: &SymbolicAsyncGraph, set: &GraphColoredVertices) -> Gra
 pub fn imp(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
-    right : &GraphColoredVertices
+    right: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    negate_set(graph,left).union(right)
+    negate_set(graph, left).union(right)
 }
 
 pub fn equiv(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
-    right : &GraphColoredVertices
+    right: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    left.intersect(right).union(
-        &negate_set(graph, left).intersect(&negate_set(graph, right))
-    )
+    left.intersect(right)
+        .union(&negate_set(graph, left).intersect(&negate_set(graph, right)))
 }
 
 pub fn non_equiv(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
-    right : &GraphColoredVertices
+    right: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     negate_set(graph, &equiv(graph, left, right))
 }
@@ -46,7 +46,7 @@ pub fn labeled_by(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertice
     if let Some(var_id) = graph.as_network().as_graph().find_variable(name) {
         return GraphColoredVertices::new(
             graph.symbolic_context().mk_state_variable_is_true(var_id),
-            graph.symbolic_context()
+            graph.symbolic_context(),
         );
     }
     println!("Wrong proposition \"{}\"", name);
@@ -63,10 +63,12 @@ pub fn create_comparator(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> Gra
     for nw_var_id in reg_graph.variables() {
         let nw_var_name = reg_graph.get_variable_name(nw_var_id);
         let hctl_component_name = format!("{}__{}", hctl_var_name, nw_var_name);
-        let bdd_nw_var = graph.symbolic_context()
+        let bdd_nw_var = graph
+            .symbolic_context()
             .bdd_variable_set()
             .mk_var_by_name(nw_var_name);
-        let bdd_hctl_component = graph.symbolic_context()
+        let bdd_hctl_component = graph
+            .symbolic_context()
             .bdd_variable_set()
             .mk_var_by_name(hctl_component_name.as_str());
         comparator = comparator.and(&bdd_hctl_component.iff(&bdd_nw_var));
@@ -81,7 +83,7 @@ pub fn create_comparator(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> Gra
 pub fn bind(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
-    var_name: &str
+    var_name: &str,
 ) -> GraphColoredVertices {
     let comparator = create_comparator(graph, var_name);
     let intersection = comparator.intersect(phi);
@@ -89,8 +91,14 @@ pub fn bind(
     // now lets project out the bdd vars coding the hctl var we want to get rid of
     let var_idx = var_name.len() - 1; // len of var codes its index
     let vars_total = graph.symbolic_context().num_hctl_var_sets() as usize;
-    let vars_to_project : Vec<BddVariable> = graph.symbolic_context().hctl_variables()
-        .iter().skip(var_idx).step_by(vars_total).copied().collect();
+    let vars_to_project: Vec<BddVariable> = graph
+        .symbolic_context()
+        .hctl_variables()
+        .iter()
+        .skip(var_idx)
+        .step_by(vars_total)
+        .copied()
+        .collect();
     let result_bdd = intersection.into_bdd().project(&vars_to_project);
 
     // after projecting we do not need to intersect with unit bdd
@@ -101,13 +109,19 @@ pub fn bind(
 pub fn existential(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
-    var_name: &str
+    var_name: &str,
 ) -> GraphColoredVertices {
     // lets just project out the bdd vars coding the hctl var we want to get rid of
     let var_idx = var_name.len() - 1; // len of var codes its index
     let vars_total = graph.symbolic_context().num_hctl_var_sets() as usize;
-    let vars_to_project : Vec<BddVariable> = graph.symbolic_context().hctl_variables()
-        .iter().skip(var_idx).step_by(vars_total).copied().collect();
+    let vars_to_project: Vec<BddVariable> = graph
+        .symbolic_context()
+        .hctl_variables()
+        .iter()
+        .skip(var_idx)
+        .step_by(vars_total)
+        .copied()
+        .collect();
     let result_bdd = phi.as_bdd().project(&vars_to_project);
 
     // after projecting we do not need to intersect with unit bdd
@@ -118,22 +132,24 @@ pub fn existential(
 pub fn jump(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
-    var_name: &str
+    var_name: &str,
 ) -> GraphColoredVertices {
     let comparator = create_comparator(graph, var_name);
     let intersection = comparator.intersect(phi);
 
     // now lets project out the bdd vars coding variables from boolean network
-    let result_bdd = intersection.into_bdd().project(
-        graph.symbolic_context().state_variables());
+    let result_bdd = intersection
+        .into_bdd()
+        .project(graph.symbolic_context().state_variables());
     // after projecting we do not need to intersect with unit bdd
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
 /// EU computed using fixpoint
-pub fn eu(graph: &SymbolicAsyncGraph,
-      phi1: &GraphColoredVertices,
-      phi2: &GraphColoredVertices
+pub fn eu(
+    graph: &SymbolicAsyncGraph,
+    phi1: &GraphColoredVertices,
+    phi2: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     let mut old_set = phi2.clone();
     let mut new_set = graph.mk_empty_vertices();
@@ -160,7 +176,10 @@ pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
  */
 
 /// EF computed via saturation
-pub fn ef_saturated(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+pub fn ef_saturated(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+) -> GraphColoredVertices {
     let mut result = phi.clone();
     let mut done = false;
     while !done {
@@ -205,9 +224,10 @@ pub fn ag(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
 }
 
 /// AU computed through the fixpoint
-pub fn au(graph: &SymbolicAsyncGraph,
-      phi1: &GraphColoredVertices,
-      phi2: &GraphColoredVertices
+pub fn au(
+    graph: &SymbolicAsyncGraph,
+    phi1: &GraphColoredVertices,
+    phi2: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     let mut old_set = phi2.clone();
     let mut new_set = graph.mk_empty_vertices();
@@ -220,17 +240,25 @@ pub fn au(graph: &SymbolicAsyncGraph,
 }
 
 /// EW computed through the AU
-pub fn ew(graph: &SymbolicAsyncGraph,
-      phi1: &GraphColoredVertices,
-      phi2: &GraphColoredVertices
+pub fn ew(
+    graph: &SymbolicAsyncGraph,
+    phi1: &GraphColoredVertices,
+    phi2: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    negate_set(graph, &au(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)))
+    negate_set(
+        graph,
+        &au(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)),
+    )
 }
 
 /// AW computed through the EU
-pub fn aw(graph: &SymbolicAsyncGraph,
-      phi1: &GraphColoredVertices,
-      phi2: &GraphColoredVertices
+pub fn aw(
+    graph: &SymbolicAsyncGraph,
+    phi1: &GraphColoredVertices,
+    phi2: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    negate_set(graph, &eu(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)))
+    negate_set(
+        graph,
+        &eu(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)),
+    )
 }

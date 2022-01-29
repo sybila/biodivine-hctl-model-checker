@@ -1,10 +1,9 @@
 use crate::operation_enums::*;
 use crate::tokenizer::Token;
 
+use std::cmp;
 use std::cmp::Ordering;
 use std::fmt;
-use std::cmp;
-
 
 /// Enum of possible node types in a HCTL formula tree
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
@@ -49,11 +48,10 @@ impl Ord for Node {
     }
 }
 
-
 impl Node {
     /// Create default node - True terminal node
     pub fn new() -> Self {
-        Self{
+        Self {
             subform_str: "True".to_string(),
             height: 0,
             node_type: NodeType::TerminalNode(Atomic::True),
@@ -72,11 +70,7 @@ pub fn create_hybrid(child: Box<Node>, var: String, op: HybridOp) -> Node {
     Node {
         subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
         height: child.height + 1,
-        node_type: NodeType::HybridNode(
-            op.clone(),
-            var.clone(),
-            child,
-        )
+        node_type: NodeType::HybridNode(op.clone(), var.clone(), child),
     }
 }
 
@@ -85,10 +79,7 @@ pub fn create_unary(child: Box<Node>, op: UnaryOp) -> Node {
     Node {
         subform_str: format!("({} {})", op, child.subform_str),
         height: child.height + 1,
-        node_type: NodeType::UnaryNode(
-            op.clone(),
-            child,
-        )
+        node_type: NodeType::UnaryNode(op.clone(), child),
     }
 }
 
@@ -97,10 +88,7 @@ pub fn create_binary(left: Box<Node>, right: Box<Node>, op: BinaryOp) -> Node {
     Node {
         subform_str: format!("({} {} {})", left.subform_str, op, right.subform_str),
         height: cmp::max(left.height, right.height) + 1,
-        node_type: NodeType::BinaryNode(
-            op.clone(),
-            left,
-            right)
+        node_type: NodeType::BinaryNode(op.clone(), left, right),
     }
 }
 
@@ -172,9 +160,9 @@ fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<Node>, String> {
             Token::Hybrid(op, var) => Box::new(create_hybrid(
                 parse_1_hybrid(&tokens[(i + 1)..])?,
                 var.clone(),
-                op.clone())
-            ),
-            _ => Box::new(Node::new()) // This branch cant happen
+                op.clone(),
+            )),
+            _ => Box::new(Node::new()), // This branch cant happen
         }
     } else {
         parse_2_iff(tokens)?
@@ -188,8 +176,8 @@ fn parse_2_iff(tokens: &[Token]) -> Result<Box<Node>, String> {
         Box::new(create_binary(
             parse_3_imp(&tokens[..i])?,
             parse_2_iff(&tokens[(i + 1)..])?,
-            BinaryOp::Iff,)
-        )
+            BinaryOp::Iff,
+        ))
     } else {
         parse_3_imp(tokens)?
     })
@@ -202,8 +190,8 @@ fn parse_3_imp(tokens: &[Token]) -> Result<Box<Node>, String> {
         Box::new(create_binary(
             parse_4_or(&tokens[..i])?,
             parse_3_imp(&tokens[(i + 1)..])?,
-            BinaryOp::Imp,)
-        )
+            BinaryOp::Imp,
+        ))
     } else {
         parse_4_or(tokens)?
     })
@@ -216,8 +204,8 @@ fn parse_4_or(tokens: &[Token]) -> Result<Box<Node>, String> {
         Box::new(create_binary(
             parse_5_xor(&tokens[..i])?,
             parse_4_or(&tokens[(i + 1)..])?,
-            BinaryOp::Or,)
-        )
+            BinaryOp::Or,
+        ))
     } else {
         parse_5_xor(tokens)?
     })
@@ -230,9 +218,8 @@ fn parse_5_xor(tokens: &[Token]) -> Result<Box<Node>, String> {
         Box::new(create_binary(
             parse_6_and(&tokens[..i])?,
             parse_5_xor(&tokens[(i + 1)..])?,
-            BinaryOp::Xor,)
-        )
-
+            BinaryOp::Xor,
+        ))
     } else {
         parse_6_and(tokens)?
     })
@@ -245,8 +232,8 @@ fn parse_6_and(tokens: &[Token]) -> Result<Box<Node>, String> {
         Box::new(create_binary(
             parse_7_binary_temp(&tokens[..i])?,
             parse_6_and(&tokens[(i + 1)..])?,
-            BinaryOp::And,)
-        )
+            BinaryOp::And,
+        ))
     } else {
         parse_7_binary_temp(tokens)?
     })
@@ -260,9 +247,9 @@ fn parse_7_binary_temp(tokens: &[Token]) -> Result<Box<Node>, String> {
             Token::Binary(op) => Box::new(create_binary(
                 parse_8_unary(&tokens[..i])?,
                 parse_7_binary_temp(&tokens[(i + 1)..])?,
-                op.clone(),)
-            ),
-            _ => Box::new(Node::new()) // This branch cant happen
+                op.clone(),
+            )),
+            _ => Box::new(Node::new()), // This branch cant happen
         }
     } else {
         parse_8_unary(tokens)?
@@ -274,11 +261,10 @@ fn parse_8_unary(tokens: &[Token]) -> Result<Box<Node>, String> {
     let unary_token = index_of_first_unary(tokens);
     Ok(if let Some(i) = unary_token {
         match &tokens[i] {
-            Token::Unary(op) => Box::new(create_unary(
-                parse_8_unary(&tokens[(i + 1)..])?,
-                op.clone())
-            ),
-            _ => Box::new(Node::new()) // This branch cant happen
+            Token::Unary(op) => {
+                Box::new(create_unary(parse_8_unary(&tokens[(i + 1)..])?, op.clone()))
+            }
+            _ => Box::new(Node::new()), // This branch cant happen
         }
     } else {
         parse_9_terminal(tokens)?
@@ -314,11 +300,13 @@ fn parse_9_terminal(tokens: &[Token]) -> Result<Box<Node>, String> {
                         }))
                     }
                 }
-                Token::Atom(Atomic::Var(name)) => return Ok(Box::new(Node {
-                    subform_str: format!("{{{}}}", name),
-                    height: 0,
-                    node_type: NodeType::TerminalNode(Atomic::Var(name.clone())),
-                })),
+                Token::Atom(Atomic::Var(name)) => {
+                    return Ok(Box::new(Node {
+                        subform_str: format!("{{{}}}", name),
+                        height: 0,
+                        node_type: NodeType::TerminalNode(Atomic::Var(name.clone())),
+                    }))
+                }
                 Token::Tokens(inner) => return parse_hctl_formula(inner),
                 _ => {} // otherwise, fall through to the error at the end.
             }

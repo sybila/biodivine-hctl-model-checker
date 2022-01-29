@@ -434,7 +434,7 @@ pub fn minimize_number_of_state_vars(
                     node_type: NodeType::TerminalNode(Atomic::Var(renamed_var.to_string())),
                 }
             }
-            _ => return orig_node
+            _ => return orig_node,
         },
         // just dive one level deeper for unary nodes, and rename string
         NodeType::UnaryNode(op, child) => {

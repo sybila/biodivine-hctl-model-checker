@@ -1,18 +1,19 @@
 //use biodivine_lib_param_bn::biodivine_std::bitvector::ArrayBitVector;
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, GraphColors, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
+use biodivine_lib_param_bn::symbolic_async_graph::{
+    GraphColoredVertices, GraphColors, SymbolicAsyncGraph,
+};
 use biodivine_lib_param_bn::VariableId;
 
 use biodivine_aeon_server::scc::algo_interleaved_transition_guided_reduction::interleaved_transition_guided_reduction;
-use biodivine_aeon_server::GraphTaskContext;
 use biodivine_aeon_server::scc::algo_saturated_reachability::{reach_bwd, reachability_step};
+use biodivine_aeon_server::GraphTaskContext;
 
 // use std::fs::{File, read_to_string};
 
 use crate::evaluator::eval_tree;
 use crate::parser::parse_hctl_formula;
 use crate::tokenizer::tokenize_recursive;
-
 
 /*
 #[allow(dead_code)]
@@ -37,7 +38,7 @@ pub fn parse_and_infer(graph: &SymbolicAsyncGraph, attractor_state_formulas: Vec
         match parse_hctl_formula(&tokens) {
             Ok(tree) => {
                 measured_attractor_states.push(eval_tree(tree, &graph));
-            },
+            }
             Err(message) => println!("{}", message),
         }
     }
@@ -49,7 +50,7 @@ pub fn parse_and_infer(graph: &SymbolicAsyncGraph, attractor_state_formulas: Vec
 #[allow(dead_code)]
 fn infer_nw(
     graph: &SymbolicAsyncGraph,
-    measured_attractor_states: Vec<GraphColoredVertices>
+    measured_attractor_states: Vec<GraphColoredVertices>,
 ) -> () {
     let task_context = GraphTaskContext::new();
     task_context.restart(graph);
@@ -76,7 +77,7 @@ fn infer_nw(
         &universe,
         &active_variables,
         measured_attractor_states,
-        colors_per_attractor_state
+        colors_per_attractor_state,
     );
 }
 
@@ -87,10 +88,9 @@ fn xie_beerel_attractors_infer_gradually(
     universe: &GraphColoredVertices,
     active_variables: &[VariableId],
     measured_attractor_states: Vec<GraphColoredVertices>,
-    mut colors_per_attractor_state: Vec<GraphColors>
-) -> ()
-{
-    let mut counter : f64 = 0.;
+    mut colors_per_attractor_state: Vec<GraphColors>,
+) -> () {
+    let mut counter: f64 = 0.;
     let mut already_found_colors = graph.mk_empty_colors();
     let mut universe = universe.clone();
 
@@ -143,7 +143,8 @@ fn xie_beerel_attractors_infer_gradually(
                 // check whether a measured state was found in component and if so, add the colors
                 let intersection = pivot_component.intersect(&measured_attractor_states[i]);
                 if !intersection.is_empty() {
-                    colors_per_attractor_state[i] = colors_per_attractor_state[i].union(&intersection.colors());
+                    colors_per_attractor_state[i] =
+                        colors_per_attractor_state[i].union(&intersection.colors());
                 }
                 i += 1;
             }
