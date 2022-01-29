@@ -36,7 +36,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: documentation
 
 /* BUGs to fix */
-// TODO: formula 4 from TACAS and CAV does not work? - but stuff like "!{x}: AG EF {x}" works fine
+// TODO: formula 4 from TACAS and CAV does not work?
 // TODO: AF !{x}: (AX (~{x} & AF {x})) does not work - parses as (Bind {x}: (Ax ((~ {x}) & (Af {x}))))
 
 // TODO: "!{var}: AG EF {var} & & !{var}: AG EF {var}" DOES NOT CAUSE ERROR
@@ -85,10 +85,11 @@ fn analyze_property(model_file_path: String, formula: String) {
 
 
 fn main() {
-    let formula = "AF (!{x}: AX {x})".to_string();
+    let formula = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & !{z}: AX {z}) & EF ({y} & !{z}: AX {z}) & AX (EF ({x} & !{z}: AX {z}) ^ EF ({y} & !{z}: AX {z}))".to_string();
     let model_file = "test_model.aeon".to_string();
     analyze_property(model_file, formula);
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -142,5 +143,10 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         assert_eq!(60., result.approx_cardinality());
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(60., result.vertices().approx_cardinality());
+
+        result = check_formula("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string(), &stg);
+        assert_eq!(12., result.approx_cardinality());
+        assert_eq!(1., result.colors().approx_cardinality());
+        assert_eq!(12., result.vertices().approx_cardinality());
     }
 }
