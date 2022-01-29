@@ -37,6 +37,8 @@ use biodivine_lib_param_bn::BooleanNetwork;
 
 /* BUGs to fix */
 // TODO: formula 4 from TACAS and CAV does not work? - but stuff like "!{x}: AG EF {x}" works fine
+// TODO: AF !{x}: (AX (~{x} & AF {x})) does not work - parses as (Bind {x}: (Ax ((~ {x}) & (Af {x}))))
+
 // TODO: "!{var}: AG EF {var} & & !{var}: AG EF {var}" DOES NOT CAUSE ERROR
 // TODO: "!{var}: AG EF {var} & !{var}: AG EF {var}" DOES NOT PARSE CORRECTLY
 // TODO: check that formula doesnt contain stuff like "!x (EF (!x x)) - same var quantified more times
@@ -47,12 +49,10 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: create separate binaries
 // TODO: printing satisfying BNs? or do something with the resulting colors
 
-fn main() {
+
+fn analyze_property(model_file_path: String, formula: String) {
     let start = SystemTime::now();
 
-    let formula = "!{x}: AG EF {x}".to_string();
-
-    let model_file = "test_model.aeon".to_string();
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
         Ok(r) => r,
         Err(e) => {
@@ -65,7 +65,7 @@ fn main() {
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
             println!("original formula: {}", tree.subform_str);
-            let aeon_string = read_to_string(model_file).unwrap();
+            let aeon_string = read_to_string(model_file_path).unwrap();
             let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
             let graph = SymbolicAsyncGraph::new(bn).unwrap();
 
@@ -80,5 +80,67 @@ fn main() {
             print_results_fast(&result);
         },
         Err(message) => println!("{}", message),
+    }
+}
+
+
+fn main() {
+    let formula = "AF (!{x}: AX {x})".to_string();
+    let model_file = "test_model.aeon".to_string();
+    analyze_property(model_file, formula);
+}
+
+#[cfg(test)]
+mod tests {
+    use biodivine_lib_param_bn::BooleanNetwork;
+    use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+    use crate::evaluator::eval_tree;
+    use crate::parser::parse_hctl_formula;
+    use crate::tokenizer::tokenize_recursive;
+
+    const BNET_MODEL: &str = r"
+targets,factors
+Cdc25, ((!Cdc2_Cdc13 & (Cdc25 & !PP)) | ((Cdc2_Cdc13 & (!Cdc25 & !PP)) | (Cdc2_Cdc13 & Cdc25)))
+Cdc2_Cdc13, (!Ste9 & (!Rum1 & !Slp1))
+Cdc2_Cdc13_A, (!Ste9 & (!Rum1 & (!Slp1 & (!Wee1_Mik1 & Cdc25))))
+PP, Slp1
+Rum1, ((!SK & (!Cdc2_Cdc13 & (!Rum1 & (!Cdc2_Cdc13_A & PP)))) | ((!SK & (!Cdc2_Cdc13 & (Rum1 & !Cdc2_Cdc13_A))) | ((!SK & (!Cdc2_Cdc13 & (Rum1 & (Cdc2_Cdc13_A & PP)))) | ((!SK & (Cdc2_Cdc13 & (Rum1 & (!Cdc2_Cdc13_A & PP)))) | (SK & (!Cdc2_Cdc13 & (Rum1 & (!Cdc2_Cdc13_A & PP))))))))
+SK, Start
+Slp1, Cdc2_Cdc13_A
+Start, 0
+Ste9, ((!SK & (!Cdc2_Cdc13 & (!Ste9 & (!Cdc2_Cdc13_A & PP)))) | ((!SK & (!Cdc2_Cdc13 & (Ste9 & !Cdc2_Cdc13_A))) | ((!SK & (!Cdc2_Cdc13 & (Ste9 & (Cdc2_Cdc13_A & PP)))) | ((!SK & (Cdc2_Cdc13 & (Ste9 & (!Cdc2_Cdc13_A & PP)))) | (SK & (!Cdc2_Cdc13 & (Ste9 & (!Cdc2_Cdc13_A & PP))))))))
+Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cdc2_Cdc13 & (Wee1_Mik1 & PP))))
+";
+
+    #[test]
+    fn basic_formulas() {
+        fn check_formula(formula: String, stg: &SymbolicAsyncGraph) -> GraphColoredVertices {
+            let tokens = tokenize_recursive(&mut formula.chars().peekable(), true).unwrap();
+            let tree = parse_hctl_formula(&tokens).unwrap();
+            eval_tree(tree, stg)
+        }
+
+        let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
+        let stg = SymbolicAsyncGraph::new(bn).unwrap();
+
+        let mut result = check_formula("!{x}: AG EF {x}".to_string(), &stg);
+        assert_eq!(76., result.approx_cardinality());
+        assert_eq!(2., result.colors().approx_cardinality());
+        assert_eq!(76., result.vertices().approx_cardinality());
+
+        result = check_formula("!{x}: AX {x}".to_string(), &stg);
+        assert_eq!(12., result.approx_cardinality());
+        assert_eq!(1., result.colors().approx_cardinality());
+        assert_eq!(12., result.vertices().approx_cardinality());
+
+        result = check_formula("!{x}: AX EF {x}".to_string(), &stg);
+        assert_eq!(132., result.approx_cardinality());
+        assert_eq!(2., result.colors().approx_cardinality());
+        assert_eq!(132., result.vertices().approx_cardinality());
+
+        result = check_formula("AF (!{x}: AX {x})".to_string(), &stg);
+        assert_eq!(60., result.approx_cardinality());
+        assert_eq!(1., result.colors().approx_cardinality());
+        assert_eq!(60., result.vertices().approx_cardinality());
     }
 }
