@@ -1,3 +1,4 @@
+mod compute_scc;
 mod evaluator;
 mod implementation;
 mod infer_networks;
@@ -6,7 +7,6 @@ mod operation_enums;
 mod parser;
 mod tokenizer;
 
-use crate::compute_scc::write_attractors_to_file;
 use crate::evaluator::eval_tree;
 #[allow(unused_imports)]
 use crate::io::{print_results, print_results_fast};

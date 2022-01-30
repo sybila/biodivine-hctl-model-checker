@@ -162,10 +162,10 @@ fn is_valid_in_name(c: char) -> bool {
 /// Check if given optional char represents valid temporal operator
 fn is_valid_temp_op(option_char: Option<&char>) -> bool {
     if let Some(c) = option_char {
-        match c {
+        return match c {
             'X' | 'F' | 'G' | 'U' | 'W' => true,
             _ => false,
-        }
+        };
     }
     false
 }
