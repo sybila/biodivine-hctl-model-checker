@@ -6,6 +6,9 @@ edition = "2021"
 #[profile.release]
 #lto = true
 
+[profile.test]
+opt-level = 3
+
 [dependencies]
 biodivine-lib-bdd = "0.3.0"
 biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn.git", branch = "hctl-experimental" }
