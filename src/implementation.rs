@@ -10,11 +10,13 @@ jump
 existential
  */
 
+/// shortcut for negation which respects the allowed universe
 pub fn negate_set(graph: &SymbolicAsyncGraph, set: &GraphColoredVertices) -> GraphColoredVertices {
     let unit_set = graph.mk_unit_colored_vertices();
     unit_set.minus(set)
 }
 
+/// evaluates the implication operation
 pub fn imp(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
@@ -23,6 +25,7 @@ pub fn imp(
     negate_set(graph, left).union(right)
 }
 
+/// evaluates the equivalence operation
 pub fn equiv(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
@@ -32,6 +35,7 @@ pub fn equiv(
         .union(&negate_set(graph, left).intersect(&negate_set(graph, right)))
 }
 
+/// evaluates the non-equivalence operation (xor)
 pub fn non_equiv(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,

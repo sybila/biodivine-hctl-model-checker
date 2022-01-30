@@ -14,6 +14,8 @@ pub enum Token {
     Tokens(Vec<Token>),       // A block of tokens inside parentheses
 }
 
+/// Process a peekable iterator of characters into a vector of `Token`s.
+/// Tries to tokenize HCTL formula
 pub fn tokenize_recursive(
     input_chars: &mut Peekable<Chars>,
     top_level: bool,
@@ -170,6 +172,8 @@ fn is_valid_temp_op(option_char: Option<&char>) -> bool {
     false
 }
 
+/// Retrieves the proposition (or variable) name from the input
+/// The first character of the name might or might not be already consumed by the caller
 fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     let mut name = Vec::new();
     while let Some(c) = input_chars.peek() {
@@ -183,6 +187,8 @@ fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     Ok(name.into_iter().collect())
 }
 
+/// Retrieves the name of variable bound by a hybrid operator
+/// Operator character is consumed by caller and is given as input for error msg purposes
 fn collect_var_from_operator(
     input_chars: &mut Peekable<Chars>,
     operator: char,

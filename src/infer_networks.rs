@@ -22,8 +22,11 @@ pub fn parse_for_infer(file_name: String) -> (SymbolicAsyncGraph, Vec<GraphVerti
 }
  */
 
+/// From colored state-transition graph and formulas describing measured attractor states (in the
+/// form 'a & b & !c & ...') computes satisfying networks, outputs them continually during
+/// the computation
 #[allow(dead_code)]
-pub fn parse_and_infer(graph: &SymbolicAsyncGraph, attractor_state_formulas: Vec<String>) {
+pub fn parse_and_infer_gradually(graph: &SymbolicAsyncGraph, attractor_state_formulas: Vec<String>) {
     let mut measured_attractor_states: Vec<GraphColoredVertices> = Vec::new();
 
     // first parse the attractor state formulas to colored vertex sets
@@ -47,6 +50,8 @@ pub fn parse_and_infer(graph: &SymbolicAsyncGraph, attractor_state_formulas: Vec
     infer_nw(graph, measured_attractor_states);
 }
 
+/// From colored state-transition graph and 'colored vertex-set singletons' describing measured
+/// attractor states computes satisfying networks, outputs them continually during the computation
 #[allow(dead_code)]
 fn infer_nw(
     graph: &SymbolicAsyncGraph,
@@ -81,6 +86,10 @@ fn infer_nw(
     );
 }
 
+/// Uses Xie-Beerel algorithm to find SCC and after finding each new component checks for
+/// the measured attractor states
+/// When it discovers that all measured states are present in SCCs for given color, it
+/// is added to the result
 #[allow(dead_code)]
 fn xie_beerel_attractors_infer_gradually(
     ctx: &GraphTaskContext,

@@ -17,7 +17,7 @@ use std::str::Chars;
 // TODO: caching for evaluator
 // TODO: SCC computation without the prints
 // TODO: special cases handling (attractors, stable states...) - ONLY SOMETIMES (lot props)
-// TODO: possible optimalisations (changing tree, or during evaluation)
+// TODO: possible optimizations (changing tree, or during evaluation)
 
 pub fn eval_tree(tree: Box<Node>, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
