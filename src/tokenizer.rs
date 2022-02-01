@@ -10,7 +10,7 @@ pub enum Token {
     Unary(UnaryOp),           // Unary operators: '~','EX','AX','EF','AF','EG','AG'
     Binary(BinaryOp),         // Binary operators: '&','|','^','=>','<=>','EU','AU','EW','AW'
     Hybrid(HybridOp, String), // Hybrid operator and its variable: '!', '@', '3'
-    Atom(Atomic),             // Proposition or variable
+    Atom(Atomic),             // Proposition, variable, or 'true'/'false' constant
     Tokens(Vec<Token>),       // A block of tokens inside parentheses
 }
 

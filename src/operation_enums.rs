@@ -39,8 +39,8 @@ pub enum HybridOp {
 pub enum Atomic {
     Prop(String), // A proposition name
     Var(String),  // A variable name
-    True,         // A true constant, ("true")
-    False,        // A false constant ("false")
+    True,         // A true constant
+    False,        // A false constant
 }
 
 impl fmt::Display for UnaryOp {
