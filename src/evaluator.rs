@@ -21,7 +21,7 @@ use std::str::Chars;
 
 pub fn eval_tree(tree: Box<Node>, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
-    println!("modified formula: {}", new_tree.subform_str);
+    //println!("modified formula: {}", new_tree.subform_str);
 
     let mut duplicates = mark_duplicates(&new_tree);
     let mut cache: HashMap<String, GraphColoredVertices> = HashMap::new();

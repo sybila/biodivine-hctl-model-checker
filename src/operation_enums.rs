@@ -26,7 +26,7 @@ pub enum BinaryOp {
     Aw,  // 'AW'
 }
 
-/// Enum of all possible hybrid operators occurring in a HCTL formula string
+/// Enum for all possible hybrid operators occurring in a HCTL formula string
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum HybridOp {
     Bind,  // '!'
@@ -34,13 +34,13 @@ pub enum HybridOp {
     Exist, // '3'
 }
 
-/// Enum of all possible hybrid operators occurring in a HCTL formula string
+/// Enum for atomic formulas - propositions, variables, constants
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum Atomic {
     Prop(String), // A proposition name
     Var(String),  // A variable name
-    True,         // A true constant
-    False,        // A false constant
+    True,         // A true constant, ("true")
+    False,        // A false constant ("false")
 }
 
 impl fmt::Display for UnaryOp {
