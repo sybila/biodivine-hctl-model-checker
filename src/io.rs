@@ -32,7 +32,7 @@ pub fn print_results(
             let mut i = 0;
             let variable_name_strings = network
                 .variables()
-                .map(|id| format!("\"{}\"", network.get_variable_name(id)));
+                .map(|id| format!("{}", network.get_variable_name(id)));
 
             let mut stdout = StandardStream::stdout(ColorChoice::Always);
             for var in variable_name_strings {
@@ -40,12 +40,12 @@ pub fn print_results(
                     stdout
                         .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
                         .unwrap();
-                    write!(&mut stdout, "{} ", var).unwrap();
+                    write!(&mut stdout, "{} & ", var).unwrap();
                 } else {
                     stdout
                         .set_color(ColorSpec::new().set_fg(Some(Color::Red)))
                         .unwrap();
-                    write!(&mut stdout, "{} ", var).unwrap();
+                    write!(&mut stdout, "~{} & ", var).unwrap();
                 }
                 i += 1;
             }
