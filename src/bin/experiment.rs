@@ -1,3 +1,4 @@
+use std::fs::read_to_string;
 use biodivine_lib_param_bn::{BooleanNetwork, FnUpdate, VariableId};
 
 /// Compute the network input variables.
@@ -36,12 +37,20 @@ fn next_bool_val(mut bool_vec: Vec<bool>) -> Result<Vec<bool>, String> {
 }
 
 fn main() {
-    let aeon_string = "experimental_model.aeon".to_string();
+    let aeon_string = read_to_string("experimental_model.aeon".to_string()).unwrap();
     let network = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
 
     let input_num = network_inputs(&network).len();
     let mut input_values = Vec::with_capacity(input_num);
     input_values.resize(input_num, false);
+
+    while let Ok(next_input_values) = next_bool_val(input_values.clone()) {
+        input_values = next_input_values.clone();
+        for i in next_input_values.into_iter() {
+            println!("{}", i)
+        }
+        println!();
+    }
 
     let fixed = fix_network_inputs(&network, true);
     println!("{}", fixed.to_string())
