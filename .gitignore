@@ -12,4 +12,5 @@
 
 # testing IO files
 test_model.aeon
+experimental_model.aeon
 attractor_output.txt

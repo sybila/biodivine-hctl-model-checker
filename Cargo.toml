@@ -10,6 +10,10 @@ edition = "2021"
 [profile.test]
 opt-level = 3
 
+[[bin]]
+name = "experiment"
+path = "src/bin/experiment.rs"
+
 [dependencies]
 biodivine-lib-bdd = "0.3.0"
 biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn.git", branch = "hctl-experimental" }
