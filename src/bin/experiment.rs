@@ -11,16 +11,19 @@ fn network_inputs(network: &BooleanNetwork) -> Vec<VariableId> {
 
 
 /// Create a copy of the given network with all input variables fixed to a constant.
-fn fix_network_inputs(network: &BooleanNetwork, value: bool) -> BooleanNetwork {
+fn fix_network_inputs(network: &BooleanNetwork, bool_values: Vec<bool>) -> BooleanNetwork {
     let mut result = network.clone();
+    let mut i = 0;
     for v in network_inputs(network) {
         result
-            .set_update_function(v, Some(FnUpdate::Const(value)))
+            .set_update_function(v, Some(FnUpdate::Const(bool_values[i])))
             .unwrap();
+        i += 1;
     }
     result
 }
 
+/// Returns binary vector incremented by 1
 fn next_bool_val(mut bool_vec: Vec<bool>) -> Result<Vec<bool>, String> {
     let mut i = 0;
     while i < bool_vec.len() {
@@ -46,12 +49,8 @@ fn main() {
 
     while let Ok(next_input_values) = next_bool_val(input_values.clone()) {
         input_values = next_input_values.clone();
-        for i in next_input_values.into_iter() {
-            println!("{}", i)
-        }
-        println!();
+        let fixed = fix_network_inputs(&network, input_values);
     }
 
-    let fixed = fix_network_inputs(&network, true);
     println!("{}", fixed.to_string())
 }
