@@ -26,7 +26,10 @@ pub fn parse_for_infer(file_name: String) -> (SymbolicAsyncGraph, Vec<GraphVerti
 /// form 'a & b & !c & ...') computes satisfying networks, outputs them continually during
 /// the computation
 #[allow(dead_code)]
-pub fn parse_and_infer_gradually(graph: &SymbolicAsyncGraph, attractor_state_formulas: Vec<String>) {
+pub fn parse_and_infer_gradually(
+    graph: &SymbolicAsyncGraph,
+    attractor_state_formulas: Vec<String>,
+) -> () {
     let mut measured_attractor_states: Vec<GraphColoredVertices> = Vec::new();
 
     // first parse the attractor state formulas to colored vertex sets
