@@ -8,7 +8,7 @@ use std::fs::{read_to_string, File};
 use std::io::Write;
 use std::time::SystemTime;
 
-const MODEL_ID: &str = "014";
+const MODEL_ID: &str = "077";
 
 /// Compute the network input variables.
 fn network_inputs(network: &BooleanNetwork) -> Vec<VariableId> {
@@ -71,8 +71,11 @@ fn export_network(input_values: Vec<bool>, network: &BooleanNetwork) {
 }
 
 fn main() {
-    let output_file =
-        File::create(format!("experiment\\{}\\aeon_attractors.txt", MODEL_ID)).unwrap();
+    let attractor_file =
+        File::create(format!("experiment\\{}\\attractors.txt", MODEL_ID)).unwrap();
+    let times_file =
+        File::create(format!("experiment\\{}\\aeon_results.txt", MODEL_ID)).unwrap();
+
     let aeon_string =
         read_to_string(format!("experiment\\{}\\{}.aeon", MODEL_ID, MODEL_ID)).unwrap();
     let network = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
@@ -86,7 +89,7 @@ fn main() {
         input_values = next_input_values.clone();
         let fixed_network = fix_network_inputs(&network, input_values.clone());
 
-        export_network(input_values.clone(), &fixed_network);
+        // export_network(input_values.clone(), &fixed_network);
 
         let start = SystemTime::now();
 
@@ -109,16 +112,16 @@ fn main() {
             &universe,
             &active_variables,
             |component| {
-                println!("Component {}", component.approx_cardinality());
+                // println!("Component {}", component.approx_cardinality());
                 classifier.add_component(component, &graph);
             },
         );
         let components = classifier.export_components();
         let time_elapsed = start.elapsed().unwrap().as_millis();
-        write!(&output_file, "T: {} A: (", time_elapsed).unwrap();
-        for (states, _) in components {
-            write!(&output_file, "{}, ", states.vertices().approx_cardinality()).unwrap();
+        writeln!(&times_file, "{}", time_elapsed).unwrap();
+        for (comp, _) in components {
+            write!(&attractor_file, "{}, ", comp.vertices().approx_cardinality()).unwrap();
         }
-        write!(&output_file, ")\n").unwrap();
+        write!(&attractor_file, "\n").unwrap();
     }
 }
