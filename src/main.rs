@@ -17,9 +17,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 // TODO: SPECIAL CASES FOR EVALUATOR (attractors, stable states...)
 // TODO: optims for evaluator
 // TODO: separate function
-// TODO: safe version for labeled_by (does not ignore error)
 // TODO: iterator for GraphColoredVertices sets - we only have for vertices (or something like that)
-// TODO: maybe - exact set size for GraphColoredVertices, GraphColors, GraphVertices - idk
 // TODO: more efficient operators on GraphColoredVertices (like imp, xor, equiv)?
 // TODO: printer for all correct valuations in all three color/vertex sets
 // TODO: documentation
