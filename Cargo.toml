@@ -1,5 +1,5 @@
 [package]
-name = "rust_project"
+name = "hctl-model-checker"
 version = "0.1.0"
 authors = ["Ondrej Huvar <ohuvar@gmail.com>"]
 edition = "2021"
@@ -19,4 +19,5 @@ biodivine-lib-bdd = "0.3.0"
 biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn.git", branch = "hctl-experimental" }
 biodivine-aeon-server = { git = "https://github.com/sybila/biodivine-aeon-server", branch = "hctl-experimental" }
 termcolor = "1.1.2"
+rand = "0.6.5"
 
