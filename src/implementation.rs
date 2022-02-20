@@ -47,14 +47,12 @@ pub fn non_equiv(
 /// Returns set where var given by name is true
 /// If var is invalid, prints error and returns empty set
 pub fn labeled_by(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertices {
-    if let Some(var_id) = graph.as_network().as_graph().find_variable(name) {
-        return GraphColoredVertices::new(
-            graph.symbolic_context().mk_state_variable_is_true(var_id),
-            graph.symbolic_context(),
-        );
-    }
-    println!("Wrong proposition \"{}\"", name);
-    graph.mk_empty_vertices()
+    GraphColoredVertices::new(
+        graph
+            .symbolic_context()
+            .mk_state_variable_is_true(graph.as_network().as_graph().find_variable(name).unwrap()),
+        graph.symbolic_context(),
+    )
 }
 
 /// creates comparator between variables from network and corresponding HCTL var' components
