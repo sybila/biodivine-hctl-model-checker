@@ -4,6 +4,10 @@ use biodivine_aeon_server::scc::Classifier;
 use biodivine_aeon_server::GraphTaskContext;
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::{BooleanNetwork, FnUpdate, VariableId};
+
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+
 use std::fs::{read_to_string, File};
 use std::io::Write;
 use std::time::SystemTime;
@@ -96,13 +100,8 @@ fn int_to_bool_vec(mut decimal: i32, inputs_num: i32) -> Vec<bool> {
 
 #[allow(dead_code)]
 fn analyze_random_instantiations() {
-    use rand::thread_rng;
-    use rand::seq::SliceRandom;
-
-    let attractor_file =
-        File::create(format!("experiment\\{}\\attractors.txt", MODEL_ID)).unwrap();
-    let times_file =
-        File::create(format!("experiment\\{}\\aeon_results.txt", MODEL_ID)).unwrap();
+    let attractor_file = File::create(format!("experiment\\{}\\attractors.txt", MODEL_ID)).unwrap();
+    let times_file = File::create(format!("experiment\\{}\\aeon_results.txt", MODEL_ID)).unwrap();
 
     let aeon_string =
         read_to_string(format!("experiment\\{}\\{}.aeon", MODEL_ID, MODEL_ID)).unwrap();
@@ -110,8 +109,7 @@ fn analyze_random_instantiations() {
 
     let inputs_num = network_inputs(&network).len();
 
-    let mut values: Vec<i32> = (0..2_i32.pow(u32::try_from(inputs_num).unwrap()))
-        .collect();
+    let mut values: Vec<i32> = (0..2_i32.pow(u32::try_from(inputs_num).unwrap())).collect();
     values.shuffle(&mut thread_rng());
 
     let values_file =
@@ -167,10 +165,8 @@ fn main2() {
 }
 
 fn main() {
-    let attractor_file =
-        File::create(format!("experiment\\{}\\attractors.txt", MODEL_ID)).unwrap();
-    let times_file =
-        File::create(format!("experiment\\{}\\aeon_results.txt", MODEL_ID)).unwrap();
+    let attractor_file = File::create(format!("experiment\\{}\\attractors.txt", MODEL_ID)).unwrap();
+    let times_file = File::create(format!("experiment\\{}\\aeon_results.txt", MODEL_ID)).unwrap();
 
     let aeon_string =
         read_to_string(format!("experiment\\{}\\{}.aeon", MODEL_ID, MODEL_ID)).unwrap();

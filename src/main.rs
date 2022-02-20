@@ -87,11 +87,11 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+    use biodivine_lib_param_bn::BooleanNetwork;
     use hctl_model_checker::evaluator::eval_tree;
     use hctl_model_checker::parser::parse_hctl_formula;
     use hctl_model_checker::tokenizer::tokenize_recursive;
-    use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
-    use biodivine_lib_param_bn::BooleanNetwork;
 
     const BNET_MODEL: &str = r"
 targets,factors
