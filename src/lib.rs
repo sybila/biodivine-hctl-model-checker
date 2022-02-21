@@ -1,7 +1,8 @@
+pub mod analysis;
 pub mod compute_scc;
 pub mod evaluator;
 pub mod implementation;
-pub mod infer_networks;
+pub mod inference_aeon;
 pub mod io;
 pub mod operation_enums;
 pub mod parser;
