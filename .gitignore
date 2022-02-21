@@ -12,5 +12,6 @@ Cargo.lock
 # testing IO files
 test_model.aeon
 attractor_output.txt
+inference_data.txt
 
 /experiment/
