@@ -6,6 +6,7 @@ use hctl_model_checker::parser::parse_hctl_formula;
 use hctl_model_checker::tokenizer::{print_tokens, tokenize_recursive};
 
 use std::convert::TryFrom;
+use std::env;
 use std::fs::read_to_string;
 use std::time::SystemTime;
 
@@ -81,11 +82,13 @@ fn analyze_property(model_file_path: String, formula: String, print_all: bool) {
 }
 
 fn main() {
-    // let formula = "!{x}: AG EF {x}".to_string();
-    let formula = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))".to_string();
-
-    let model_file = "test_model.aeon".to_string();
-    analyze_property(model_file, formula, false);
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 3 {
+        println!("2 arguments expected, got {}", args.len() - 1);
+        println!("Usage: ./hctl-model-checker model_file formula");
+        return;
+    }
+    analyze_property(args[1].clone(), args[2].clone(), false);
 }
 
 #[cfg(test)]
