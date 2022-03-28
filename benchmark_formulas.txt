@@ -2,3 +2,6 @@ AF (!{x}: (AX (~{x} & AF {x})))
 AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))
 !{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})
 3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))
+
+!{x}: AG EF {x}
+!{x}: AX {x}
