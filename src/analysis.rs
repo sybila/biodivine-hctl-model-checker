@@ -25,7 +25,7 @@ pub fn analyze_property(aeon_string: String, formula: String, print_all: bool) {
 
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
-            println!("original formula: {}", tree.subform_str);
+            //println!("original formula: {}", tree.subform_str);
             let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
             let graph = SymbolicAsyncGraph::new(bn).unwrap();
 

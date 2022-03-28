@@ -37,6 +37,7 @@ fn main() {
         return;
     }
     let aeon_string = read_to_string(args[1].clone()).unwrap();
+    println!("original formula: {}", args[2].clone());
     analyze_property(aeon_string, args[2].clone(), false);
 }
 
