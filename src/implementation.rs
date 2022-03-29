@@ -139,7 +139,9 @@ pub fn jump(
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
-/// EU computed using fixpoint
+/*
+/// EU computed using fixpoint algorithm
+/// deprecated version, use eu_saturated
 pub fn eu(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
@@ -155,8 +157,8 @@ pub fn eu(
     old_set
 }
 
-/*
-/// EF computed using normal fixpoint algorithm
+/// EF computed using fixpoint algorithm
+/// deprecated version, use ef_saturated
 pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
     let mut new_set = graph.mk_empty_vertices();
@@ -169,17 +171,19 @@ pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
 }
  */
 
-/// EF computed via saturation
-pub fn ef_saturated(
+pub fn eu_saturated(
     graph: &SymbolicAsyncGraph,
-    phi: &GraphColoredVertices,
+    phi1: &GraphColoredVertices,
+    phi2: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    let mut result = phi.clone();
+    let mut result = phi2.clone();
     let mut done = false;
     while !done {
         done = true;
         for var in graph.as_network().variables().rev() {
-            let update = graph.var_pre(var, &result).minus(&result);
+            let update = phi1
+                .intersect(&graph.var_pre(var, &result))
+                .minus(&result);
             if !update.is_empty() {
                 result = result.union(&update);
                 done = false;
@@ -188,6 +192,16 @@ pub fn ef_saturated(
         }
     }
     result
+}
+
+/// EF computed via the EU with saturation
+/// This is possible because EF(phi) = EU(true,phi)
+pub fn ef_saturated(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+) -> GraphColoredVertices {
+    let unit_set = graph.mk_unit_colored_vertices();
+    eu_saturated(graph, &unit_set, phi)
 }
 
 /// EG computed using fixpoint
@@ -253,6 +267,6 @@ pub fn aw(
 ) -> GraphColoredVertices {
     negate_set(
         graph,
-        &eu(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)),
+        &eu_saturated(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)),
     )
 }
