@@ -1,8 +1,8 @@
+use hctl_model_checker::analysis::analyze_property;
 use std::env;
-use std::fs::{File, read_to_string};
+use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use hctl_model_checker::analysis::analyze_property;
 
 #[allow(dead_code)]
 fn create_attractor_formula(data_set: Vec<String>, forbid_extra_attr: bool) -> String {
@@ -14,15 +14,19 @@ fn create_attractor_formula(data_set: Vec<String>, forbid_extra_attr: bool) -> S
         }
 
         /*
-         We can create formula in two ways - components are either "!y: AG EF y" or "!y: AG EF (y and state)"
-         The latter is usually faster, but if we want to forbid other attractors, we must compute
-         the formula "!y: AG EF y" anyway and we can then just cache it
-         */
+        We can create formula in two ways - components are either "!y: AG EF y" or "!y: AG EF (y and state)"
+        The latter is usually faster, but if we want to forbid other attractors, we must compute
+        the formula "!y: AG EF y" anyway and we can then just cache it
+        */
         if forbid_extra_attr {
-            formula.push_str(format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF {{y}} ))) & ", item).as_str())
+            formula.push_str(
+                format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF {{y}} ))) & ", item).as_str()
+            )
         }
         else {
-            formula.push_str(format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF ({{y}} & {} )))) & ", item, item).as_str())
+            formula.push_str(
+                format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF ({{y}} & {} )))) & ", item, item).as_str()
+            )
         }
     }
     formula.push_str("true"); // just so we dont end with "&"
@@ -80,8 +84,8 @@ fn main() {
     let data_file = File::open(Path::new(args[2].as_str())).unwrap();
     let reader = BufReader::new(&data_file);
     let data: Vec<String> = reader.lines().collect::<Result<_, _>>().unwrap();
-    let formula = create_attractor_formula(data, true);
-    //let formula = create_steady_state_formula(data, true);
+    let formula = create_attractor_formula(data, false);
+    //let formula = create_steady_state_formula(data, false);
 
     println!("original formula: {}", formula.clone());
 

@@ -4,9 +4,8 @@ use std::fs::read_to_string;
 
 /* TODOs to implement for the model checking part */
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
-// TODO: SPECIAL CASES FOR EVALUATOR (attractors, stable states...)
-// TODO: optims for evaluator
-// TODO: iterator for GraphColoredVertices sets - we only have for vertices (or something like that)
+// TODO: optimisations for evaluator, maybe few more special cases
+// TODO: think of some equivalent method to saturation for EG,AU ?
 // TODO: more efficient operators on GraphColoredVertices (like imp, xor, equiv)?
 // TODO: printer for all correct valuations in all three color/vertex sets
 // TODO: documentation
