@@ -3,6 +3,7 @@ use crate::implementation::*;
 use crate::operation_enums::*;
 use crate::parser::*;
 
+use biodivine_lib_bdd::{bdd, Bdd};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
@@ -59,7 +60,7 @@ pub fn eval_node(
         }
     }
 
-    // first lets check for special cases
+    // first lets check for special cases, which can be optimised:
     // attractors
     if is_attractor_pattern(node.clone()) {
         let result = compute_terminal_scc(graph);
@@ -68,7 +69,14 @@ pub fn eval_node(
         }
         return result;
     }
-    // TODO: stable states pattern
+    // fixed-points
+    if is_fixed_point_pattern(node.clone()) {
+        let result = compute_fixed_points(graph);
+        if save_to_cache {
+            cache.insert(node.subform_str.clone(), result.clone());
+        }
+        return result;
+    }
 
     let result = match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
@@ -106,7 +114,7 @@ pub fn eval_node(
                 &eval_node(*left, graph, duplicates, cache),
                 &eval_node(*right, graph, duplicates, cache),
             ),
-            BinaryOp::Eu => eu(
+            BinaryOp::Eu => eu_saturated(
                 graph,
                 &eval_node(*left, graph, duplicates, cache),
                 &eval_node(*right, graph, duplicates, cache),
@@ -152,6 +160,7 @@ pub fn eval_node(
     result
 }
 
+/// checks whether node represents formula for attractors !{x}: AG EF {x}
 fn is_attractor_pattern(node: Node) -> bool {
     return match node.node_type {
         NodeType::HybridNode(HybridOp::Bind, var1, child1) => match (*child1).node_type {
@@ -167,6 +176,50 @@ fn is_attractor_pattern(node: Node) -> bool {
         _ => false,
     };
 }
+
+/// checks whether node represents formula for fixed-points !{x}: AX {x}
+fn is_fixed_point_pattern(node: Node) -> bool {
+    return match node.node_type {
+        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match (*child1).node_type {
+            NodeType::UnaryNode(UnaryOp::Ax, child2) => match (*child2).node_type {
+                NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
+                _ => false,
+            },
+            _ => false,
+        },
+        _ => false,
+    };
+}
+
+/// computes fixed points using "(V1 <=> f_V1) & ... & (Vn <=> f_Vn)"
+/// optimised procedure for formula "!{x}: AX x"
+fn compute_fixed_points(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+    // TODO: make nicer
+    let context = graph.symbolic_context();
+    let network = graph.as_network();
+    let update_functions: Vec<Bdd> = network
+        .as_graph()
+        .variables()
+        .map(|variable| {
+            let regulators = network.regulators(variable);
+            let function_is_one = network
+                .get_update_function(variable)
+                .as_ref()
+                .map(|fun| context.mk_fn_update_true(fun))
+                .unwrap_or_else(|| context.mk_implicit_function_is_true(variable, &regulators));
+            let variable_is_one = context.mk_state_variable_is_true(variable);
+            bdd!(variable_is_one <=> function_is_one)
+        })
+        .collect();
+
+    GraphColoredVertices::new(
+        update_functions
+            .iter()
+            .fold(graph.mk_unit_colored_vertices().into_bdd(), |r, v| r.and(v)),
+        context
+    )
+}
+
 
 /// returns string representing the same subformula, but with canonized var names (var0, var1...)
 /// subform must be valid HCTL formula, minimized by minimize_number_of_state_vars function
