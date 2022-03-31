@@ -1,4 +1,4 @@
-use hctl_model_checker::analysis::{model_check_property, PrintOptions};
+use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::env;
 use std::fs::read_to_string;
 
@@ -37,16 +37,14 @@ fn main() {
     }
     let aeon_string = read_to_string(args[1].clone()).unwrap();
     println!("original formula: {}", args[2].clone());
-    model_check_property(aeon_string, args[2].clone(), PrintOptions::ShortPrint);
+    analyse_formula(aeon_string, args[2].clone(), PrintOptions::ShortPrint);
 }
 
 #[cfg(test)]
 mod tests {
     use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
     use biodivine_lib_param_bn::BooleanNetwork;
-    use hctl_model_checker::evaluator::eval_tree;
-    use hctl_model_checker::parser::parse_hctl_formula;
-    use hctl_model_checker::tokenizer::tokenize_recursive;
+    use hctl_model_checker::analysis::model_check_formula;
 
     const BNET_MODEL: &str = r"
 targets,factors
@@ -64,36 +62,31 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
 
     #[test]
     fn basic_formulas() {
-        fn check_formula(formula: String, stg: &SymbolicAsyncGraph) -> GraphColoredVertices {
-            let tokens = tokenize_recursive(&mut formula.chars().peekable(), true).unwrap();
-            let tree = parse_hctl_formula(&tokens).unwrap();
-            eval_tree(tree, stg)
-        }
 
         let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
         let stg = SymbolicAsyncGraph::new(bn).unwrap();
 
-        let mut result = check_formula("!{x}: AG EF {x}".to_string(), &stg);
+        let mut result = model_check_formula("!{x}: AG EF {x}".to_string(), &stg);
         assert_eq!(76., result.approx_cardinality());
         assert_eq!(2., result.colors().approx_cardinality());
         assert_eq!(76., result.vertices().approx_cardinality());
 
-        result = check_formula("!{x}: AX {x}".to_string(), &stg);
+        result = model_check_formula("!{x}: AX {x}".to_string(), &stg);
         assert_eq!(12., result.approx_cardinality());
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(12., result.vertices().approx_cardinality());
 
-        result = check_formula("!{x}: AX EF {x}".to_string(), &stg);
+        result = model_check_formula("!{x}: AX EF {x}".to_string(), &stg);
         assert_eq!(132., result.approx_cardinality());
         assert_eq!(2., result.colors().approx_cardinality());
         assert_eq!(132., result.vertices().approx_cardinality());
 
-        result = check_formula("AF (!{x}: AX {x})".to_string(), &stg);
+        result = model_check_formula("AF (!{x}: AX {x})".to_string(), &stg);
         assert_eq!(60., result.approx_cardinality());
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(60., result.vertices().approx_cardinality());
 
-        result = check_formula(
+        result = model_check_formula(
             "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string(),
             &stg,
         );

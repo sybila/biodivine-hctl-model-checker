@@ -5,7 +5,7 @@ use crate::parser::parse_hctl_formula;
 #[allow(unused_imports)]
 use crate::tokenizer::{print_tokens, tokenize_recursive};
 
-use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::convert::TryFrom;
@@ -19,7 +19,8 @@ pub enum PrintOptions {
 }
 
 /// Performs the whole model checking process, including parsing of formula and model
-pub fn model_check_property(
+/// Prints selected amount of results (no prints / summary prints / all results printed)
+pub fn analyse_formula(
     aeon_string: String,
     formula: String,
     print_option: PrintOptions
@@ -64,4 +65,11 @@ pub fn model_check_property(
         }
         Err(message) => println!("{}", message),
     }
+}
+
+/// Just performs the model checking on given graph and returns result, no prints happen
+pub fn model_check_formula(formula: String, stg: &SymbolicAsyncGraph) -> GraphColoredVertices {
+    let tokens = tokenize_recursive(&mut formula.chars().peekable(), true).unwrap();
+    let tree = parse_hctl_formula(&tokens).unwrap();
+    eval_tree(tree, stg)
 }

@@ -1,4 +1,4 @@
-use hctl_model_checker::analysis::{model_check_property, PrintOptions};
+use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::env;
 use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader};
@@ -115,6 +115,6 @@ fn main() {
 
     let aeon_string = read_to_string(args[1].clone()).unwrap();
 
-    model_check_property(aeon_string, formula, PrintOptions::ShortPrint);
+    analyse_formula(aeon_string, formula, PrintOptions::ShortPrint);
     // result should have 2^(number of vars) states - basically all states
 }
