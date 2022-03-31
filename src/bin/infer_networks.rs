@@ -1,4 +1,4 @@
-use hctl_model_checker::analysis::analyze_property;
+use hctl_model_checker::analysis::model_check_property;
 use std::env;
 use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader};
@@ -49,16 +49,14 @@ fn create_restricted_attractor_formula_aeon(data_set: Vec<String>) -> String {
         )
     }
     // appendix for the formula which forbids additional attractors
-    if forbid_extra_attr {
-        formula.push_str(" & ~(3{x}: (@{x}: ");
-        for item in data_set {
-            if item.is_empty() {
-                continue;
-            }
-            formula.push_str(format!("~(AG EF ( {} ))  & ", item).as_str());
+    formula.push_str(" & ~(3{x}: (@{x}: ");
+    for item in data_set {
+        if item.is_empty() {
+            continue;
         }
-        formula.push_str("(!{y}: AG EF {y})))");
+        formula.push_str(format!("~(AG EF ( {} ))  & ", item).as_str());
     }
+    formula.push_str("(!{y}: AG EF {y})))");
 
     formula
 }
@@ -117,6 +115,6 @@ fn main() {
 
     let aeon_string = read_to_string(args[1].clone()).unwrap();
 
-    analyze_property(aeon_string, formula, false);
+    model_check_property(aeon_string, formula, false);
     // result should have 2^(number of vars) states - basically all states
 }
