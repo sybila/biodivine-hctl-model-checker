@@ -23,9 +23,9 @@ use std::fs::read_to_string;
 // TODO: check that formula doesnt contain stuff like "!x (EF (!x x)) - same var quantified more times
 
 /* TODOs to implement for the inference part */
-// TODO: parse attractors from file
-// TODO: implement both approaches (model-checking vs component-wise)
-// TODO: create separate binaries
+// TODO: implement "model checking with macros" - one element in the formula will be a placeholder for some precomputed value
+// TODO: parse attractors from binarixed 1/0 data
+
 // TODO: printing satisfying BNs? or do something with the resulting colors
 
 fn main() {
