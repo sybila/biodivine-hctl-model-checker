@@ -14,18 +14,18 @@ fn create_attractor_formula(data_set: Vec<String>, forbid_extra_attr: bool) -> S
         }
 
         /*
-        We can create formula in two ways - components are either "!y: AG EF y" or "!y: AG EF (y and state)"
-        The latter is usually faster, but if we want to forbid other attractors, we must compute
+        We can create formula in two ways - components are either "state & (AG EF state)" or "state & (!y: AG EF y)"
+        The first should be faster, but if we want to forbid other attractors, we must compute
         the formula "!y: AG EF y" anyway and we can then just cache it
         */
         if forbid_extra_attr {
             formula.push_str(
-                format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF {{y}} ))) & ", item).as_str()
+                format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF {{y}}))) & ", item).as_str()
             )
         }
         else {
             formula.push_str(
-                format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF ({{y}} & {} )))) & ", item, item).as_str()
+                format!("(3{{x}}: (@{{x}}: {} & (AG EF ({})))) & ", item, item).as_str()
             )
         }
     }
@@ -75,21 +75,31 @@ fn create_steady_state_formula(data_set: Vec<String>, forbid_extra_attr: bool) -
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        println!("2 arguments expected, got {}", args.len() - 1);
-        println!("Usage: ./infer_networks model_file attractor_data");
+    if args.len() != 4 {
+        println!("3 arguments expected, got {}", args.len() - 1);
+        println!("Usage: ./infer_networks model_file attractor_data forbid_extra_attrs");
         return;
     }
+    if !(args[3].as_str() == "false" ||  args[3].as_str() == "true") {
+        println!("Invalid argument \"{}\", it must be either \"true\" or \"false\"", args[3]);
+        println!("Usage: ./infer_networks model_file attractor_data (true | false)");
+        return;
+    }
+    let forbid_extra_attrs = match args[3].as_str() {
+        "false" => false,
+        _ => true  // we need match to be exhaustive
+    };
 
     let data_file = File::open(Path::new(args[2].as_str())).unwrap();
     let reader = BufReader::new(&data_file);
     let data: Vec<String> = reader.lines().collect::<Result<_, _>>().unwrap();
-    let formula = create_attractor_formula(data, false);
-    //let formula = create_steady_state_formula(data, false);
+    let formula = create_attractor_formula(data, forbid_extra_attrs);
+    //let formula = create_steady_state_formula(data, forbid_extra_attrs);
 
     println!("original formula: {}", formula.clone());
 
     let aeon_string = read_to_string(args[1].clone()).unwrap();
 
     analyze_property(aeon_string, formula, false);
+    // result should have 2^(number of vars) states - basically all states
 }
