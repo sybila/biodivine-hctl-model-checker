@@ -70,7 +70,12 @@ pub fn xie_beerel_attractors_collect(
 }
 
 /// Computes the set of colored states contained in terminal SCCs
-pub fn compute_terminal_scc(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+/// Initial universe can be used to e.g. restrict considered colors
+/// Good default value would be graph.mk_unit_colored_vertices()
+pub fn compute_terminal_scc(
+    graph: &SymbolicAsyncGraph,
+    initial_universe: GraphColoredVertices
+) -> GraphColoredVertices {
     let task_context = GraphTaskContext::new();
     task_context.restart(graph);
 
@@ -78,7 +83,7 @@ pub fn compute_terminal_scc(graph: &SymbolicAsyncGraph) -> GraphColoredVertices 
     let (universe, active_variables) = interleaved_transition_guided_reduction(
         &task_context,
         &graph,
-        graph.mk_unit_colored_vertices(),
+        initial_universe,
     );
 
     // Then run Xie-Beerel to actually collect all the components

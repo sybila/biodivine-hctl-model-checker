@@ -63,7 +63,7 @@ pub fn eval_node(
     // first lets check for special cases, which can be optimised:
     // attractors
     if is_attractor_pattern(node.clone()) {
-        let result = compute_terminal_scc(graph);
+        let result = compute_terminal_scc(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
             cache.insert(node.subform_str.clone(), result.clone());
         }
