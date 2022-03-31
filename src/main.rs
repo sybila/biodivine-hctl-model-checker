@@ -1,4 +1,4 @@
-use hctl_model_checker::analysis::analyze_property;
+use hctl_model_checker::analysis::{model_check_property, PrintOptions};
 use std::env;
 use std::fs::read_to_string;
 
@@ -37,7 +37,7 @@ fn main() {
     }
     let aeon_string = read_to_string(args[1].clone()).unwrap();
     println!("original formula: {}", args[2].clone());
-    analyze_property(aeon_string, args[2].clone(), false);
+    model_check_property(aeon_string, args[2].clone(), PrintOptions::ShortPrint);
 }
 
 #[cfg(test)]
