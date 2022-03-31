@@ -12,35 +12,52 @@ fn create_attractor_formula(data_set: Vec<String>, forbid_extra_attr: bool) -> S
         if item.is_empty() {
             continue;
         }
-
-        /*
-        We can create formula in two ways - components are either "state & (AG EF state)" or "state & (!y: AG EF y)"
-        The first should be faster, but if we want to forbid other attractors, we must compute
-        the formula "!y: AG EF y" anyway and we can then just cache it
-        */
-        if forbid_extra_attr {
-            formula.push_str(
-                format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF {{y}}))) & ", item).as_str()
-            )
-        }
-        else {
-            formula.push_str(
-                format!("(3{{x}}: (@{{x}}: {} & (AG EF ({})))) & ", item, item).as_str()
-            )
-        }
+        formula.push_str(
+            format!("(3{{x}}: (@{{x}}: {} & (AG EF ({})))) & ", item, item).as_str()
+        )
     }
     formula.push_str("true"); // just so we dont end with "&"
 
     // (optional) appendix for the formula which forbids additional attractors
+    if forbid_extra_attr {
+        formula.push_str(" & ~(3{x}: (@{x}: ~(AG EF (");
+        for attractor_state_formula in data_set {
+            if attractor_state_formula.is_empty() {
+                continue;
+            }
+            formula.push_str(format!("({}) | ", attractor_state_formula).as_str());
+        }
+        formula.push_str("false ))))");
+    }
+
+    formula
+}
+
+#[allow(dead_code)]
+fn create_restricted_attractor_formula_aeon(data_set: Vec<String>) -> String {
+    // basic version without forbidding additional attractors
+    let mut formula = String::new();
+    for item in data_set.clone() {
+        if item.is_empty() {
+            continue;
+        }
+
+        // We can create formula in more efficient ways - but if we want to use aeon, we must
+        // compute formula "!y: AG EF y" anyway, and it can then be just cached
+        formula.push_str(
+            format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF {{y}}))) & ", item).as_str()
+        )
+    }
+    // appendix for the formula which forbids additional attractors
     if forbid_extra_attr {
         formula.push_str(" & ~(3{x}: (@{x}: ");
         for item in data_set {
             if item.is_empty() {
                 continue;
             }
-            formula.push_str(format!("~(AG EF ( {} ))  & ", item).as_str())
+            formula.push_str(format!("~(AG EF ( {} ))  & ", item).as_str());
         }
-        formula.push_str("(!{y}: AG EF {y})))")
+        formula.push_str("(!{y}: AG EF {y})))");
     }
 
     formula
@@ -56,7 +73,7 @@ fn create_steady_state_formula(data_set: Vec<String>, forbid_extra_attr: bool) -
         }
         formula.push_str(format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AX ({{y}})))) & ", item).as_str())
     }
-    formula.push_str("true");
+    formula.push_str("true"); // just so we dont end with "&"
 
     // (optional) appendix for the formula which forbids additional attractors
     if forbid_extra_attr {
