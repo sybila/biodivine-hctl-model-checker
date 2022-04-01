@@ -18,6 +18,11 @@ path = "src/bin/experiment.rs"
 name = "inference"
 path = "src/bin/infer_networks.rs"
 
+[[bin]]
+name = "print-regulations"
+path = "src/bin/print_regulations.rs"
+
+
 [dependencies]
 biodivine-lib-bdd = "0.3.0"
 biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn.git", branch = "hctl-experimental" }
