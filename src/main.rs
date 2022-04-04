@@ -25,6 +25,7 @@ use std::fs::read_to_string;
 /* TODOs to implement for the inference part */
 // TODO: implement "model checking with macros" - one element in the formula will be a placeholder for some precomputed value
 // TODO: parse attractors from binarixed 1/0 data
+// TODO: optimisation for conjunction computing - restrict colors for the second conjunct if possible
 
 // TODO: printing satisfying BNs? or do something with the resulting colors
 
@@ -37,7 +38,7 @@ fn main() {
     }
     let aeon_string = read_to_string(args[1].clone()).unwrap();
     println!("original formula: {}", args[2].clone());
-    analyse_formula(aeon_string, args[2].clone(), PrintOptions::ShortPrint);
+    analyse_formula(aeon_string, args[2].clone(), PrintOptions::LongPrint);
 }
 
 #[cfg(test)]
