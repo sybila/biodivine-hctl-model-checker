@@ -16,7 +16,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 /// forbid all additional attractors) evaluates the formula for the attractor prohibition, this
 /// time only on graph with colors restricted to those from the first part
 /// If `goal_model` is not none, check whether its colors are included in the resulting set of colors
-fn perform_inference_with_attractors(
+fn perform_basic_inference_with_attractors(
     data_set: Vec<String>,
     aeon_string: String,
     forbid_extra_attr: bool,
@@ -24,8 +24,13 @@ fn perform_inference_with_attractors(
 ) {
     let start = SystemTime::now();
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
+    println!("Loaded model with {} vars.", bn.num_vars());
     let mut graph = SymbolicAsyncGraph::new(bn).unwrap();
+
     let mut inferred_colors = graph.mk_unit_colors();
+    println!("After applying static constraints, {} concretizations remain.",
+             inferred_colors.approx_cardinality(),
+    );
 
     // whole formula we want to eval is just a conjunction of smaller formulas
     // "exists attractor_1" & ... & "exists attractor_n" & "NOT exists any other attractor"
@@ -40,7 +45,11 @@ fn perform_inference_with_attractors(
         inferred_colors = model_check_formula(formula, &graph).colors();
         // we now restrict the unit_colored_set in the graph object
         graph = SymbolicAsyncGraph::new_restrict_colors_from_existing(graph, &inferred_colors);
+        println!("attractor ensured")
     }
+    println!("After ensuring attractor presence, {} concretizations remain.",
+             inferred_colors.approx_cardinality(),
+    );
 
     // if desired, we will add the formula which forbids additional attractors
     if forbid_extra_attr {
@@ -167,13 +176,13 @@ fn main() {
     let data: Vec<String> = reader.lines().collect::<Result<_, _>>().unwrap();
     let aeon_string = read_to_string(args[1].clone()).unwrap();
 
-    perform_inference_with_attractors(data, aeon_string, forbid_extra_attrs, goal_aeon_string);
+    perform_basic_inference_with_attractors(data, aeon_string, forbid_extra_attrs, goal_aeon_string);
 
     // steady-state version:
-    /*
-    let formula = create_steady_state_formula(data, forbid_extra_attrs);
-    analyse_formula(aeon_string, formula, PrintOptions::ShortPrint);
+
+    // let formula = create_steady_state_formula(data, forbid_extra_attrs);
+    // analyse_formula(aeon_string, formula, PrintOptions::ShortPrint);
     // println!("original formula: {}", formula.clone());
     // result should have 2^(number of vars) states - basically all states
-     */
+
 }
