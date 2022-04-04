@@ -115,7 +115,8 @@ pub fn tokenize_recursive(
                 let name = collect_var_from_operator(input_chars, '@')?;
                 output.push(Token::Hybrid(HybridOp::Jump, name));
             }
-            '3' => {
+            // "3" can be either exist quantifier or part of some proposition
+            '3' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
                 let name = collect_var_from_operator(input_chars, '3')?;
                 output.push(Token::Hybrid(HybridOp::Exist, name));
@@ -159,6 +160,14 @@ pub fn tokenize_recursive(
 /// Check if given char can appear in a name.
 fn is_valid_in_name(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
+}
+
+/// Check if given char can appear in a name.
+fn is_valid_in_name_optional(option_char: Option<&char>) -> bool {
+    if let Some(c) = option_char {
+        return is_valid_in_name(c.clone());
+    }
+    false
 }
 
 /// Check if given optional char represents valid temporal operator
