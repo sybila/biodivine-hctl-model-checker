@@ -9,7 +9,7 @@ use crate::tokenizer::{print_tokens, tokenize_recursive};
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::time::SystemTime;
 
@@ -23,7 +23,7 @@ pub enum PrintOptions {
 /// renames vars to canonical form of "x", "xx", ...
 /// works only FOR FORMULAS WITHOUT FREE VARIABLES
 /// renames as many state-vars as possible to the identical names, without changing the formula
-pub fn minimize_number_of_state_vars(
+fn minimize_number_of_state_vars(
     orig_node: Node,
     mut mapping_dict: HashMap<String, String>,
     mut last_used_name: String,
@@ -79,7 +79,35 @@ pub fn minimize_number_of_state_vars(
     };
 }
 
+/// Returns the set of all uniquely named HCTL variables in the formula tree
+fn collect_unique_hctl_vars(
+    formula_tree: Node,
+    mut seen_vars: HashSet<String>
+) -> HashSet<String> {
+    match formula_tree.node_type {
+        NodeType::TerminalNode(atom) => match atom {
+            Atomic::Var(var_name) => {
+                seen_vars.insert(var_name); // we do not care whether insert is successful
+            }
+            _ => {}
+        },
+        NodeType::UnaryNode(_, child) => {
+            seen_vars.extend(collect_unique_hctl_vars(*child, seen_vars.clone()));
+        }
+        NodeType::BinaryNode(_, left, right) => {
+            seen_vars.extend(collect_unique_hctl_vars(*left, seen_vars.clone()));
+            seen_vars.extend(collect_unique_hctl_vars(*right, seen_vars.clone()));
+        }
+        // hybrid nodes are more complicated
+        NodeType::HybridNode(_, _, child) => {
+            seen_vars.extend(collect_unique_hctl_vars(*child, seen_vars.clone()));
+        }
+    }
+    seen_vars
+}
+
 /// Performs the whole model checking process, including parsing of formula and model
+/// Creates only as many HCTL vars as is needed
 /// Prints selected amount of results (no prints / summary prints / all results printed)
 pub fn analyse_formula(aeon_string: String, formula: String, print_option: PrintOptions) {
     let start = SystemTime::now();
@@ -99,10 +127,10 @@ pub fn analyse_formula(aeon_string: String, formula: String, print_option: Print
             let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
             //println!("modified formula: {}", new_tree.subform_str);
 
-            // TODO: count the number of different state vars in tree
-            // TODO: use this number to instantiate the graph object
+            // count the number of needed HCTL vars and instantiate graph with it
+            let num_hctl_vars = collect_unique_hctl_vars(new_tree.clone(),HashSet::new()).len();
             let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
-            let graph = SymbolicAsyncGraph::new(bn, 3).unwrap();
+            let graph = SymbolicAsyncGraph::new(bn, num_hctl_vars as i16).unwrap();
 
             if print_option != PrintOptions::NoPrint {
                 println!(
@@ -129,7 +157,7 @@ pub fn analyse_formula(aeon_string: String, formula: String, print_option: Print
     }
 }
 
-/// Just performs the model checking on given graph and returns result, no prints happen
+/// Just performs the model checking on GIVEN graph and returns result, no prints happen
 /// UNSAFE - does not parse the graph from formula, assumes that graph was created correctly
 /// Graph must have enough HCTL variables for the formula
 pub fn model_check_formula_unsafe(
