@@ -18,13 +18,16 @@ use std::str::Chars;
 // TODO: SCC computation without the prints
 // TODO: possible optimizations (changing tree, or during evaluation)
 
-/// Evaluates already minimized tree on the given graph
+/// Prepares formula `tree` for efficient evaluation (duplicates & cache)
+/// and then evaluates it on the given `graph`
 pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     let mut duplicates = mark_duplicates(&tree);
     let mut cache: HashMap<String, GraphColoredVertices> = HashMap::new();
     eval_node(tree, &graph, &mut duplicates, &mut cache)
 }
 
+/// Evaluates the formula sub-tree `node` on the given `graph`
+/// Uses pre-computed set of `duplicate` sub-formulae to allow for caching
 /// TODO: fix cache
 pub fn eval_node(
     node: Node,

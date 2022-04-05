@@ -6,8 +6,6 @@ use std::fs::read_to_string;
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator, maybe few more special cases
 // TODO: think of some equivalent method to saturation for EG,AU ?
-// TODO: more efficient operators on GraphColoredVertices (like imp, xor, equiv)?
-// TODO: printer for all correct valuations in all three color/vertex sets
 // TODO: documentation
 
 /* BUGs and issues to fix */
@@ -20,14 +18,12 @@ use std::fs::read_to_string;
 */
 
 // TODO: "!{var}: AG EF {var} & & !{var}: AG EF {var}" DOES NOT CAUSE ERROR
-// TODO: check that formula doesnt contain stuff like "!x (EF (!x x)) - same var quantified more times
+// TODO: check that formula doesnt contain stuff like "!x: (EF (!x: x)) - same var quantified more times
 
 /* TODOs to implement for the inference part */
 // TODO: implement "model checking with macros" - one element in the formula will be a placeholder for some precomputed value
 // TODO: parse attractors from binarixed 1/0 data
 // TODO: optimisation for conjunction computing - restrict colors for the second conjunct if possible
-
-// TODO: printing satisfying BNs? or do something with the resulting colors
 
 fn main() {
     let args: Vec<String> = env::args().collect();
