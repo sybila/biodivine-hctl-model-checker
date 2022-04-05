@@ -126,7 +126,7 @@ fn analyze_random_instantiations() {
 
         let start = SystemTime::now();
 
-        let graph = SymbolicAsyncGraph::new(fixed_network).unwrap();
+        let graph = SymbolicAsyncGraph::new(fixed_network, 0).unwrap();
         let classifier = Classifier::new(&graph);
         let task_context = GraphTaskContext::new();
         task_context.restart(&graph);
@@ -184,7 +184,7 @@ fn main() {
 
         let start = SystemTime::now();
 
-        let graph = SymbolicAsyncGraph::new(fixed_network).unwrap();
+        let graph = SymbolicAsyncGraph::new(fixed_network, 0).unwrap();
         let classifier = Classifier::new(&graph);
         let task_context = GraphTaskContext::new();
         task_context.restart(&graph);

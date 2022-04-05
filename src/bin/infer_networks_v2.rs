@@ -1,13 +1,13 @@
 #[allow(unused_imports)]
-use hctl_model_checker::analysis::{analyse_formula, model_check_formula, PrintOptions};
+use hctl_model_checker::analysis::{analyse_formula, model_check_formula_unsafe, PrintOptions};
 
 use std::env;
 use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::SystemTime;
-use biodivine_lib_param_bn::biodivine_std::traits::Set;
 
+use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
 
@@ -20,17 +20,15 @@ fn create_state_reachability_formula(
     from_state: String,
     to_state: String,
     is_universal: bool,
-    is_negative: bool
+    is_negative: bool,
 ) -> String {
-    assert(!(is_negative && is_universal));
-    if from_state.is_empty() || to_state.is_empty() {
-        return "true".to_string();
-    }
+    assert!(!(is_negative && is_universal));
+    assert!(!to_state.is_empty() && !from_state.is_empty());
     if is_universal {
-        format!("(3{{x}}: (@{{x}}: {} & (AF ({}))))", from_state, to_state)
+        return format!("(3{{x}}: (@{{x}}: {} & (AF ({}))))", from_state, to_state);
     }
     if is_negative {
-        format!("(3{{x}}: (@{{x}}: {} & (~EF ({}))))", from_state, to_state)
+        return format!("(3{{x}}: (@{{x}}: {} & (~EF ({}))))", from_state, to_state);
     }
     format!("(3{{x}}: (@{{x}}: {} & (EF ({}))))", from_state, to_state)
 }
@@ -40,9 +38,7 @@ fn create_state_reachability_formula(
 /// `trap_space` is a formula describing some proposition' values in a desired trap space
 #[allow(dead_code)]
 fn create_trap_space_formula(trap_space: String) -> String {
-    if trap_space.is_empty() {
-        return "true".to_string();
-    }
+    assert!(!trap_space.is_empty());
     format!("(3{{x}}: (@{{x}}: {} & (AG ({}))))", trap_space, trap_space)
 }
 
@@ -50,9 +46,7 @@ fn create_trap_space_formula(trap_space: String) -> String {
 /// `attractor_state` is a formula describing state in a desired attractor
 #[allow(dead_code)]
 fn create_attractor_formula(attractor_state: String) -> String {
-    if attractor_state.is_empty() {
-        return "true".to_string();
-    }
+    assert!(!attractor_state.is_empty());
     format!("(3{{x}}: (@{{x}}: {} & (AG EF ({}))))", attractor_state, attractor_state)
 }
 
@@ -64,9 +58,7 @@ fn create_attractor_prohibition_formula(attractor_state_set: Vec<String>) -> Str
     let mut formula = String::new();
     formula.push_str("~(3{x}: (@{x}: ~(AG EF (");
     for attractor_state in attractor_state_set {
-        if attractor_state.is_empty() {
-            continue;
-        }
+        assert!(!attractor_state.is_empty());
         formula.push_str(format!("({}) | ", attractor_state).as_str())
     }
     formula.push_str("false ))))");
@@ -77,9 +69,7 @@ fn create_attractor_prohibition_formula(attractor_state_set: Vec<String>) -> Str
 /// `steady_state` is a formula describing particular desired fixed point
 #[allow(dead_code)]
 fn create_steady_state_formula(steady_state: String) -> String {
-    if steady_state.is_empty() {
-        return "true".to_string();
-    }
+    assert!(!steady_state.is_empty());
     format!("(3{{x}}: (@{{x}}: {} & (AX ({})))", steady_state, steady_state)
 }
 
@@ -90,9 +80,7 @@ fn create_steady_state_prohibition_formula(steady_state_set: Vec<String>) -> Str
     let mut formula = String::new();
     formula.push_str("~(3{x}: (@{x}: ");
     for steady_state in steady_state_set {
-        if steady_state.is_empty() {
-            continue;
-        }
+        assert!(!steady_state.is_empty());
         formula.push_str(format!("~({}) & ", steady_state).as_str())
     }
     formula.push_str("(AX {x})))");
@@ -110,9 +98,10 @@ fn check_if_solution_contains_goal(
         match graph.mk_subnetwork_colors(&goal_bn) {
             Ok(goal_colors) => {
                 // we will need intersection of goal colors with the ones from the result
-                let intersection_inferred_goal = goal_colors.intersect(&inferred_colors);
                 // if the goal is subset of result, it went well
-                if intersection_inferred_goal.approx_cardinality() == goal_colors.approx_cardinality() {
+                if goal_colors.intersect(&inferred_colors).approx_cardinality()
+                    == goal_colors.approx_cardinality()
+                {
                     println!("OK - color of goal network is included in resulting set.")
                 } else {
                     println!("NOK - color of goal network is NOT included in resulting set.")
@@ -130,11 +119,14 @@ fn perform_inference(
 ) -> (GraphColors, SymbolicAsyncGraph) {
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
     println!("Loaded model with {} vars.", bn.num_vars());
-    let mut graph = SymbolicAsyncGraph::new(bn).unwrap();
+
+    // To be sure, create graph object with 2 HCTL vars
+    let mut graph = SymbolicAsyncGraph::new(bn, 2).unwrap();
 
     let mut inferred_colors = graph.mk_unit_colors();
-    println!("After applying static constraints, {} concretizations remain.",
-             inferred_colors.approx_cardinality(),
+    println!(
+        "After applying static constraints, {} concretizations remain.",
+        inferred_colors.approx_cardinality(),
     );
 
     // TODO
@@ -149,14 +141,17 @@ fn main() {
         println!("Usage: ./infer_networks model_file attractor_data forbid_extra_attrs");
         return;
     }
-    if !(args[3].as_str() == "false" ||  args[3].as_str() == "true") {
-        println!("Invalid argument \"{}\", it must be either \"true\" or \"false\"", args[3]);
+    if !(args[3].as_str() == "false" || args[3].as_str() == "true") {
+        println!(
+            "Invalid argument \"{}\", it must be either \"true\" or \"false\"",
+            args[3]
+        );
         println!("Usage: ./infer_networks model_file attractor_data (true | false)");
         return;
     }
     let forbid_extra_attrs = match args[3].as_str() {
         "false" => false,
-        _ => true  // we need match to be exhaustive
+        _ => true, // we need match to be exhaustive
     };
 
     // TODO: make this automatic from CLI

@@ -1,4 +1,4 @@
-use crate::evaluator::{eval_minimized_tree};
+use crate::evaluator::eval_minimized_tree;
 #[allow(unused_imports)]
 use crate::io::{print_results, print_results_fast};
 use crate::operation_enums::*;
@@ -17,7 +17,7 @@ use std::time::SystemTime;
 pub enum PrintOptions {
     NoPrint,
     ShortPrint,
-    LongPrint
+    LongPrint,
 }
 
 /// renames vars to canonical form of "x", "xx", ...
@@ -81,11 +81,7 @@ pub fn minimize_number_of_state_vars(
 
 /// Performs the whole model checking process, including parsing of formula and model
 /// Prints selected amount of results (no prints / summary prints / all results printed)
-pub fn analyse_formula(
-    aeon_string: String,
-    formula: String,
-    print_option: PrintOptions
-) -> () {
+pub fn analyse_formula(aeon_string: String, formula: String, print_option: PrintOptions) {
     let start = SystemTime::now();
 
     let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
@@ -100,15 +96,13 @@ pub fn analyse_formula(
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
             //println!("original formula: {}", tree.subform_str);
-            let new_tree = minimize_number_of_state_vars(
-                *tree,
-                HashMap::new(),
-                String::new()
-            );
+            let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
             //println!("modified formula: {}", new_tree.subform_str);
 
+            // TODO: count the number of different state vars in tree
+            // TODO: use this number to instantiate the graph object
             let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
-            let graph = SymbolicAsyncGraph::new(bn).unwrap();
+            let graph = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
             if print_option != PrintOptions::NoPrint {
                 println!(
@@ -138,13 +132,12 @@ pub fn analyse_formula(
 /// Just performs the model checking on given graph and returns result, no prints happen
 /// UNSAFE - does not parse the graph from formula, assumes that graph was created correctly
 /// Graph must have enough HCTL variables for the formula
-pub fn model_check_formula_unsafe(formula: String, stg: &SymbolicAsyncGraph) -> GraphColoredVertices {
+pub fn model_check_formula_unsafe(
+    formula: String,
+    stg: &SymbolicAsyncGraph,
+) -> GraphColoredVertices {
     let tokens = tokenize_recursive(&mut formula.chars().peekable(), true).unwrap();
     let tree = parse_hctl_formula(&tokens).unwrap();
-    let modified_tree = minimize_number_of_state_vars(
-        *tree,
-        HashMap::new(),
-        String::new()
-    );
+    let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
     eval_minimized_tree(modified_tree, stg)
 }

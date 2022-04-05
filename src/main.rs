@@ -63,9 +63,9 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
 
     #[test]
     fn basic_formulas() {
-
         let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
-        let stg = SymbolicAsyncGraph::new(bn).unwrap();
+        // test formulae use 2 HCTL vars at most
+        let stg = SymbolicAsyncGraph::new(bn, 2).unwrap();
 
         let mut result = model_check_formula_unsafe("!{x}: AG EF {x}".to_string(), &stg);
         assert_eq!(76., result.approx_cardinality());

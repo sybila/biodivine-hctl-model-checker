@@ -6,8 +6,8 @@ use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::SystemTime;
-use biodivine_lib_param_bn::biodivine_std::traits::Set;
 
+use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
 
@@ -25,11 +25,14 @@ fn perform_basic_inference_with_attractors(
     let start = SystemTime::now();
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
     println!("Loaded model with {} vars.", bn.num_vars());
-    let mut graph = SymbolicAsyncGraph::new(bn).unwrap();
+
+    // To be sure, create graph object with 2 HCTL vars
+    let mut graph = SymbolicAsyncGraph::new(bn, 2).unwrap();
 
     let mut inferred_colors = graph.mk_unit_colors();
-    println!("After applying static constraints, {} concretizations remain.",
-             inferred_colors.approx_cardinality(),
+    println!(
+        "After applying static constraints, {} concretizations remain.",
+        inferred_colors.approx_cardinality(),
     );
 
     // whole formula we want to eval is just a conjunction of smaller formulas
@@ -41,14 +44,18 @@ fn perform_basic_inference_with_attractors(
         if attractor_state.is_empty() {
             continue;
         }
-        let formula = format!("(3{{x}}: (@{{x}}: {} & (AG EF ({}))))", attractor_state, attractor_state);
+        let formula = format!(
+            "(3{{x}}: (@{{x}}: {} & (AG EF ({}))))",
+            attractor_state, attractor_state
+        );
         inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
         // we now restrict the unit_colored_set in the graph object
         graph = SymbolicAsyncGraph::new_restrict_colors_from_existing(graph, &inferred_colors);
         println!("attractor ensured")
     }
-    println!("After ensuring attractor presence, {} concretizations remain.",
-             inferred_colors.approx_cardinality(),
+    println!(
+        "After ensuring attractor presence, {} concretizations remain.",
+        inferred_colors.approx_cardinality(),
     );
 
     // if desired, we will add the formula which forbids additional attractors
@@ -65,7 +72,10 @@ fn perform_basic_inference_with_attractors(
         inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
     }
 
-    println!("{} suitable networks found in total", inferred_colors.approx_cardinality());
+    println!(
+        "{} suitable networks found in total",
+        inferred_colors.approx_cardinality()
+    );
 
     // if the goal network was supplied, lets check whether it is part of the solution set
     if let Some(goal_model) = goal_aeon_string {
@@ -73,9 +83,10 @@ fn perform_basic_inference_with_attractors(
         match graph.mk_subnetwork_colors(&goal_bn) {
             Ok(goal_colors) => {
                 // we will need intersection of goal colors with the ones from the result
-                let intersection_inferred_goal = goal_colors.intersect(&inferred_colors);
                 // if the goal is subset of result, it went well
-                if intersection_inferred_goal.approx_cardinality() == goal_colors.approx_cardinality() {
+                if goal_colors.intersect(&inferred_colors).approx_cardinality()
+                    == goal_colors.approx_cardinality()
+                {
                     println!("OK - color of goal network is included in resulting set.")
                 } else {
                     println!("NOK - color of goal network is NOT included in resulting set.")
@@ -157,14 +168,17 @@ fn main() {
         println!("Usage: ./infer_networks model_file attractor_data forbid_extra_attrs");
         return;
     }
-    if !(args[3].as_str() == "false" ||  args[3].as_str() == "true") {
-        println!("Invalid argument \"{}\", it must be either \"true\" or \"false\"", args[3]);
+    if !(args[3].as_str() == "false" || args[3].as_str() == "true") {
+        println!(
+            "Invalid argument \"{}\", it must be either \"true\" or \"false\"",
+            args[3]
+        );
         println!("Usage: ./infer_networks model_file attractor_data (true | false)");
         return;
     }
     let forbid_extra_attrs = match args[3].as_str() {
         "false" => false,
-        _ => true  // we need match to be exhaustive
+        _ => true, // we need match to be exhaustive
     };
 
     // TODO: make this automatic from CLI
@@ -176,7 +190,12 @@ fn main() {
     let data: Vec<String> = reader.lines().collect::<Result<_, _>>().unwrap();
     let aeon_string = read_to_string(args[1].clone()).unwrap();
 
-    perform_basic_inference_with_attractors(data, aeon_string, forbid_extra_attrs, goal_aeon_string);
+    perform_basic_inference_with_attractors(
+        data,
+        aeon_string,
+        forbid_extra_attrs,
+        goal_aeon_string,
+    );
 
     // steady-state version:
 
@@ -184,5 +203,4 @@ fn main() {
     // analyse_formula(aeon_string, formula, PrintOptions::ShortPrint);
     // println!("original formula: {}", formula.clone());
     // result should have 2^(number of vars) states - basically all states
-
 }
