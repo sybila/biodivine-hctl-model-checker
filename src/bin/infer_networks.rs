@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use hctl_model_checker::analysis::{analyse_formula, model_check_formula_unsafe, PrintOptions};
 
+use std::convert::TryFrom;
 use std::env;
 use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader};
@@ -98,38 +99,6 @@ fn perform_basic_inference_with_attractors(
         println!("Goal network not provided.")
     }
     println!("Elapsed time: {}ms", start.elapsed().unwrap().as_millis());
-}
-
-/// Creates the formula describing specific attractor existence and if we want to forbid all
-/// additional attractors, also forbids these.
-/// Creates formula in the way so that AEON can be used for attractor computation
-/// *SHOULD NOT BE USED* - use the function above
-#[allow(dead_code)]
-fn create_restricted_attractor_formula_aeon(data_set: Vec<String>) -> String {
-    // basic version without forbidding additional attractors
-    let mut formula = String::new();
-    for attractor_state in data_set.clone() {
-        if attractor_state.is_empty() {
-            continue;
-        }
-
-        // We can create formula in more efficient ways - but if we want to use aeon, we must
-        // compute formula "!y: AG EF y" anyway, and it can then be just cached
-        formula.push_str(
-            format!("(3{{x}}: (@{{x}}: {} & (!{{y}}: AG EF {{y}}))) & ", attractor_state).as_str()
-        );
-    }
-    // appendix for the formula which forbids additional attractors
-    formula.push_str(" & ~(3{x}: (@{x}: ");
-    for attractor_state in data_set {
-        if attractor_state.is_empty() {
-            continue;
-        }
-        formula.push_str(format!("~(AG EF ( {} ))  & ", attractor_state).as_str());
-    }
-    formula.push_str("(!{y}: AG EF {y})))");
-
-    formula
 }
 
 /// Creates the formula describing specific steady-states existence and if we want to forbid all
