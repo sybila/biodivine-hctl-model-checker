@@ -45,7 +45,7 @@ fn main() {
 mod tests {
     use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
     use biodivine_lib_param_bn::BooleanNetwork;
-    use hctl_model_checker::analysis::model_check_formula;
+    use hctl_model_checker::analysis::model_check_formula_unsafe;
 
     const BNET_MODEL: &str = r"
 targets,factors
@@ -67,27 +67,27 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
         let stg = SymbolicAsyncGraph::new(bn).unwrap();
 
-        let mut result = model_check_formula("!{x}: AG EF {x}".to_string(), &stg);
+        let mut result = model_check_formula_unsafe("!{x}: AG EF {x}".to_string(), &stg);
         assert_eq!(76., result.approx_cardinality());
         assert_eq!(2., result.colors().approx_cardinality());
         assert_eq!(76., result.vertices().approx_cardinality());
 
-        result = model_check_formula("!{x}: AX {x}".to_string(), &stg);
+        result = model_check_formula_unsafe("!{x}: AX {x}".to_string(), &stg);
         assert_eq!(12., result.approx_cardinality());
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(12., result.vertices().approx_cardinality());
 
-        result = model_check_formula("!{x}: AX EF {x}".to_string(), &stg);
+        result = model_check_formula_unsafe("!{x}: AX EF {x}".to_string(), &stg);
         assert_eq!(132., result.approx_cardinality());
         assert_eq!(2., result.colors().approx_cardinality());
         assert_eq!(132., result.vertices().approx_cardinality());
 
-        result = model_check_formula("AF (!{x}: AX {x})".to_string(), &stg);
+        result = model_check_formula_unsafe("AF (!{x}: AX {x})".to_string(), &stg);
         assert_eq!(60., result.approx_cardinality());
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(60., result.vertices().approx_cardinality());
 
-        result = model_check_formula(
+        result = model_check_formula_unsafe(
             "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string(),
             &stg,
         );

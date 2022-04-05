@@ -8,12 +8,10 @@ use biodivine_lib_param_bn::VariableId;
 use biodivine_aeon_server::scc::algo_interleaved_transition_guided_reduction::interleaved_transition_guided_reduction;
 use biodivine_aeon_server::scc::algo_saturated_reachability::{reach_bwd, reachability_step};
 use biodivine_aeon_server::GraphTaskContext;
+use crate::analysis::model_check_formula_unsafe;
 
 // use std::fs::{File, read_to_string};
 
-use crate::evaluator::eval_tree;
-use crate::parser::parse_hctl_formula;
-use crate::tokenizer::tokenize_recursive;
 
 /*
 #[allow(dead_code)]
@@ -33,20 +31,12 @@ pub fn parse_and_infer_gradually(
     let mut measured_attractor_states: Vec<GraphColoredVertices> = Vec::new();
 
     // first parse the attractor state formulas to colored vertex sets
+    // all the state formulae must be valid (or just empty line), otherwise fails
     for state_formula in attractor_state_formulas {
-        let tokens = match tokenize_recursive(&mut state_formula.chars().peekable(), true) {
-            Ok(r) => r,
-            Err(e) => {
-                println!("{}", e);
-                Vec::new()
-            }
-        };
-        match parse_hctl_formula(&tokens) {
-            Ok(tree) => {
-                measured_attractor_states.push(eval_tree(tree, &graph));
-            }
-            Err(message) => println!("{}", message),
+        if state_formula.is_empty() {
+            continue;
         }
+        measured_attractor_states.push(model_check_formula_unsafe(state_formula, &graph));
     }
 
     // and do the inference
