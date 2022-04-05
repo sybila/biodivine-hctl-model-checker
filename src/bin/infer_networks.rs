@@ -26,8 +26,8 @@ fn perform_basic_inference_with_attractors(
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
     println!("Loaded model with {} vars.", bn.num_vars());
 
-    // To be sure, create graph object with 2 HCTL vars
-    let mut graph = SymbolicAsyncGraph::new(bn, 2).unwrap();
+    // To be sure, create graph object with 1 HCTL var
+    let mut graph = SymbolicAsyncGraph::new(bn, 1).unwrap();
 
     let mut inferred_colors = graph.mk_unit_colors();
     println!(
@@ -182,8 +182,8 @@ fn main() {
     };
 
     // TODO: make this automatic from CLI
-    //let goal_aeon_string = Some(read_to_string("inference_goal_model.aeon".to_string()).unwrap());
-    let goal_aeon_string: Option<String> = None;
+    let goal_aeon_string = Some(read_to_string("inference_goal_model.aeon".to_string()).unwrap());
+    //let goal_aeon_string: Option<String> = None;
 
     let data_file = File::open(Path::new(args[2].as_str())).unwrap();
     let reader = BufReader::new(&data_file);
