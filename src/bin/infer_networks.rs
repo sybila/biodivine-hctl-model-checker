@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-use hctl_model_checker::analysis::{analyse_formula, model_check_formula, PrintOptions};
+use hctl_model_checker::analysis::{analyse_formula, model_check_formula_unsafe, PrintOptions};
 
 use std::env;
 use std::fs::{read_to_string, File};
@@ -42,7 +42,7 @@ fn perform_basic_inference_with_attractors(
             continue;
         }
         let formula = format!("(3{{x}}: (@{{x}}: {} & (AG EF ({}))))", attractor_state, attractor_state);
-        inferred_colors = model_check_formula(formula, &graph).colors();
+        inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
         // we now restrict the unit_colored_set in the graph object
         graph = SymbolicAsyncGraph::new_restrict_colors_from_existing(graph, &inferred_colors);
         println!("attractor ensured")
@@ -62,7 +62,7 @@ fn perform_basic_inference_with_attractors(
             formula.push_str(format!("({}) | ", attractor_state).as_str());
         }
         formula.push_str("false ))))"); // false is there just so it does not end with "|"
-        inferred_colors = model_check_formula(formula, &graph).colors();
+        inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
     }
 
     println!("{} suitable networks found in total", inferred_colors.approx_cardinality());
