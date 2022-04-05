@@ -74,17 +74,14 @@ pub fn xie_beerel_attractors_collect(
 /// Good default value would be graph.mk_unit_colored_vertices()
 pub fn compute_terminal_scc(
     graph: &SymbolicAsyncGraph,
-    initial_universe: GraphColoredVertices
+    initial_universe: GraphColoredVertices,
 ) -> GraphColoredVertices {
     let task_context = GraphTaskContext::new();
     task_context.restart(graph);
 
     // First, perform ITGR reduction.
-    let (universe, active_variables) = interleaved_transition_guided_reduction(
-        &task_context,
-        &graph,
-        initial_universe,
-    );
+    let (universe, active_variables) =
+        interleaved_transition_guided_reduction(&task_context, &graph, initial_universe);
 
     // Then run Xie-Beerel to actually collect all the components
     xie_beerel_attractors_collect(

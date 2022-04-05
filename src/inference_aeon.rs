@@ -8,10 +8,9 @@ use biodivine_lib_param_bn::VariableId;
 use biodivine_aeon_server::scc::algo_interleaved_transition_guided_reduction::interleaved_transition_guided_reduction;
 use biodivine_aeon_server::scc::algo_saturated_reachability::{reach_bwd, reachability_step};
 use biodivine_aeon_server::GraphTaskContext;
+
 use crate::analysis::model_check_formula_unsafe;
-
 // use std::fs::{File, read_to_string};
-
 
 /*
 #[allow(dead_code)]

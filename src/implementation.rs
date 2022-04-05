@@ -181,9 +181,7 @@ pub fn eu_saturated(
     while !done {
         done = true;
         for var in graph.as_network().variables().rev() {
-            let update = phi1
-                .intersect(&graph.var_pre(var, &result))
-                .minus(&result);
+            let update = phi1.intersect(&graph.var_pre(var, &result)).minus(&result);
             if !update.is_empty() {
                 result = result.union(&update);
                 done = false;

@@ -1,5 +1,5 @@
 use std::env;
-use std::fs::{File, read_to_string};
+use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
@@ -49,7 +49,10 @@ fn main() {
             Monotonicity::Inhibition => -1,
             Monotonicity::Activation => 1,
         };
-        println!("(\"{}\", \"{}\", dict(sign={})),", regulator, target, monotonicity_val);
+        println!(
+            "(\"{}\", \"{}\", dict(sign={})),",
+            regulator, target, monotonicity_val
+        );
     }
     println!("]");
     println!();

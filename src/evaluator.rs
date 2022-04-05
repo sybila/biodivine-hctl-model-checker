@@ -212,10 +212,9 @@ fn compute_fixed_points(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
         update_functions
             .iter()
             .fold(graph.mk_unit_colored_vertices().into_bdd(), |r, v| r.and(v)),
-        context
+        context,
     )
 }
-
 
 /// returns string representing the same subformula, but with canonized var names (var0, var1...)
 /// subform must be valid HCTL formula, minimized by minimize_number_of_state_vars function
