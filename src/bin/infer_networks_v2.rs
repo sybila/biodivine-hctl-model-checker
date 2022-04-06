@@ -1,120 +1,15 @@
 #[allow(unused_imports)]
-use hctl_model_checker::analysis::{analyse_formula, model_check_formula_unsafe, PrintOptions};
+use hctl_model_checker::analysis::{analyse_formula, model_check_formula_unsafe};
+use hctl_model_checker::inference::inference_formulae::*;
+#[allow(unused_imports)]
+use hctl_model_checker::inference::utils::*;
 
 use std::convert::TryFrom;
-use std::env;
-use std::fs::{read_to_string, File};
-use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::fs::read_to_string;
 use std::time::SystemTime;
 
-use biodivine_lib_param_bn::biodivine_std::traits::Set;
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, SymbolicAsyncGraph};
+use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
-
-/// Creates the formula describing the (non)existence of reachability between two states (or partial)
-/// `from_state` and `to_state` are both formulae describing particular states
-/// `is_universal` is true iff we want all paths from `from_state` to reach `to_state`
-/// `is_negative` is true iff we want to non-existence of path from `from_state` to `to_state`
-#[allow(dead_code)]
-fn create_reachability_formula(
-    from_state: &str,
-    to_state: &str,
-    is_universal: bool,
-    is_negative: bool,
-) -> String {
-    assert!(!(is_negative && is_universal));
-    assert!(!to_state.is_empty() && !from_state.is_empty());
-    if is_universal {
-        return format!("(3{{x}}: (@{{x}}: {} & (AF ({}))))", from_state, to_state);
-    }
-    if is_negative {
-        return format!("(3{{x}}: (@{{x}}: {} & (~EF ({}))))", from_state, to_state);
-    }
-    format!("(3{{x}}: (@{{x}}: {} & (EF ({}))))", from_state, to_state)
-}
-
-/// Creates the formula describing the existence of a particular trap space
-/// trap space is a part of the state space from which we cannot escape
-/// `trap_space` is a formula describing some proposition' values in a desired trap space
-#[allow(dead_code)]
-fn create_trap_space_formula(trap_space: &str) -> String {
-    assert!(!trap_space.is_empty());
-    format!("(3{{x}}: (@{{x}}: {} & (AG ({}))))", trap_space, trap_space)
-}
-
-/// Creates the formula describing the existence of specific attractor
-/// `attractor_state` is a formula describing state in a desired attractor
-#[allow(dead_code)]
-fn create_attractor_formula(attractor_state: &str) -> String {
-    assert!(!attractor_state.is_empty());
-    format!("(3{{x}}: (@{{x}}: {} & (AG EF ({}))))", attractor_state, attractor_state)
-}
-
-/// Creates the formula prohibiting all but the given attractors
-/// `attractor_state_set` is a vector of formulae, each describing a state in particular
-/// allowed attractor
-#[allow(dead_code)]
-fn create_attractor_prohibition_formula(attractor_state_set: Vec<&str>) -> String {
-    let mut formula = String::new();
-    formula.push_str("~(3{x}: (@{x}: ~(AG EF (");
-    for attractor_state in attractor_state_set {
-        assert!(!attractor_state.is_empty());
-        formula.push_str(format!("({}) | ", attractor_state).as_str())
-    }
-    formula.push_str("false ))))");
-    formula
-}
-
-/// Creates the formula describing the existence of specific steady-state
-/// `steady_state` is a formula describing particular desired fixed point
-#[allow(dead_code)]
-fn create_steady_state_formula(steady_state: &str) -> String {
-    assert!(!steady_state.is_empty());
-    format!("(3{{x}}: (@{{x}}: {} & (AX ({})))", steady_state, steady_state)
-}
-
-/// Creates the formula prohibiting all but the given steady-states
-/// `steady_state_set` is a vector of formulae, each describing particular allowed fixed point
-#[allow(dead_code)]
-fn create_steady_state_prohibition_formula(steady_state_set: Vec<&str>) -> String {
-    let mut formula = String::new();
-    formula.push_str("~(3{x}: (@{x}: ");
-    for steady_state in steady_state_set {
-        assert!(!steady_state.is_empty());
-        formula.push_str(format!("~({}) & ", steady_state).as_str())
-    }
-    formula.push_str("(AX {x})))");
-    formula
-}
-
-#[allow(dead_code)]
-fn check_if_solution_contains_goal(
-    graph: SymbolicAsyncGraph,
-    goal_aeon_string: Option<String>,
-    inferred_colors: GraphColors,
-) {
-    // if the goal network was supplied, lets check whether it is part of the solution set
-    if let Some(goal_model) = goal_aeon_string {
-        let goal_bn = BooleanNetwork::try_from(goal_model.as_str()).unwrap();
-        match graph.mk_subnetwork_colors(&goal_bn) {
-            Ok(goal_colors) => {
-                // we will need intersection of goal colors with the ones from the result
-                // if the goal is subset of result, it went well
-                if goal_colors.intersect(&inferred_colors).approx_cardinality()
-                    == goal_colors.approx_cardinality()
-                {
-                    println!("OK - color of goal network is included in resulting set.")
-                } else {
-                    println!("NOK - color of goal network is NOT included in resulting set.")
-                }
-            }
-            Err(e) => println!("{}", e),
-        }
-    } else {
-        println!("Goal network not provided.")
-    }
-}
 
 fn case_study() {
     /*
@@ -147,17 +42,27 @@ fn case_study() {
     );
 
     let formulae: Vec<String> = vec![
-        create_steady_state_formula(f_a),
-        create_steady_state_formula(f_ms),
-        create_trap_space_formula(f_t),
-        create_reachability_formula(init_state, t_m, false, false),
-        create_reachability_formula(init_state, t_o, false, false),
-        create_reachability_formula(init_state, t_s, false, false),
-        create_reachability_formula(t_m, f_t, false, false),
-        create_reachability_formula(t_o, f_ms, false, false),
-        create_reachability_formula(t_s, f_a, false, false),
-
+        create_steady_state_formula(f_a.to_string()),
+        create_steady_state_formula(f_ms.to_string()),
+        create_trap_space_formula(f_t.to_string()),
+        create_reachability_formula(init_state.to_string(), t_m.to_string(), false, false),
+        create_reachability_formula(init_state.to_string(), t_o.to_string(), false, false),
+        create_reachability_formula(init_state.to_string(), t_s.to_string(), false, false),
+        create_reachability_formula(t_m.to_string(), f_t.to_string(), false, false),
+        create_reachability_formula(t_o.to_string(), f_ms.to_string(), false, false),
+        create_reachability_formula(t_s.to_string(), f_a.to_string(), false, false),
     ];
+
+    for formula in formulae {
+        inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
+        graph = SymbolicAsyncGraph::new_restrict_colors_from_existing(graph, &inferred_colors);
+        println!("constraint ensured")
+    }
+    println!(
+        "After all constraints, {} concretizations remain.",
+        inferred_colors.approx_cardinality(),
+    );
+
 }
 
 fn main() {
