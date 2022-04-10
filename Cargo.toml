@@ -19,8 +19,12 @@ name = "experiment-aeon"
 path = "src/bin/experiment_aeon.rs"
 
 [[bin]]
-name = "inference"
-path = "src/bin/infer_networks.rs"
+name = "inference-attractors"
+path = "src/bin/infer_networks_attractors.rs"
+
+[[bin]]
+name = "inference-case-study"
+path = "src/bin/inference_case_studies.rs"
 
 [[bin]]
 name = "print-regulations"
