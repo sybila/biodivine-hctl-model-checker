@@ -11,8 +11,9 @@ use std::convert::TryFrom;
 /// Optimised version - first evaluates formula for specific attractor existence, then (if we want
 /// forbid all additional attractors) evaluates the formula for the attractor prohibition, this
 /// time only on graph with colors restricted to those from the first part
+/// Works only when attractor states are FULLY SPECIFIED - by all propositions TODO: add check
 /// If `goal_model` is not none, check whether its colors are included in the resulting set of colors
-pub fn perform_basic_inference_with_attractors(
+pub fn perform_basic_inference_with_attractors_specific(
     attr_set: Vec<String>,
     aeon_string: String,
     use_fixed_points: bool,
@@ -41,9 +42,9 @@ pub fn perform_basic_inference_with_attractors(
             continue;
         }
         let formula = if use_fixed_points {
-            create_steady_state_formula(attractor_state)
+            mk_steady_state_formula_specific(attractor_state)
         } else {
-            create_attractor_formula(attractor_state)
+            mk_attractor_formula_specific(attractor_state)
         };
         inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
         // we now restrict the unit_colored_set in the graph object
@@ -58,9 +59,9 @@ pub fn perform_basic_inference_with_attractors(
     // if desired, we will add the formula which forbids additional attractors
     if forbid_extra_attr {
         let formula = if use_fixed_points {
-            create_steady_state_prohibition_formula(attr_set)
+            mk_forbid_other_steady_states_formula(attr_set)
         } else {
-            create_attractor_prohibition_formula(attr_set)
+            mk_forbid_other_attractors_formula(attr_set)
         };
         inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
     }

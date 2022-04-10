@@ -38,7 +38,7 @@ fn main() {
     let aeon_string = read_to_string(args[1].clone()).unwrap();
 
     let start = SystemTime::now();
-    perform_basic_inference_with_attractors(
+    perform_basic_inference_with_attractors_specific(
         data,
         aeon_string,
         true,
