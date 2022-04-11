@@ -1,8 +1,28 @@
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
+use crate::analysis::model_check_formula_unsafe;
 
-pub fn check_if_solution_contains_goal(
+/// Applies constraints given by `formulae` on the graph
+/// Returns graph with colour space restricted only to the suitable colors
+pub fn apply_constraints(
+    formulae: Vec<String>,
+    mut graph: SymbolicAsyncGraph,
+    message: &str,
+) -> SymbolicAsyncGraph {
+    for formula in formulae {
+        let inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
+        graph = SymbolicAsyncGraph::new_restrict_colors_from_existing(graph, &inferred_colors);
+        if !message.is_empty() {
+            println!("{}", message)
+        }
+    }
+    graph
+}
+
+/// checks if `inferred_colors` contain the color of the specific network
+/// represented by `goal_aeon_string`
+pub fn check_if_result_contains_goal(
     graph: SymbolicAsyncGraph,
     goal_aeon_string: Option<String>,
     inferred_colors: GraphColors,

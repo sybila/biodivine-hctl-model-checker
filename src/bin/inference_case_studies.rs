@@ -13,6 +13,7 @@ use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
 use hctl_model_checker::inference::attractor_inference::perform_inference_with_attractors_specific;
 
+/// Analysis of the T Cell Survival Network
 fn case_study_1(fully_parametrized: bool) {
     let aeon_string = if fully_parametrized {
         read_to_string("benchmark_models/inference/TLGL_reduced/TLGL_reduced_no_updates.aeon").unwrap()
@@ -41,14 +42,10 @@ fn case_study_1(fully_parametrized: bool) {
     ];
 
     // first ensure attractor existence
-    for formula in formulae {
-        inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
-        graph = SymbolicAsyncGraph::new_restrict_colors_from_existing(graph, &inferred_colors);
-        println!("attractor ensured")
-    }
+    graph = apply_constraints(formulae, graph,"attractor ensured");
     println!(
         "After ensuring attractor presence, {} concretizations remain.",
-        inferred_colors.approx_cardinality(),
+        graph.mk_unit_colors().approx_cardinality(),
     );
 
     // then prohibit all other attractors
@@ -64,10 +61,11 @@ fn case_study_1(fully_parametrized: bool) {
     // check that original model is present among the results
     // currently does not work for the specified version
     if fully_parametrized {
-        check_if_solution_contains_goal(graph, Some(goal_aeon_string), inferred_colors);
+        check_if_result_contains_goal(graph, Some(goal_aeon_string), inferred_colors);
     }
 }
 
+/// Analysis of the A. thaliana Sepal Primordium Polarity
 fn case_study_2(fixed_point_version: bool) {
     let aeon_string = read_to_string("benchmark_models/inference/griffin_2/griffin_model2.aeon").unwrap();
     let observation1 = "AGO1 & ~AGO10 & ~AGO7 & ANT & ARF4 & ~AS1 & ~AS2 & ETT & FIL & KAN1 & miR165 & miR390 & ~REV & ~TAS3siRNA & AGO1_miR165 & ~AGO7_miR390 & ~AS1_AS2 & AUXINh & ~CKh & ~GTE6 & ~IPT5";
@@ -82,6 +80,7 @@ fn case_study_2(fixed_point_version: bool) {
     );
 }
 
+/// Analysis of the central nervous system (CNS) development
 fn case_study_3() {
     let aeon_string = read_to_string("benchmark_models/inference/CNS_development/model.aeon").unwrap();
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
@@ -108,26 +107,28 @@ fn case_study_3() {
     let t_s = "Pax6 & Scl & ~Olig2 & ~Tuj1 & ~Sox8 & ~Aldh1L1";
     let f_a = "Pax6 & ~Zic1 & ~Brn2 & ~Tuj1 & ~Sox8 & Aldh1L1";
 
-    let mut inferred_colors = graph.mk_unit_colors();
     println!(
         "After applying static constraints, {} concretizations remain.",
-        inferred_colors.approx_cardinality(),
+        graph.mk_unit_colors().approx_cardinality(),
     );
 
     // constraints from the first part of the case study
-    let formulae_v1: Vec<String> = vec![
+    let fixed_point_constraints: Vec<String> = vec![
         mk_steady_state_formula_nonspecific(f_a.to_string()),
         mk_steady_state_formula_nonspecific(f_ms.to_string()),
-
+    ];
+    let trap_space_constraints: Vec<String> = vec![
         mk_trap_space_formula(f_t.to_string()),
-
+    ];
+    let reachability_constraints: Vec<String> = vec![
         mk_reachability_formula(init_state.to_string(), t_m.to_string(), false, false),
         mk_reachability_formula(init_state.to_string(), t_o.to_string(), false, false),
         mk_reachability_formula(init_state.to_string(), t_s.to_string(), false, false),
         mk_reachability_formula(t_m.to_string(), f_t.to_string(), false, false),
         mk_reachability_formula(t_o.to_string(), f_ms.to_string(), false, false),
         mk_reachability_formula(t_s.to_string(), f_a.to_string(), false, false),
-
+    ];
+    let negative_reachability_constraints: Vec<String> = vec![
         mk_reachability_formula(zero_state.to_string(), f_t.to_string(), false, true),
         mk_reachability_formula(zero_state.to_string(), f_ms.to_string(), false, true),
         mk_reachability_formula(zero_state.to_string(), f_a.to_string(), false, true),
@@ -135,33 +136,27 @@ fn case_study_3() {
 
     // constraints from the second part of the case study
     let universal_fps = vec![f_a.to_string(), f_ms.to_string(), f_t.to_string(), zero_state.to_string()];
-    let formulae_v2: Vec<String> = vec![
+    let universal_constraints: Vec<String> = vec![
         mk_forbid_other_steady_states_formula(universal_fps),
         // any fixed point reachable from "init" must be one of {f_a, f_ms, f_t}
         // if we use previous constraint, we can just prohibit reaching the zero fixed point
         format!("3{{x}}:@{{x}}:(({}) & ~EF(({}) & AX {}))", init_state, zero_state, zero_state),
     ];
 
-    for formula in formulae_v1 {
-        inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
-        graph = SymbolicAsyncGraph::new_restrict_colors_from_existing(graph, &inferred_colors);
-        println!("constraint ensured")
-    }
+    graph= apply_constraints(fixed_point_constraints, graph,"fixed point ensured");
+    graph= apply_constraints(trap_space_constraints, graph,"trap space ensured");
+    graph = apply_constraints(reachability_constraints, graph,"reachability ensured");
+    graph = apply_constraints(negative_reachability_constraints, graph,"non-reachability ensured");
     println!(
-        "After first set of constraints, {} concretizations remain.",
-        inferred_colors.approx_cardinality(),
+        "After the first set of constraints, {} concretizations remain.",
+        graph.unit_colors().approx_cardinality(),
     );
 
-    for formula in formulae_v2 {
-        inferred_colors = model_check_formula_unsafe(formula, &graph).colors();
-        graph = SymbolicAsyncGraph::new_restrict_colors_from_existing(graph, &inferred_colors);
-        println!("constraint ensured")
-    }
+    graph = apply_constraints(universal_constraints, graph,"universal constraint ensured");
     println!(
-        "After second set of constraints, {} concretizations remain.",
-        inferred_colors.approx_cardinality(),
+        "After the second set of constraints, {} concretizations remain.",
+        graph.unit_colors().approx_cardinality(),
     );
-
 }
 
 fn main() {

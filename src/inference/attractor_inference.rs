@@ -2,7 +2,7 @@ use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use crate::analysis::model_check_formula_unsafe;
-use crate::inference::utils::check_if_solution_contains_goal;
+use crate::inference::utils::check_if_result_contains_goal;
 #[allow(unused_imports)]
 use crate::inference::inference_formulae::*;
 
@@ -72,5 +72,5 @@ pub fn perform_inference_with_attractors_specific(
     );
 
     // if the goal network was supplied, lets check whether it is part of the solution set
-    check_if_solution_contains_goal(graph, goal_aeon_string, inferred_colors);
+    check_if_result_contains_goal(graph, goal_aeon_string, inferred_colors);
 }
