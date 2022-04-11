@@ -7,17 +7,19 @@ use hctl_model_checker::inference::utils::*;
 use std::convert::TryFrom;
 use std::fs::read_to_string;
 use std::time::SystemTime;
+use std::env;
 
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
+use hctl_model_checker::inference::attractor_inference::perform_inference_with_attractors_specific;
 
-#[allow(dead_code)]
 fn case_study_1(fully_parametrized: bool) {
     let aeon_string = if fully_parametrized {
         read_to_string("benchmark_models/inference/TLGL_reduced/TLGL_reduced_no_updates.aeon").unwrap()
     } else {
         read_to_string("benchmark_models/inference/TLGL_reduced/TLGL_reduced_partial_updates.aeon").unwrap()
     };
+    let goal_aeon_string = read_to_string("benchmark_models/inference/TLGL_reduced/TLGL_reduced.aeon".to_string()).unwrap();
 
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
     println!("Loaded model with {} vars.", bn.num_vars());
@@ -57,16 +59,29 @@ fn case_study_1(fully_parametrized: bool) {
         "{} suitable networks found in total",
         inferred_colors.approx_cardinality()
     );
-
     // println!("{}", graph.pick_witness(&inferred_colors).to_string());
+
+    // check that original model is present among the results
+    // currently does not work for the specified version
+    if fully_parametrized {
+        check_if_solution_contains_goal(graph, Some(goal_aeon_string), inferred_colors);
+    }
 }
 
-#[allow(dead_code)]
-fn case_study_2() {
+fn case_study_2(fixed_point_version: bool) {
+    let aeon_string = read_to_string("benchmark_models/inference/griffin_2/griffin_model2.aeon").unwrap();
+    let observation1 = "AGO1 & ~AGO10 & ~AGO7 & ANT & ARF4 & ~AS1 & ~AS2 & ETT & FIL & KAN1 & miR165 & miR390 & ~REV & ~TAS3siRNA & AGO1_miR165 & ~AGO7_miR390 & ~AS1_AS2 & AUXINh & ~CKh & ~GTE6 & ~IPT5";
+    let observation2 = "~AGO1 & AGO10 & AGO7 & ANT & ~ARF4 & AS1 & AS2 & ~ETT & ~FIL & ~KAN1 & ~miR165 & miR390 & REV & TAS3siRNA & ~AGO1_miR165 & AGO7_miR390 & AS1_AS2 & AUXINh & CKh & GTE6 & IPT5";
 
+    perform_inference_with_attractors_specific(
+        vec![observation1.to_string(), observation2.to_string()],
+        aeon_string,
+        fixed_point_version,
+        true,
+        None,
+    );
 }
 
-#[allow(dead_code)]
 fn case_study_3() {
     let aeon_string = read_to_string("benchmark_models/inference/CNS_development/model.aeon").unwrap();
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
@@ -150,9 +165,21 @@ fn case_study_3() {
 }
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 2 {
+        println!("1 argument expected, got {}", args.len() - 1);
+        println!("Usage: ./inference-case-study study_num");
+        return;
+    }
+
     let start = SystemTime::now();
-    case_study_1(false);
-    //case_study_2();
-    //case_study_3();
+    match args[1].as_str() {
+        "1" => case_study_1(false),
+        "2" => case_study_2(false),
+        "3" => case_study_3(),
+        _ => {
+            println!("Argument study_num must be a  number from 1 to 3, got {}", args.len() - 1);
+        }
+    }
     println!("Elapsed time: {}ms", start.elapsed().unwrap().as_millis());
 }

@@ -13,7 +13,7 @@ use std::convert::TryFrom;
 /// time only on graph with colors restricted to those from the first part
 /// Works only when attractor states are FULLY SPECIFIED - by all propositions TODO: add check
 /// If `goal_model` is not none, check whether its colors are included in the resulting set of colors
-pub fn perform_basic_inference_with_attractors_specific(
+pub fn perform_inference_with_attractors_specific(
     attr_set: Vec<String>,
     aeon_string: String,
     use_fixed_points: bool,

@@ -12,7 +12,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 4 {
         println!("3 arguments expected, got {}", args.len() - 1);
-        println!("Usage: ./infer_networks model_file attractor_data forbid_extra_attrs");
+        println!("Usage: ./inference-attractors model_file attractor_data forbid_extra_attrs");
         return;
     }
     if !(args[3].as_str() == "false" || args[3].as_str() == "true") {
@@ -20,7 +20,7 @@ fn main() {
             "Invalid argument \"{}\", it must be either \"true\" or \"false\"",
             args[3]
         );
-        println!("Usage: ./infer_networks model_file attractor_data (true | false)");
+        println!("Usage: ./inference-attractors model_file attractor_data (true | false)");
         return;
     }
     let forbid_extra_attrs = match args[3].as_str() {
@@ -38,7 +38,7 @@ fn main() {
     let aeon_string = read_to_string(args[1].clone()).unwrap();
 
     let start = SystemTime::now();
-    perform_basic_inference_with_attractors_specific(
+    perform_inference_with_attractors_specific(
         data,
         aeon_string,
         true,
