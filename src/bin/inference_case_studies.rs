@@ -43,7 +43,7 @@ fn case_study_1(fully_parametrized: bool) {
     ];
 
     // first ensure attractor existence
-    graph = apply_constraints(formulae, graph,"attractor ensured");
+    graph = apply_constraints_and_restrict(formulae, graph, "attractor ensured");
     println!(
         "After ensuring attractor presence, {} concretizations remain.",
         graph.mk_unit_colors().approx_cardinality(),
@@ -86,7 +86,8 @@ fn case_study_3() {
     let aeon_string = read_to_string("benchmark_models/inference/CNS_development/model.aeon").unwrap();
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
     println!("Loaded model with {} vars.", bn.num_vars());
-    let mut graph = SymbolicAsyncGraph::new(bn, 1).unwrap();
+    let original_graph = SymbolicAsyncGraph::new(bn, 1).unwrap();
+    let mut graph = original_graph.clone();
     println!("Model has {} parameters.", graph.symbolic_context().num_parameter_vars());
 
     // define the observations
@@ -145,20 +146,41 @@ fn case_study_3() {
         format!("3{{x}}:@{{x}}:(({}) & ~EF(({}) & AX {}))", init_state, zero_state, zero_state),
     ];
 
-    graph= apply_constraints(fixed_point_constraints, graph,"fixed point ensured");
-    graph= apply_constraints(trap_space_constraints, graph,"trap space ensured");
-    graph = apply_constraints(reachability_constraints, graph,"reachability ensured");
-    graph = apply_constraints(negative_reachability_constraints, graph,"non-reachability ensured");
+    graph = apply_constraints_and_restrict(fixed_point_constraints.clone(), graph, "fixed point ensured");
+    graph = apply_constraints_and_restrict(trap_space_constraints.clone(), graph, "trap space ensured");
+    graph = apply_constraints_and_restrict(reachability_constraints.clone(), graph, "reachability ensured");
+    graph = apply_constraints_and_restrict(negative_reachability_constraints.clone(), graph, "non-reachability ensured");
     println!(
         "After the first set of constraints, {} concretizations remain.",
         graph.unit_colors().approx_cardinality(),
     );
 
-    graph = apply_constraints(universal_constraints, graph,"universal constraint ensured");
+    graph = apply_constraints_and_restrict(universal_constraints, graph, "universal constraint ensured");
     println!(
         "After the second set of constraints, {} concretizations remain.",
         graph.unit_colors().approx_cardinality(),
     );
+
+
+    println!("-----------------------------------------");
+    let mut graph = original_graph.clone();
+    graph = apply_constraints_and_restrict(fixed_point_constraints, graph, "constraint ensured");
+    println!("Fixed point constraints alone: {} consistent", graph.unit_colors().approx_cardinality());
+
+    println!("-----------------------------------------");
+    let mut graph = original_graph.clone();
+    graph = apply_constraints_and_restrict(trap_space_constraints, graph, "constraint ensured");
+    println!("Trap space constraints alone: {} consistent", graph.unit_colors().approx_cardinality());
+
+    println!("-----------------------------------------");
+    let mut graph = original_graph.clone();
+    graph = apply_constraints_and_restrict(reachability_constraints, graph, "constraint ensured");
+    println!("Reachability constraints alone: {} consistent", graph.unit_colors().approx_cardinality());
+
+    println!("-----------------------------------------");
+    let mut graph = original_graph.clone();
+    graph = apply_constraints_and_restrict(negative_reachability_constraints, graph, "constraint ensured");
+    println!("Negative reachability constraints alone: {} consistent", graph.unit_colors().approx_cardinality());
 }
 
 fn main() {

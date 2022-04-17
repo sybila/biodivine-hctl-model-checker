@@ -5,7 +5,7 @@ use crate::analysis::model_check_formula_unsafe;
 
 /// Applies constraints given by HCTL `formulae` on the graph's colors
 /// Returns graph with colour space restricted only to the suitable colors
-pub fn apply_constraints(
+pub fn apply_constraints_and_restrict(
     formulae: Vec<String>,
     mut graph: SymbolicAsyncGraph,
     message: &str,
