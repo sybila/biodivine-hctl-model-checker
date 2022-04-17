@@ -35,13 +35,22 @@ pub fn mk_attractor_formula_specific(attractor_state: String) -> String {
     format!("(3{{x}}: (@{{x}}: ({} & (AG EF ({})))))", attractor_state, attractor_state)
 }
 
-/// Creates the formula describing the existence of specific attractor
+/// Creates the formula describing the existence of attractor
+/// Works for both fully or partially described states (but slower)
+/// `attractor_state` is a formula describing state in a desired attractor
+pub fn mk_attractor_formula_nonspecific_aeon(attractor_state: String) -> String {
+    assert!(!attractor_state.is_empty());
+    format!("(3{{x}}: (@{{x}}: ({} & (!{{y}}: AG EF {{y}}))))", attractor_state)
+}
+
+/// Creates the formula describing the existence of attractor
 /// Works for both fully or partially described states (but slower)
 /// `attractor_state` is a formula describing state in a desired attractor
 pub fn mk_attractor_formula_nonspecific(attractor_state: String) -> String {
     assert!(!attractor_state.is_empty());
-    format!("(3{{x}}: (@{{x}}: ({} & (!{{y}}: AG EF {{y}}))))", attractor_state)
+    format!("(3{{x}}: (@{{x}}: ({} & (AG EF ({} & {{x}})))))", attractor_state, attractor_state)
 }
+
 
 /// Creates the formula prohibiting all but the given attractors
 /// `attractor_state_set` is a vector of formulae, each describing a state in particular
@@ -70,7 +79,7 @@ pub fn mk_steady_state_formula_specific(steady_state: String) -> String {
 /// `steady_state` is a formula describing particular desired fixed point
 pub fn mk_steady_state_formula_nonspecific(steady_state: String) -> String {
     assert!(!steady_state.is_empty());
-    format!("(3{{x}}: (@{{x}}: ({} & (AX {{x}}))))", steady_state)
+    format!("(3{{x}}: (@{{x}}: ({} & (AX ({} & {{x}})))))", steady_state, steady_state)
 }
 
 

@@ -25,6 +25,7 @@ fn case_study_1(fully_parametrized: bool) {
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
     println!("Loaded model with {} vars.", bn.num_vars());
     let mut graph = SymbolicAsyncGraph::new(bn, 2).unwrap();
+    println!("Model has {} parameters.", graph.symbolic_context().num_parameter_vars());
 
     // define the observations
     let diseased_attractor = "~Apoptosis_ & S1P & sFas & ~Fas & ~Ceramide_ & ~Caspase & MCL1 & ~BID_ & ~DISC_ & FLIP_ & ~IFNG_ & GPCR_";
@@ -86,6 +87,7 @@ fn case_study_3() {
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
     println!("Loaded model with {} vars.", bn.num_vars());
     let mut graph = SymbolicAsyncGraph::new(bn, 1).unwrap();
+    println!("Model has {} parameters.", graph.symbolic_context().num_parameter_vars());
 
     // define the observations
     /*
@@ -169,7 +171,7 @@ fn main() {
 
     let start = SystemTime::now();
     match args[1].as_str() {
-        "1" => case_study_1(false),
+        "1" => case_study_1(true),
         "2" => case_study_2(false),
         "3" => case_study_3(),
         _ => {

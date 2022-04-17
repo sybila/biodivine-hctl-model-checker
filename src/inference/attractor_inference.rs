@@ -25,6 +25,7 @@ pub fn perform_inference_with_attractors_specific(
 
     // To be sure, create graph object with 1 HCTL var
     let mut graph = SymbolicAsyncGraph::new(bn, 1).unwrap();
+    println!("Model has {} parameters.", graph.symbolic_context().num_parameter_vars());
 
     let mut inferred_colors = graph.mk_unit_colors();
     println!(

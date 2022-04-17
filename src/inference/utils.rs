@@ -3,7 +3,7 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, SymbolicAsyncGra
 use biodivine_lib_param_bn::BooleanNetwork;
 use crate::analysis::model_check_formula_unsafe;
 
-/// Applies constraints given by `formulae` on the graph
+/// Applies constraints given by HCTL `formulae` on the graph's colors
 /// Returns graph with colour space restricted only to the suitable colors
 pub fn apply_constraints(
     formulae: Vec<String>,
