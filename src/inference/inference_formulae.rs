@@ -2,7 +2,7 @@
 /// `from_state` and `to_state` are both formulae describing particular states
 /// `is_universal` is true iff we want all paths from `from_state` to reach `to_state`
 /// `is_negative` is true iff we want to non-existence of path from `from_state` to `to_state`
-pub fn mk_reachability_formula(
+pub fn mk_reachability_pair_formula(
     from_state: String,
     to_state: String,
     is_universal: bool,
@@ -18,6 +18,28 @@ pub fn mk_reachability_formula(
     }
     format!("(3{{x}}: (@{{x}}: {} & (EF ({}))))", from_state, to_state)
 }
+
+/// Creates the formula describing the existence of reachability between
+/// every two consecutive states from the `states`, starting with the first one
+/// Basically describes s0 -> s1 -> ... -> sN
+pub fn mk_reachability_chain_formula(states_sequence: Vec<String>) -> String {
+    let mut formula = String::new();
+    formula.push_str("(3{x}: (@{x}: ");
+    let num_states = states_sequence.len();
+    for n in 0..num_states {
+        assert!(!states_sequence[n].is_empty());
+        if n == num_states - 1 {
+            break;
+        }
+        formula.push_str(format!("({}) & EF (", states_sequence[n]).as_str())
+    }
+
+    // add the last state and all the closing parentheses
+    formula.push_str(format!("{}", states_sequence[num_states - 1]).as_str());
+    formula.push_str((0..num_states+1).map(|_| ")").collect::<String>().as_str());
+    formula
+}
+
 
 /// Creates the formula describing the existence of a particular trap space
 /// trap space is a part of the state space from which we cannot escape
