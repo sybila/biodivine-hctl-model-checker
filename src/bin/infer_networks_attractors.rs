@@ -41,7 +41,7 @@ fn main() {
     perform_inference_with_attractors_specific(
         data,
         aeon_string,
-        true,
+        false,
         forbid_extra_attrs,
         goal_aeon_string,
     );

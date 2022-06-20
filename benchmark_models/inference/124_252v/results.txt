@@ -20,3 +20,20 @@ After ensuring attractor presence, inf concretizations remain.
 inf suitable networks found in total
 OK - color of goal network is included in resulting set.
 Elapsed time: 143990ms
+
+
+
+
+
+
+----------------------------------------- NEW
+
+Loaded model with 252 vars.
+Model has 356 parameters.
+After applying static constraints, 7346780631148568000000000000000 concretizations remain.
+attractor ensured
+attractor ensured
+After ensuring attractor presence, 6364982136580956000000000000 concretizations remain.
+6364982136580956000000000000 suitable networks found in total
+Goal network not provided.
+Elapsed time: 63654ms
