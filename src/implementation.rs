@@ -188,6 +188,9 @@ pub fn eu_saturated(
                 break;
             }
         }
+        if result.as_bdd().size() > 10_000 {
+            println!("EF result: {} / {}", result.as_bdd().cardinality(), result.as_bdd().size());
+        }
     }
     result
 }

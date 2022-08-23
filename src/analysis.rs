@@ -23,7 +23,7 @@ pub enum PrintOptions {
 /// renames vars to canonical form of "x", "xx", ...
 /// works only FOR FORMULAS WITHOUT FREE VARIABLES
 /// renames as many state-vars as possible to the identical names, without changing the formula
-fn minimize_number_of_state_vars(
+pub fn minimize_number_of_state_vars(
     orig_node: Node,
     mut mapping_dict: HashMap<String, String>,
     mut last_used_name: String,
