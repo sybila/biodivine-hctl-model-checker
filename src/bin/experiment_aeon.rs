@@ -71,7 +71,7 @@ fn export_network(input_values: Vec<bool>, network: &BooleanNetwork) {
         "experiment\\{}\\fixed_networks\\{}.bnet",
         MODEL_ID, input_val_string
     );
-    std::fs::write(bnet_file, network.to_bnet().unwrap()).unwrap();
+    std::fs::write(bnet_file, network.to_bnet(false).unwrap()).unwrap();
 
     /*
     let aeon_file = format!(
