@@ -2,7 +2,7 @@ use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::env;
 use std::fs::read_to_string;
 
-/* TODOs to implement for the model checking part */
+/* TODOs to implement for the model checking */
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator, maybe few more special cases
 // TODO: think of some equivalent method to saturation for EG,AU ?
@@ -20,16 +20,12 @@ use std::fs::read_to_string;
 // TODO: "!{var}: AG EF {var} & & !{var}: AG EF {var}" DOES NOT CAUSE ERROR
 // TODO: check that formula doesnt contain stuff like "!x: (EF (!x: x)) - same var quantified more times
 
-/* TODOs to implement for the inference part */
-// TODO: implement "model checking with macros" - one element in the formula will be a placeholder for some precomputed value
-// TODO: parse attractors from binarixed 1/0 data
-// TODO: optimisation for conjunction computing - restrict colors for the second conjunct if possible
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
         println!("2 arguments expected, got {}", args.len() - 1);
-        println!("Usage: ./hctl-model-checker model_file formula");
+        println!("Usage: ./model-check model_file formula");
         return;
     }
     let aeon_string = read_to_string(args[1].clone()).unwrap();
