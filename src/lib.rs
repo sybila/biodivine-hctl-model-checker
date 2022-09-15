@@ -6,4 +6,3 @@ pub mod io;
 pub mod operation_enums;
 pub mod parser;
 pub mod tokenizer;
-pub mod inference;
