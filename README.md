@@ -18,3 +18,4 @@ and then run the binary:
 - `model_file` is a path to a file with BN model in bnet format
 - `hctl_formula` is a valid HCTL formula in correct format
 
+Some interesting formulae can be found in the ```benchmark_formulas.txt``` file.
