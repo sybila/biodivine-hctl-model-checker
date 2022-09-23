@@ -141,7 +141,7 @@ fn index_of_first_unary(tokens: &[Token]) -> Option<usize> {
 
 /**
  * PRIORITY OF OPERATORS
- * unary operators (not + temporal): 1
+ * unary operators (negation + temporal): 1
  * temporal binary operators: 2
  * boolean binary operators: and=3, xor=4, or=5, imp=6, eq=7
  * hybrid operators: 8
@@ -256,7 +256,7 @@ fn parse_7_binary_temp(tokens: &[Token]) -> Result<Box<Node>, String> {
     })
 }
 
-/// Recursive parsing step 8: extract unary temporal operators.
+/// Recursive parsing step 8: extract unary temporal operators and negations.
 fn parse_8_unary(tokens: &[Token]) -> Result<Box<Node>, String> {
     let unary_token = index_of_first_unary(tokens);
     Ok(if let Some(i) = unary_token {

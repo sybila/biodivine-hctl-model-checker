@@ -32,6 +32,7 @@ To create custom formulae, use the following syntax rules:
 | Disjunction | &phi; &#124; &psi; |
 | Implication | &phi; => &psi;     |
 | Equivalence | &phi; <=> &psi;    |
+| Xor         | &phi; ^ &psi;      |
 | AX          | AX &phi;           |
 | EX          | EX &phi;           |
 | AF          | AF &phi;           |
@@ -47,3 +48,8 @@ To create custom formulae, use the following syntax rules:
 | exists x    | 3{x}: &phi;        |
 
 
+The operator precedence is following:
+* unary operators (negation + temporal): 1
+* binary temporal operators: 2
+* boolean binary operators: and=3, xor=4, or=5, imp=6, eq=7
+* hybrid operators: 8
