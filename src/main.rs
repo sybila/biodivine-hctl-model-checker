@@ -25,7 +25,7 @@ use std::fs::read_to_string;
 #[derive(Parser)]
 #[clap(author="Ondrej Huvar", version, about="Symbolic HCTL model checker for Boolean networks")]
 struct Arguments {
-    /// Path to the file with BN model
+    /// Path to the file with BN model in aeon format
     model_path: String,
     /// Formula to check
     formula: String,

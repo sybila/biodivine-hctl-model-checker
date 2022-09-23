@@ -16,7 +16,7 @@ and then run the binary:
 .\target\release\model-check <MODEL_PATH> <FORMULA> [-p <PRINT_OPTION>]
 ```
 
-- `MODEL_PATH` is a path to a file with BN model in bnet format
+- `MODEL_PATH` is a path to a file with BN model in aeon format
 - `FORMULA` is a valid HCTL formula in correct format
 - `PRINT_OPTION` is one of none/short/full and defines the output mode
 
