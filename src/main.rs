@@ -1,5 +1,5 @@
+use clap::Parser;
 use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
-use std::env;
 use std::fs::read_to_string;
 
 /* TODOs to implement for the model checking */
@@ -21,16 +21,31 @@ use std::fs::read_to_string;
 // TODO: check that formula doesnt contain stuff like "!x: (EF (!x: x)) - same var quantified more times
 
 
+/// Structure to collect CLI arguments
+#[derive(Parser)]
+#[clap(author="Ondrej Huvar", version, about="Symbolic HCTL model checker for Boolean networks")]
+struct Arguments {
+    /// Path to the file with BN model
+    model_path: String,
+    /// Formula to check
+    formula: String,
+    /// Choice of output mode: none/short/full
+    #[clap(short, long, default_value = "short")]
+    print_option: String,
+}
+
+
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        println!("2 arguments expected, got {}", args.len() - 1);
-        println!("Usage: ./model-check model_file formula");
-        return;
+    let args = Arguments::parse();
+    let aeon_string = read_to_string(args.model_path).unwrap();
+    println!("original formula: {}", args.formula);
+
+    match args.print_option.as_str() {
+        "none" => analyse_formula(aeon_string, args.formula, PrintOptions::NoPrint),
+        "short" => analyse_formula(aeon_string, args.formula, PrintOptions::ShortPrint),
+        "full" => analyse_formula(aeon_string, args.formula, PrintOptions::LongPrint),
+        _ => println!("Wrong print option \"{}\".", args.print_option.as_str()),
     }
-    let aeon_string = read_to_string(args[1].clone()).unwrap();
-    println!("original formula: {}", args[2].clone());
-    analyse_formula(aeon_string, args[2].clone(), PrintOptions::LongPrint);
 }
 
 #[cfg(test)]
