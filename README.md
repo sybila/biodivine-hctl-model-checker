@@ -20,6 +20,15 @@ and then run the binary:
 - `FORMULA` is a valid HCTL formula in correct format
 - `PRINT_OPTION` is one of none/short/full and defines the output mode
 
+
+## Models
+
+The tool takes BN models in `aeon` format as its input, with many example models present in the `benchmark_models` directory.
+Many benchmark models are also present in bnet format, but this is just for the convenience of the user, and those can't be used as inputs for now.
+
+
+## HCTL formulae
+
 Some interesting formulae can be found in the ```benchmark_formulae.txt``` file.
 To create custom formulae, use the following syntax rules:
 
@@ -48,7 +57,7 @@ To create custom formulae, use the following syntax rules:
 | exists x    | 3{x}: &phi;        |
 
 
-The operator precedence is following:
+We are using following operator precedence:
 * unary operators (negation + temporal): 1
 * binary temporal operators: 2
 * boolean binary operators: and=3, xor=4, or=5, imp=6, eq=7
