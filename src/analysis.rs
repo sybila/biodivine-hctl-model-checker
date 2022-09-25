@@ -80,17 +80,14 @@ fn minimize_number_of_state_vars(
 }
 
 /// Returns the set of all uniquely named HCTL variables in the formula tree
+/// Variable names are collected from BIND and EXIST quantifiers
+/// That is sufficient, since the formula have to be closed
 fn collect_unique_hctl_vars(
     formula_tree: Node,
     mut seen_vars: HashSet<String>
 ) -> HashSet<String> {
     match formula_tree.node_type {
-        NodeType::TerminalNode(atom) => match atom {
-            Atomic::Var(var_name) => {
-                seen_vars.insert(var_name); // we do not care whether insert is successful
-            }
-            _ => {}
-        },
+        NodeType::TerminalNode(_) => {}
         NodeType::UnaryNode(_, child) => {
             seen_vars.extend(collect_unique_hctl_vars(*child, seen_vars.clone()));
         }
@@ -98,8 +95,14 @@ fn collect_unique_hctl_vars(
             seen_vars.extend(collect_unique_hctl_vars(*left, seen_vars.clone()));
             seen_vars.extend(collect_unique_hctl_vars(*right, seen_vars.clone()));
         }
-        // hybrid nodes are more complicated
-        NodeType::HybridNode(_, _, child) => {
+        // collect variables from exist and bind nodes
+        NodeType::HybridNode(op, var_name, child) => {
+            match op {
+                HybridOp::Bind | HybridOp::Exist => {
+                    seen_vars.insert(var_name); // we do not care whether insert is successful
+                }
+                _ => {}
+            }
             seen_vars.extend(collect_unique_hctl_vars(*child, seen_vars.clone()));
         }
     }
@@ -123,9 +126,9 @@ pub fn analyse_formula(aeon_string: String, formula: String, print_option: Print
 
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
-            //println!("original formula: {}", tree.subform_str);
+            println!("original formula: {}", tree.subform_str);
             let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
-            //println!("modified formula: {}", new_tree.subform_str);
+            println!("modified formula: {}", new_tree.subform_str);
 
             // count the number of needed HCTL vars and instantiate graph with it
             let num_hctl_vars = collect_unique_hctl_vars(new_tree.clone(),HashSet::new()).len();
