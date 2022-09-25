@@ -5,11 +5,10 @@ use std::fs::read_to_string;
 /* TODOs to implement for the model checking */
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator, maybe few more special cases
-// TODO: think of some equivalent method to saturation for EG,AU ?
 // TODO: documentation
 
-/* BUGs and issues to fix */
-// TODO: does formula 4 from TACAS and CAV work?
+/* Potential bugs and issues to fix */
+// TODO: is formula 4 from TACAS and CAV evaluated (or even parsed) correctly?
 // TODO: is parsing and operator priority right? - probably ok, just needs right parentheses
 /*
    AF !{x}: (AX (~{x} & AF {x})) parses as (Bind {x}: (Ax ((~ {x}) & (Af {x}))))
@@ -38,7 +37,7 @@ struct Arguments {
 fn main() {
     let args = Arguments::parse();
     let aeon_string = read_to_string(args.model_path).unwrap();
-    println!("original formula: {}", args.formula);
+    //println!("original formula: {}", args.formula);
 
     match args.print_option.as_str() {
         "none" => analyse_formula(aeon_string, args.formula, PrintOptions::NoPrint),
