@@ -1,0 +1,1 @@
+Sets of large coloured variants of several models originally obtained from the [biodivine-boolean-models](https://github.com/sybila/biodivine-boolean-models) repository. 
