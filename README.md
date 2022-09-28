@@ -31,38 +31,22 @@ Many benchmark models are also present in bnet format, but this is just for the 
 
 Some interesting formulae can be found in the ```benchmark_formulae.txt``` file.
 
-To create custom formulae, use the following syntax rules (&phi; and &psi; can be arbitrary sub-formulae):
+To create custom formulae, you can use any HCTL operators and many derived ones.
+We use the following syntax:
+* constants: `true`, `false`
+* propositions: `alphanumeric characters and underscores` (e.g. p_1)
+* variables: `alphanumeric characters and underscores enclosed in "{}"` (e.g. {x_1})
+* negation: `~`
+* boolean binary operators: `&`, `|`, `=>`, `<=>`, `^`
+* temporal unary operators: `AX`, `EX`, `AF`, `EF`, `AG`, `EG`
+* temporal binary operators: `AU`, `EU`, `AW`, `EW`
+* hybrid operators
+  * bind x: `!{x}:`
+  * jump x: `@{x}:`
+  * exists x: `3{x}:`
 
-| HCTL        | Our syntax         |
-|:------------|:-------------------|
-| True        | true               |
-| False       | false              |
-| negation	   | ~&phi;             |
-| Conjunction | &phi; & &psi;      |
-| Disjunction | &phi; &#124; &psi; |
-| Implication | &phi; => &psi;     |
-| Equivalence | &phi; <=> &psi;    |
-| Xor         | &phi; ^ &psi;      |
-| AX          | AX &phi;           |
-| EX          | EX &phi;           |
-| AF          | AF &phi;           |
-| EF          | EF &phi;           |
-| AG          | AG &phi;           |
-| EG          | EG &phi;           |
-| AU          | &phi; AU &psi;     |
-| EU          | &phi; EU &psi;     |
-| AW          | &phi; AW &psi;     |
-| EW          | &phi; EW &psi;     |
-| bind x      | !{x}: &phi;        |
-| jump x      | @{x}: &phi;        |
-| exists x    | 3{x}: &phi;        |
-
-We are using following operator precedence:
+The operator precedence is following:
 * unary operators (negation + temporal): 1
 * binary temporal operators: 2
 * boolean binary operators: and=3, xor=4, or=5, imp=6, eq=7
 * hybrid operators: 8
-
-Note that propositions can contain alphanumeric characters and underscores. Variables use the same characters, but enclosed in "{}".
-* proposition example: p_1
-* variable example: {x_1}
