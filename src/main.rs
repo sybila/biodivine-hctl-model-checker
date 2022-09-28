@@ -19,10 +19,13 @@ use std::fs::read_to_string;
 // TODO: "!{var}: AG EF {var} & & !{var}: AG EF {var}" DOES NOT CAUSE ERROR
 // TODO: check that formula doesnt contain stuff like "!x: (EF (!x: x)) - same var quantified more times
 
-
 /// Structure to collect CLI arguments
 #[derive(Parser)]
-#[clap(author="Ondrej Huvar", version, about="Symbolic HCTL model checker for Boolean networks")]
+#[clap(
+    author = "Ondrej Huvar",
+    version,
+    about = "Symbolic HCTL model checker for Boolean networks"
+)]
 struct Arguments {
     /// Path to the file with BN model in aeon format
     model_path: String,
@@ -32,7 +35,6 @@ struct Arguments {
     #[clap(short, long, default_value = "short")]
     print_option: String,
 }
-
 
 fn main() {
     let args = Arguments::parse();
@@ -100,5 +102,13 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         assert_eq!(12., result.approx_cardinality());
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(12., result.vertices().approx_cardinality());
+
+        result = model_check_formula_unsafe(
+            "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))".to_string(),
+            &stg,
+        );
+        assert_eq!(11., result.approx_cardinality());
+        assert_eq!(1., result.colors().approx_cardinality());
+        assert_eq!(11., result.vertices().approx_cardinality());
     }
 }

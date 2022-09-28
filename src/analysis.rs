@@ -131,7 +131,7 @@ pub fn analyse_formula(aeon_string: String, formula: String, print_option: Print
             println!("modified formula: {}", new_tree.subform_str);
 
             // count the number of needed HCTL vars and instantiate graph with it
-            let num_hctl_vars = collect_unique_hctl_vars(new_tree.clone(),HashSet::new()).len();
+            let num_hctl_vars = collect_unique_hctl_vars(new_tree.clone(), HashSet::new()).len();
             let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
             let graph = SymbolicAsyncGraph::new(bn, num_hctl_vars as i16).unwrap();
 
