@@ -17,7 +17,7 @@ and then run the binary:
 ```
 
 - `MODEL_PATH` is a path to a file with BN model in aeon format
-- `FORMULA` is a valid HCTL formula in correct format
+- `FORMULA` is a valid HCTL formula without free variables in correct format
 - `PRINT_OPTION` is one of none/short/full and defines the output mode
 
 
@@ -30,12 +30,15 @@ Many benchmark models are also present in bnet format, but this is just for the 
 ## HCTL formulae
 
 Some interesting formulae can be found in the ```benchmark_formulae.txt``` file.
-To create custom formulae, use the following syntax rules:
+
+To create custom formulae, use the following syntax rules (&phi; and &psi; can be arbitrary sub-formulae):
 
 | HCTL        | Our syntax         |
 |:------------|:-------------------|
 | True        | true               |
 | False       | false              |
+| proposition | false              |
+| variables   | false              |
 | negation	   | ~&phi;             |
 | Conjunction | &phi; & &psi;      |
 | Disjunction | &phi; &#124; &psi; |
