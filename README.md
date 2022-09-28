@@ -37,8 +37,6 @@ To create custom formulae, use the following syntax rules (&phi; and &psi; can b
 |:------------|:-------------------|
 | True        | true               |
 | False       | false              |
-| proposition | false              |
-| variables   | false              |
 | negation	   | ~&phi;             |
 | Conjunction | &phi; & &psi;      |
 | Disjunction | &phi; &#124; &psi; |
@@ -59,9 +57,12 @@ To create custom formulae, use the following syntax rules (&phi; and &psi; can b
 | jump x      | @{x}: &phi;        |
 | exists x    | 3{x}: &phi;        |
 
-
 We are using following operator precedence:
 * unary operators (negation + temporal): 1
 * binary temporal operators: 2
 * boolean binary operators: and=3, xor=4, or=5, imp=6, eq=7
 * hybrid operators: 8
+
+Note that propositions can contain alphanumeric characters and underscores. Variables use the same characters, but enclosed in "{}".
+* proposition example: p_1
+* variable example: {x_1}
