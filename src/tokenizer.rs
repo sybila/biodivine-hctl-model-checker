@@ -36,7 +36,7 @@ pub fn tokenize_recursive(
                 if Some('>') == input_chars.next() {
                     output.push(Token::Binary(BinaryOp::Imp));
                 } else {
-                    return Result::Err("Expected '>' after '='.".to_string());
+                    return Err("Expected '>' after '='.".to_string());
                 }
             }
             '<' => {
@@ -44,14 +44,14 @@ pub fn tokenize_recursive(
                     if Some('>') == input_chars.next() {
                         output.push(Token::Binary(BinaryOp::Iff));
                     } else {
-                        return Result::Err("Expected '>' after '<='.".to_string());
+                        return Err("Expected '>' after '<='.".to_string());
                     }
                 } else {
-                    return Result::Err("Expected '=' after '<'.".to_string());
+                    return Err("Expected '=' after '<'.".to_string());
                 }
             }
             // '>' is invalid as a start of a token
-            '>' => return Result::Err("Unexpected '>'.".to_string()),
+            '>' => return Err("Unexpected '>'.".to_string()),
 
             // pattern E{temporal}, must not be just a part of some proposition name
             'E' if is_valid_temp_op(input_chars.peek()) => {
@@ -73,10 +73,10 @@ pub fn tokenize_recursive(
                         'G' => output.push(Token::Unary(UnaryOp::Eg)),
                         'U' => output.push(Token::Binary(BinaryOp::Eu)),
                         'W' => output.push(Token::Binary(BinaryOp::Ew)),
-                        _ => return Result::Err(format!("Unexpected char '{}' after 'E'.", c2)),
+                        _ => return Err(format!("Unexpected char '{}' after 'E'.", c2)),
                     }
                 } else {
-                    return Result::Err("Expected one of '{X,F,G,U,W}' after 'E'.".to_string());
+                    return Err("Expected one of '{X,F,G,U,W}' after 'E'.".to_string());
                 }
             }
 
@@ -99,10 +99,10 @@ pub fn tokenize_recursive(
                         'G' => output.push(Token::Unary(UnaryOp::Ag)),
                         'U' => output.push(Token::Binary(BinaryOp::Au)),
                         'W' => output.push(Token::Binary(BinaryOp::Aw)),
-                        _ => return Result::Err(format!("Unexpected char '{}' after 'A'.", c2)),
+                        _ => return Err(format!("Unexpected char '{}' after 'A'.", c2)),
                     }
                 } else {
-                    return Result::Err("Expected one of '{X,F,G,U,W}' after 'A'.".to_string());
+                    return Err("Expected one of '{X,F,G,U,W}' after 'A'.".to_string());
                 }
             }
             '!' => {
@@ -123,9 +123,9 @@ pub fn tokenize_recursive(
             }
             ')' => {
                 return if !top_level {
-                    Result::Ok(output)
+                    Ok(output)
                 } else {
-                    Result::Err("Unexpected ')'.".to_string())
+                    Err("Unexpected ')'.".to_string())
                 }
             }
             '(' => {
@@ -138,7 +138,7 @@ pub fn tokenize_recursive(
                 let name = collect_name(input_chars)?;
                 output.push(Token::Atom(Atomic::Var(name)));
                 if Some('}') != input_chars.next() {
-                    return Result::Err("Expected '}'.".to_string());
+                    return Err("Expected '}'.".to_string());
                 }
             }
             // proposition name
@@ -146,14 +146,14 @@ pub fn tokenize_recursive(
                 let name = collect_name(input_chars)?;
                 output.push(Token::Atom(Atomic::Prop(c.to_string() + &name)));
             }
-            _ => return Result::Err(format!("Unexpected char '{}'.", c)),
+            _ => return Err(format!("Unexpected char '{}'.", c)),
         }
     }
 
     if top_level {
-        Result::Ok(output)
+        Ok(output)
     } else {
-        Result::Err("Expected ')'.".to_string())
+        Err("Expected ')'.".to_string())
     }
 }
 
@@ -206,17 +206,17 @@ fn collect_var_from_operator(
     let _ = input_chars.take_while(|c| c.is_whitespace());
     // now collect the variable name itself- it is in the form {var_name} for now
     if Some('{') != input_chars.next() {
-        return Result::Err(format!("Expected '{{' after '{}'.", operator));
+        return Err(format!("Expected '{{' after '{}'.", operator));
     }
     let name = collect_name(input_chars)?;
 
     if Some('}') != input_chars.next() {
-        return Result::Err("Expected '}'.".to_string());
+        return Err("Expected '}'.".to_string());
     }
     let _ = input_chars.take_while(|c| c.is_whitespace());
 
     if Some(':') != input_chars.next() {
-        return Result::Err("Expected ':'.".to_string());
+        return Err("Expected ':'.".to_string());
     }
     Ok(name)
 }
