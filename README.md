@@ -4,9 +4,8 @@ Work in progress.
 
 This repository contains the Rust implementation of the symbolic model checker for hybrid logic HCTL. The tool is focused on the analysis of (partially specified) Boolean networks. In particular, it allows to check for any behavioural hypotheses expressible in HCTL on large, non-trivial networks. This includes properties like stability, bi-stability, attractors, or oscillatory behaviour.
 
-For a given Boolean network (with inputs) and HCTL formula (representing the property we want to check), it computes all the states of the network (and corresponding colours) that satisfy the formula. Depending on the mode, either prints the numbers of satisfying states and colours, or prints all the satisfying assignments.
+For a given (partially defined) Boolean network and a HCTL formula (representing the property we want to check), it computes all the states of the network (and corresponding colours) that satisfy the formula. Currently, there is only a command-line interface, with a GUI soon to be implemented. Depending on the mode, it either prints the numbers of satisfying states and colours, or prints all the satisfying assignments. 
 
-Currently, there is only a command-line interface, with a GUI soon to be implemented.
 To directly invoke the model checker, compile the code using
 ```
 cargo build --release
