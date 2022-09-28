@@ -28,7 +28,7 @@ Many benchmark models are also present in bnet format, but this is just for the 
 
 ## HCTL formulae
 
-Some interesting formulae can be found in the ```benchmark_formulae.txt``` file.
+Several interesting formulae are listed in the ```benchmark_formulae.txt``` file.
 
 To create custom formulae, you can use any HCTL operators and many derived ones.
 We use the following syntax:
