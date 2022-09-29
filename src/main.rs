@@ -6,18 +6,15 @@ use std::fs::read_to_string;
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator, maybe few more special cases
 // TODO: documentation
+// TODO: refactor tokenizer (remove duplicity, divide functionality, etc)
+// TODO: check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
 
 /* Potential bugs and issues to fix */
-// TODO: is formula 4 from TACAS and CAV evaluated (or even parsed) correctly?
-// TODO: is parsing and operator priority right? - probably ok, just needs right parentheses
+// TODO: parse / tokenize issues
 /*
-   AF !{x}: (AX (~{x} & AF {x})) parses as (Bind {x}: (Ax ((~ {x}) & (Af {x}))))
-   3{x}: ({x} & !{y}: {y}) parses as (Exist {x}: (Bind {y}: {y}))
-   "!{var}: AG EF {var} & !{var}: AG EF {var}" does not parse "correctly"
+   "AU !{x}: {x}" is parsed as valid
+   "!{var}: AG EF {var} & & !{var}: AG EF {var}" is parsed as valid
 */
-
-// TODO: "!{var}: AG EF {var} & & !{var}: AG EF {var}" DOES NOT CAUSE ERROR
-// TODO: check that formula doesnt contain stuff like "!x: (EF (!x: x)) - same var quantified more times
 
 /// Structure to collect CLI arguments
 #[derive(Parser)]
@@ -110,5 +107,8 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         assert_eq!(11., result.approx_cardinality());
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(11., result.vertices().approx_cardinality());
+
+        // TODO: add "AF (!{x}: (AX (~{x} & AF {x})))"
+        // TODO: add "AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))"
     }
 }
