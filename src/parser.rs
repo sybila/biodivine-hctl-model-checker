@@ -314,3 +314,42 @@ fn parse_9_terminal(tokens: &[Token]) -> Result<Box<Node>, String> {
         Err(format!("Unexpected: {:?}. Expecting formula.", tokens))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::tokenizer::tokenize_formula;
+    use crate::parser::parse_hctl_formula;
+
+    #[test]
+    fn test_parse_valid_formulae() {
+        let valid1 = "!{x}: AG EF {x}".to_string();
+        let tokens1 = tokenize_formula(valid1).unwrap();
+        assert!(parse_hctl_formula(&tokens1).is_ok());
+
+        let valid2 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string();
+        let tokens2 = tokenize_formula(valid2).unwrap();
+        assert!(parse_hctl_formula(&tokens2).is_ok());
+
+        let valid3 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))".to_string();
+        let tokens3 = tokenize_formula(valid3).unwrap();
+        assert!(parse_hctl_formula(&tokens3).is_ok());
+    }
+
+    #[test]
+    fn test_parse_invalid_formulae() {
+        let invalid_formulae = vec![
+            "!{x}: AG EK {x}",
+            "!{x}: AG F {x}",
+            "!{x}: AG EU {x}",
+            "!{x}: TU EK {x}",
+            "!{x}: AU AU {x}",
+            "& prop",
+            "prop1 prop2",
+        ];
+
+        for formula in invalid_formulae {
+            let tokens = tokenize_formula(formula.to_string()).unwrap();
+            assert!(parse_hctl_formula(&tokens).is_err())
+        }
+    }
+}

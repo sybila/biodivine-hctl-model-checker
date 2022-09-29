@@ -268,3 +268,75 @@ pub fn print_tokens(tokens: &Vec<Token>) -> () {
     print_tokens_recursively(tokens);
     println!();
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::tokenizer::{Token, tokenize_formula};
+    use crate::operation_enums::*;
+
+    #[test]
+    fn test_tokenize_valid_formulae() {
+        let valid1 = "!{x}: AG EF {x}".to_string();
+        let tokens1_result = tokenize_formula(valid1);
+        assert_eq!(tokens1_result.unwrap(), vec![
+            Token::Hybrid(HybridOp::Bind, "x".to_string()),
+            Token::Unary(UnaryOp::Ag),
+            Token::Unary(UnaryOp::Ef),
+            Token::Atom(Atomic::Var("x".to_string())),
+        ]);
+
+        let valid2 = "AF (!{x}: (AX (~{x} & AF {x})))".to_string();
+        let tokens2_result = tokenize_formula(valid2);
+        assert_eq!(tokens2_result.unwrap(), vec![
+            Token::Unary(UnaryOp::Af),
+            Token::Tokens(vec![
+                Token::Hybrid(HybridOp::Bind, "x".to_string()),
+                Token::Tokens(vec![
+                    Token::Unary(UnaryOp::Ax),
+                    Token::Tokens(vec![
+                        Token::Unary(UnaryOp::Not),
+                        Token::Atom(Atomic::Var("x".to_string())),
+                        Token::Binary(BinaryOp::And),
+                        Token::Unary(UnaryOp::Af),
+                        Token::Atom(Atomic::Var("x".to_string())),
+                    ]),
+                ]),
+            ]),
+        ]);
+
+        let valid3 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string();
+        let tokens3_result = tokenize_formula(valid3);
+        assert_eq!(tokens3_result.unwrap(), vec![
+            Token::Hybrid(HybridOp::Bind, "x".to_string()),
+            Token::Hybrid(HybridOp::Exist, "y".to_string()),
+            Token::Tokens(vec![
+                Token::Hybrid(HybridOp::Jump, "x".to_string()),
+                Token::Unary(UnaryOp::Not),
+                Token::Atom(Atomic::Var("y".to_string())),
+                Token::Binary(BinaryOp::And),
+                Token::Unary(UnaryOp::Ax),
+                Token::Atom(Atomic::Var("x".to_string())),
+            ]),
+            Token::Binary(BinaryOp::And),
+            Token::Tokens(vec![
+                Token::Hybrid(HybridOp::Jump, "y".to_string()),
+                Token::Unary(UnaryOp::Ax),
+                Token::Atom(Atomic::Var("y".to_string())),
+            ]),
+        ]);
+    }
+
+    #[test]
+    fn test_tokenize_invalid_formulae() {
+        let invalid_formulae = vec![
+            "!{x}: AG EF {x<&}",
+            "!{x AG EF {x}",
+            "!{}: AG EF {x}",
+            "{x}: AG EF {x}",
+        ];
+
+        for formula in invalid_formulae {
+            assert!(tokenize_formula(formula.to_string()).is_err())
+        }
+    }
+}
