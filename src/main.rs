@@ -51,7 +51,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
     use biodivine_lib_param_bn::BooleanNetwork;
     use hctl_model_checker::analysis::model_check_formula_unsafe;
 
@@ -70,7 +70,7 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
 ";
 
     #[test]
-    fn basic_formulas() {
+    fn test_model_check_basic_formulae() {
         let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
         // test formulae use 2 HCTL vars at most
         let stg = SymbolicAsyncGraph::new(bn, 2).unwrap();
