@@ -142,6 +142,9 @@ fn tokenize_recursive(
             // variable name
             '{' => {
                 let name = collect_name(input_chars)?;
+                if name.is_empty() {
+                    return Err("Variable name can't be empty.".to_string());
+                }
                 output.push(Token::Atom(Atomic::Var(name)));
                 if Some('}') != input_chars.next() {
                     return Err("Expected '}'.".to_string());
@@ -215,6 +218,9 @@ fn collect_var_from_operator(
         return Err(format!("Expected '{{' after '{}'.", operator));
     }
     let name = collect_name(input_chars)?;
+    if name.is_empty() {
+        return Err("Variable name can't be empty.".to_string());
+    }
 
     if Some('}') != input_chars.next() {
         return Err("Expected '}'.".to_string());
