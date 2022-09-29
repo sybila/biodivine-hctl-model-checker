@@ -4,7 +4,7 @@ use crate::io::{print_results, print_results_fast};
 use crate::operation_enums::*;
 use crate::parser::*;
 #[allow(unused_imports)]
-use crate::tokenizer::{print_tokens, tokenize_recursive};
+use crate::tokenizer::{print_tokens, tokenize_formula};
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
@@ -115,7 +115,7 @@ fn collect_unique_hctl_vars(
 pub fn analyse_formula(aeon_string: String, formula: String, print_option: PrintOptions) {
     let start = SystemTime::now();
 
-    let tokens = match tokenize_recursive(&mut formula.chars().peekable(), true) {
+    let tokens = match tokenize_formula(formula) {
         Ok(r) => r,
         Err(e) => {
             println!("{}", e);
@@ -167,7 +167,7 @@ pub fn model_check_formula_unsafe(
     formula: String,
     stg: &SymbolicAsyncGraph,
 ) -> GraphColoredVertices {
-    let tokens = tokenize_recursive(&mut formula.chars().peekable(), true).unwrap();
+    let tokens = tokenize_formula(formula).unwrap();
     let tree = parse_hctl_formula(&tokens).unwrap();
     let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
     eval_minimized_tree(modified_tree, stg)

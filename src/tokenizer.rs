@@ -14,9 +14,15 @@ pub enum Token {
     Tokens(Vec<Token>),       // A block of tokens inside parentheses
 }
 
+/// Tries to tokenize_formula HCTL formula
+/// Wrapper for the recursive tokenize_formula function
+pub fn tokenize_formula(formula: String) -> Result<Vec<Token>, String> {
+    tokenize_recursive(&mut formula.chars().peekable(), true)
+}
+
 /// Process a peekable iterator of characters into a vector of `Token`s.
-/// Tries to tokenize HCTL formula
-pub fn tokenize_recursive(
+/// Tries to tokenize_formula HCTL formula
+fn tokenize_recursive(
     input_chars: &mut Peekable<Chars>,
     top_level: bool,
 ) -> Result<Vec<Token>, String> {
