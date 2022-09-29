@@ -8,8 +8,10 @@ use std::fs::read_to_string;
 // TODO: documentation
 // TODO: refactor tokenizer (remove duplicity, divide functionality, etc)
 // TODO: check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
+// TODO: when I comment the fixed-point optimisation (lines 72-78 in evaluator), tests in main fail
 
 /* Potential bugs and issues to fix */
+// TODO: formulae '!{x}: (AX (AF {x}))' and 'AF (!{x}: (AX (~{x} & AF {x})))' do not work
 // TODO: parse / tokenize issues
 /*
    "AU !{x}: {x}" is parsed as valid
@@ -36,7 +38,7 @@ struct Arguments {
 fn main() {
     let args = Arguments::parse();
     let aeon_string = read_to_string(args.model_path).unwrap();
-    //println!("original formula: {}", args.formula);
+    println!("original formula: {}", args.formula);
 
     match args.print_option.as_str() {
         "none" => analyse_formula(aeon_string, args.formula, PrintOptions::NoPrint),
@@ -52,6 +54,7 @@ mod tests {
     use biodivine_lib_param_bn::BooleanNetwork;
     use hctl_model_checker::analysis::model_check_formula_unsafe;
 
+    // model FISSION-YEAST-2008
     const BNET_MODEL: &str = r"
 targets,factors
 Cdc25, ((!Cdc2_Cdc13 & (Cdc25 & !PP)) | ((Cdc2_Cdc13 & (!Cdc25 & !PP)) | (Cdc2_Cdc13 & Cdc25)))
@@ -108,7 +111,19 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(11., result.vertices().approx_cardinality());
 
-        // TODO: add "AF (!{x}: (AX (~{x} & AF {x})))"
+        /*
+        // TODO: fix and add following 2 formulae
+        result = model_check_formula_unsafe("!{x}: (AX (AF {x}))".to_string(), &stg);
+        assert_eq!(60., result.approx_cardinality());
+        assert_eq!(1., result.colors().approx_cardinality());
+        assert_eq!(60., result.vertices().approx_cardinality());
+
+        result = model_check_formula_unsafe("AF (!{x}: (AX (~{x} & AF {x})))".to_string(), &stg);
+        assert_eq!(0., result.approx_cardinality());
+        assert_eq!(0., result.colors().approx_cardinality());
+        assert_eq!(0., result.vertices().approx_cardinality());
+
         // TODO: add "AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))"
+         */
     }
 }

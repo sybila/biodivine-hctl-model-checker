@@ -126,7 +126,7 @@ pub fn analyse_formula(aeon_string: String, formula: String, print_option: Print
 
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
-            println!("original formula: {}", tree.subform_str);
+            println!("parsed formula:   {}", tree.subform_str);
             let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
             println!("modified formula: {}", new_tree.subform_str);
 
@@ -143,7 +143,6 @@ pub fn analyse_formula(aeon_string: String, formula: String, print_option: Print
             }
 
             let result = eval_minimized_tree(new_tree, &graph);
-            //write_attractors_to_file(&graph, "attractor_output.txt");
 
             if print_option != PrintOptions::NoPrint {
                 println!("Eval time: {}ms", start.elapsed().unwrap().as_millis());
