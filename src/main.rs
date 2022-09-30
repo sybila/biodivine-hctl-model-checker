@@ -3,6 +3,12 @@ use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::fs::read_to_string;
 
 /* TODOs for the general model checking */
+// TODO: remove computing fixed points from AX and EG, and make it part of symbolic context
+// TODO: remove fixed points var from whole eval, after it is part of symbolic context
+// TODO: check generating predecessors in EU_saturated (check including self-loops)
+// TODO: update generating predecessors in commented versions of EU and EF (use ex not pre)
+
+
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator, maybe few more special cases
 // TODO: documentation
@@ -117,19 +123,19 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(11., result.vertices().approx_cardinality());
 
-        /*
-        // TODO: fix and add following 2 formulae
         result = model_check_formula_unsafe("!{x}: (AX (AF {x}))".to_string(), &stg);
-        assert_eq!(60., result.approx_cardinality());
+        assert_eq!(12., result.approx_cardinality());
         assert_eq!(1., result.colors().approx_cardinality());
-        assert_eq!(60., result.vertices().approx_cardinality());
+        assert_eq!(12., result.vertices().approx_cardinality());
 
         result = model_check_formula_unsafe("AF (!{x}: (AX (~{x} & AF {x})))".to_string(), &stg);
         assert_eq!(0., result.approx_cardinality());
         assert_eq!(0., result.colors().approx_cardinality());
         assert_eq!(0., result.vertices().approx_cardinality());
 
-        // TODO: add "AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))"
-         */
+        result = model_check_formula_unsafe("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))".to_string(), &stg);
+        assert_eq!(0., result.approx_cardinality());
+        assert_eq!(0., result.colors().approx_cardinality());
+        assert_eq!(0., result.vertices().approx_cardinality());
     }
 }

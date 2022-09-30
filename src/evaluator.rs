@@ -3,7 +3,6 @@ use crate::implementation_components::*;
 use crate::operation_enums::*;
 use crate::parser::{Node, NodeType};
 
-use biodivine_lib_bdd::{bdd, Bdd};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
@@ -18,7 +17,8 @@ use std::str::Chars;
 pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     let mut duplicates = mark_duplicates(&tree);
     let mut cache: HashMap<String, GraphColoredVertices> = HashMap::new();
-    eval_node(tree, &graph, &mut duplicates, &mut cache)
+    let fixed_points = compute_fixed_points(graph);
+    eval_node(tree, &graph, &mut duplicates, &mut cache, &fixed_points)
 }
 
 /// Evaluates the formula sub-tree `node` on the given `graph`
@@ -29,6 +29,7 @@ pub fn eval_node(
     graph: &SymbolicAsyncGraph,
     duplicates: &mut HashMap<String, i32>,
     cache: &mut HashMap<String, GraphColoredVertices>,
+    fixed_points: &GraphColoredVertices
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
     let mut save_to_cache = false;
@@ -65,11 +66,7 @@ pub fn eval_node(
     }
     // fixed-points
     if is_fixed_point_pattern(node.clone()) {
-        let result = compute_fixed_points(graph);
-        if save_to_cache {
-            cache.insert(node.subform_str.clone(), result.clone());
-        }
-        return result;
+        return fixed_points.clone();
     }
 
     let result = match node.node_type {
@@ -80,70 +77,69 @@ pub fn eval_node(
             Atomic::Prop(name) => labeled_by(graph, &name),
         },
         NodeType::UnaryNode(op, child) => match op {
-            UnaryOp::Not => negate_set(graph, &eval_node(*child, graph, duplicates, cache)),
-            // TODO: do ex through the new specific function
-            UnaryOp::Ex => graph.pre(&eval_node(*child, graph, duplicates, cache)),
-            UnaryOp::Ax => ax(graph, &eval_node(*child, graph, duplicates, cache)),
-            UnaryOp::Ef => ef_saturated(graph, &eval_node(*child, graph, duplicates, cache)),
-            UnaryOp::Af => af(graph, &eval_node(*child, graph, duplicates, cache)),
-            UnaryOp::Eg => eg(graph, &eval_node(*child, graph, duplicates, cache)),
-            UnaryOp::Ag => ag(graph, &eval_node(*child, graph, duplicates, cache)),
+            UnaryOp::Not => negate_set(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
+            UnaryOp::Ex => ex(graph, &eval_node(*child, graph, duplicates, cache, fixed_points), fixed_points),
+            UnaryOp::Ax => ax(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
+            UnaryOp::Ef => ef_saturated(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
+            UnaryOp::Af => af(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
+            UnaryOp::Eg => eg(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
+            UnaryOp::Ag => ag(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
         },
         NodeType::BinaryNode(op, left, right) => match op {
-            BinaryOp::And => eval_node(*left, graph, duplicates, cache)
-                .intersect(&eval_node(*right, graph, duplicates, cache)),
-            BinaryOp::Or => eval_node(*left, graph, duplicates, cache)
-                .union(&eval_node(*right, graph, duplicates, cache)),
+            BinaryOp::And => eval_node(*left, graph, duplicates, cache, fixed_points)
+                .intersect(&eval_node(*right, graph, duplicates, cache, fixed_points)),
+            BinaryOp::Or => eval_node(*left, graph, duplicates, cache, fixed_points)
+                .union(&eval_node(*right, graph, duplicates, cache, fixed_points)),
             BinaryOp::Xor => non_equiv(
                 graph,
-                &eval_node(*left, graph, duplicates, cache),
-                &eval_node(*right, graph, duplicates, cache),
+                &eval_node(*left, graph, duplicates, cache, fixed_points),
+                &eval_node(*right, graph, duplicates, cache, fixed_points),
             ),
             BinaryOp::Imp => imp(
                 graph,
-                &eval_node(*left, graph, duplicates, cache),
-                &eval_node(*right, graph, duplicates, cache),
+                &eval_node(*left, graph, duplicates, cache, fixed_points),
+                &eval_node(*right, graph, duplicates, cache, fixed_points),
             ),
             BinaryOp::Iff => equiv(
                 graph,
-                &eval_node(*left, graph, duplicates, cache),
-                &eval_node(*right, graph, duplicates, cache),
+                &eval_node(*left, graph, duplicates, cache, fixed_points),
+                &eval_node(*right, graph, duplicates, cache, fixed_points),
             ),
             BinaryOp::Eu => eu_saturated(
                 graph,
-                &eval_node(*left, graph, duplicates, cache),
-                &eval_node(*right, graph, duplicates, cache),
+                &eval_node(*left, graph, duplicates, cache, fixed_points),
+                &eval_node(*right, graph, duplicates, cache, fixed_points),
             ),
             BinaryOp::Au => au(
                 graph,
-                &eval_node(*left, graph, duplicates, cache),
-                &eval_node(*right, graph, duplicates, cache),
+                &eval_node(*left, graph, duplicates, cache, fixed_points),
+                &eval_node(*right, graph, duplicates, cache, fixed_points),
             ),
             BinaryOp::Ew => ew(
                 graph,
-                &eval_node(*left, graph, duplicates, cache),
-                &eval_node(*right, graph, duplicates, cache),
+                &eval_node(*left, graph, duplicates, cache, fixed_points),
+                &eval_node(*right, graph, duplicates, cache, fixed_points),
             ),
             BinaryOp::Aw => aw(
                 graph,
-                &eval_node(*left, graph, duplicates, cache),
-                &eval_node(*right, graph, duplicates, cache),
+                &eval_node(*left, graph, duplicates, cache, fixed_points),
+                &eval_node(*right, graph, duplicates, cache, fixed_points),
             ),
         },
         NodeType::HybridNode(op, var, child) => match op {
             HybridOp::Bind => bind(
                 graph,
-                &eval_node(*child, graph, duplicates, cache),
+                &eval_node(*child, graph, duplicates, cache, fixed_points),
                 var.as_str(),
             ),
             HybridOp::Jump => jump(
                 graph,
-                &eval_node(*child, graph, duplicates, cache),
+                &eval_node(*child, graph, duplicates, cache, fixed_points),
                 var.as_str(),
             ),
             HybridOp::Exist => existential(
                 graph,
-                &eval_node(*child, graph, duplicates, cache),
+                &eval_node(*child, graph, duplicates, cache, fixed_points),
                 var.as_str(),
             ),
         },
@@ -184,35 +180,6 @@ fn is_fixed_point_pattern(node: Node) -> bool {
         },
         _ => false,
     };
-}
-
-/// computes fixed points using "(V1 <=> f_V1) & ... & (Vn <=> f_Vn)"
-/// optimised procedure for formula "!{x}: AX x"
-fn compute_fixed_points(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
-    // TODO: make nicer
-    let context = graph.symbolic_context();
-    let network = graph.as_network();
-    let update_functions: Vec<Bdd> = network
-        .as_graph()
-        .variables()
-        .map(|variable| {
-            let regulators = network.regulators(variable);
-            let function_is_one = network
-                .get_update_function(variable)
-                .as_ref()
-                .map(|fun| context.mk_fn_update_true(fun))
-                .unwrap_or_else(|| context.mk_implicit_function_is_true(variable, &regulators));
-            let variable_is_one = context.mk_state_variable_is_true(variable);
-            bdd!(variable_is_one <=> function_is_one)
-        })
-        .collect();
-
-    GraphColoredVertices::new(
-        update_functions
-            .iter()
-            .fold(graph.mk_unit_colored_vertices().into_bdd(), |r, v| r.and(v)),
-        context,
-    )
 }
 
 /// returns string representing the same subformula, but with canonized var names (var0, var1...)
