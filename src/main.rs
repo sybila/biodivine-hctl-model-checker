@@ -3,27 +3,26 @@ use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::fs::read_to_string;
 
 /* TODOs for the general model checking */
-// TODO: remove computing fixed points from AX and EG, and make it part of symbolic context
-// TODO: remove fixed points var from whole eval, after it is part of symbolic context
+// TODO: somehow move fixed points variable into the SymbolicAsyncGraph
+    // TODO: put placeholder field with None into object at the beginning ("maybe_steady_states")
+    // TODO: feed Some(fixed_points) into it after it is computed just before the eval
 // TODO: check generating predecessors in EU_saturated (check including self-loops)
 // TODO: update generating predecessors in commented versions of EU and EF (use ex not pre)
-
 
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator, maybe few more special cases
 // TODO: documentation
 // TODO: refactor tokenizer (remove duplicity, divide functionality, etc)
 // TODO: check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
-// TODO: when I comment the fixed-point optimisation (lines 72-78 in evaluator), tests in main fail
 
 /* TODOs for evaluation specifically */
 // TODO: caching for evaluator
 // TODO: SCC computation without the prints
 // TODO: possible optimizations (changing tree, or during evaluation)
 
-
-/* Potential bugs and issues to fix */
-// TODO: formulae '!{x}: (AX (AF {x}))' and 'AF (!{x}: (AX (~{x} & AF {x})))' do not work
+/* Potential BUGS and issues to fix */
+// TODO: when I comment the fixed-point optimisation (lines 72-78 in evaluator), tests in main fail
+    // Particularly the test with 3 vars (CAV formula 4)
 // TODO: parse / tokenize issues
 /*
    "AU !{x}: {x}" is parsed as valid
@@ -128,12 +127,18 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(12., result.vertices().approx_cardinality());
 
-        result = model_check_formula_unsafe("AF (!{x}: (AX (~{x} & AF {x})))".to_string(), &stg);
+        result = model_check_formula_unsafe(
+            "AF (!{x}: (AX (~{x} & AF {x})))".to_string()
+            , &stg
+        );
         assert_eq!(0., result.approx_cardinality());
         assert_eq!(0., result.colors().approx_cardinality());
         assert_eq!(0., result.vertices().approx_cardinality());
 
-        result = model_check_formula_unsafe("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))".to_string(), &stg);
+        result = model_check_formula_unsafe(
+            "AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))".to_string(),
+            &stg
+        );
         assert_eq!(0., result.approx_cardinality());
         assert_eq!(0., result.colors().approx_cardinality());
         assert_eq!(0., result.vertices().approx_cardinality());
