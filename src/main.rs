@@ -2,13 +2,19 @@ use clap::Parser;
 use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::fs::read_to_string;
 
-/* TODOs to implement for the model checking */
+/* TODOs for the general model checking */
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator, maybe few more special cases
 // TODO: documentation
 // TODO: refactor tokenizer (remove duplicity, divide functionality, etc)
 // TODO: check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
 // TODO: when I comment the fixed-point optimisation (lines 72-78 in evaluator), tests in main fail
+
+/* TODOs for evaluation specifically */
+// TODO: caching for evaluator
+// TODO: SCC computation without the prints
+// TODO: possible optimizations (changing tree, or during evaluation)
+
 
 /* Potential bugs and issues to fix */
 // TODO: formulae '!{x}: (AX (AF {x}))' and 'AF (!{x}: (AX (~{x} & AF {x})))' do not work

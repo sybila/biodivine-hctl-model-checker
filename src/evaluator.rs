@@ -1,5 +1,5 @@
 use crate::compute_scc::compute_terminal_scc;
-use crate::implementation::*;
+use crate::implementation_components::*;
 use crate::operation_enums::*;
 use crate::parser::{Node, NodeType};
 
@@ -12,11 +12,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::Peekable;
 use std::str::Chars;
-
-/* TODOs for evaluation specifically */
-// TODO: caching for evaluator
-// TODO: SCC computation without the prints
-// TODO: possible optimizations (changing tree, or during evaluation)
 
 /// Prepares formula `tree` for efficient evaluation (duplicates & cache)
 /// and then evaluates it on the given `graph`
@@ -86,6 +81,7 @@ pub fn eval_node(
         },
         NodeType::UnaryNode(op, child) => match op {
             UnaryOp::Not => negate_set(graph, &eval_node(*child, graph, duplicates, cache)),
+            // TODO: do ex through the new specific function
             UnaryOp::Ex => graph.pre(&eval_node(*child, graph, duplicates, cache)),
             UnaryOp::Ax => ax(graph, &eval_node(*child, graph, duplicates, cache)),
             UnaryOp::Ef => ef_saturated(graph, &eval_node(*child, graph, duplicates, cache)),

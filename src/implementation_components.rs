@@ -2,6 +2,8 @@ use biodivine_lib_bdd::BddVariable;
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
+// TODO move function for fixed-point computation here
+
 /// shortcut for negation which respects the allowed universe
 pub fn negate_set(graph: &SymbolicAsyncGraph, set: &GraphColoredVertices) -> GraphColoredVertices {
     let unit_set = graph.mk_unit_colored_vertices();
@@ -137,6 +139,14 @@ pub fn jump(
         .project(graph.symbolic_context().state_variables());
     // after projecting we do not need to intersect with unit bdd
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
+}
+
+/// EX computed using pre, but with added self-loops
+/// (EX phi) == PRE(phi) | (phi & fixed-points)
+pub fn ex(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+    // TODO replace placeholder with real computed fixed-points
+    let fixed_points = graph.mk_empty_vertices();
+    graph.pre(&phi).union(&phi.intersect(&fixed_points))
 }
 
 /*
