@@ -5,6 +5,7 @@ use crate::parser::{Node, NodeType};
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+use biodivine_lib_bdd::{Bdd, bdd};
 
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
@@ -12,13 +13,24 @@ use std::collections::HashSet;
 use std::iter::Peekable;
 use std::str::Chars;
 
+pub struct EvalInfo {
+    duplicates: HashMap<String, i32>,
+    cache: HashMap<String, GraphColoredVertices>,
+}
+
 /// Prepares formula `tree` for efficient evaluation (duplicates & cache)
 /// and then evaluates it on the given `graph`
 pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
-    let mut duplicates = mark_duplicates(&tree);
-    let mut cache: HashMap<String, GraphColoredVertices> = HashMap::new();
+    let mut eval_info: EvalInfo = EvalInfo {
+        duplicates: mark_duplicates(&tree),
+        cache: HashMap::new(),
+    };
     let fixed_points = compute_fixed_points(graph);
-    eval_node(tree, &graph, &mut duplicates, &mut cache, &fixed_points)
+    let graph_struct: GraphStruct = GraphStruct {
+        stg: graph.clone(),
+        fixed_points,
+    };
+    eval_node(tree, &graph_struct, &mut eval_info)
 }
 
 /// Evaluates the formula sub-tree `node` on the given `graph`
@@ -26,26 +38,24 @@ pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColor
 /// TODO: fix cache
 pub fn eval_node(
     node: Node,
-    graph: &SymbolicAsyncGraph,
-    duplicates: &mut HashMap<String, i32>,
-    cache: &mut HashMap<String, GraphColoredVertices>,
-    fixed_points: &GraphColoredVertices
+    graph_struct: &GraphStruct,
+    eval_info: &mut EvalInfo,
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
     let mut save_to_cache = false;
-    if duplicates.contains_key(node.subform_str.as_str()) {
-        if cache.contains_key(node.subform_str.as_str()) {
+    if eval_info.duplicates.contains_key(node.subform_str.as_str()) {
+        if eval_info.cache.contains_key(node.subform_str.as_str()) {
             // decrement number of duplicates left
-            *duplicates.get_mut(node.subform_str.as_str()).unwrap() -= 1;
+            *eval_info.duplicates.get_mut(node.subform_str.as_str()).unwrap() -= 1;
 
             // we will get bdd, but sometimes we must rename its vars
             // because it might have differently named state variables before
-            let result = cache.get(node.subform_str.as_str()).unwrap().clone();
+            let result = eval_info.cache.get(node.subform_str.as_str()).unwrap().clone();
 
             // if we already visited all of the duplicates, lets delete the cached value
-            if duplicates[node.subform_str.as_str()] == 0 {
-                duplicates.remove(node.subform_str.as_str());
-                cache.remove(node.subform_str.as_str());
+            if eval_info.duplicates[node.subform_str.as_str()] == 0 {
+                eval_info.duplicates.remove(node.subform_str.as_str());
+                eval_info.cache.remove(node.subform_str.as_str());
             }
             // since we are working with canonical cache, we must rename vars in result bdd
             return result;
@@ -58,95 +68,95 @@ pub fn eval_node(
     // first lets check for special cases, which can be optimised:
     // attractors
     if is_attractor_pattern(node.clone()) {
-        let result = compute_terminal_scc(graph, graph.mk_unit_colored_vertices());
+        let result = compute_terminal_scc(&graph_struct.stg, graph_struct.stg.mk_unit_colored_vertices());
         if save_to_cache {
-            cache.insert(node.subform_str.clone(), result.clone());
+            eval_info.cache.insert(node.subform_str.clone(), result.clone());
         }
         return result;
     }
     // fixed-points
     if is_fixed_point_pattern(node.clone()) {
-        return fixed_points.clone();
+        return graph_struct.fixed_points.clone();
     }
 
     let result = match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
-            Atomic::True => graph.mk_unit_colored_vertices(),
-            Atomic::False => graph.mk_empty_vertices(),
-            Atomic::Var(name) => create_comparator(graph, name.as_str()),
-            Atomic::Prop(name) => labeled_by(graph, &name),
+            Atomic::True => graph_struct.stg.mk_unit_colored_vertices(),
+            Atomic::False => graph_struct.stg.mk_empty_vertices(),
+            Atomic::Var(name) => create_comparator(&graph_struct.stg, name.as_str()),
+            Atomic::Prop(name) => labeled_by(&graph_struct.stg, &name),
         },
         NodeType::UnaryNode(op, child) => match op {
-            UnaryOp::Not => negate_set(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
-            UnaryOp::Ex => ex(graph, &eval_node(*child, graph, duplicates, cache, fixed_points), fixed_points),
-            UnaryOp::Ax => ax(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
-            UnaryOp::Ef => ef_saturated(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
-            UnaryOp::Af => af(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
-            UnaryOp::Eg => eg(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
-            UnaryOp::Ag => ag(graph, &eval_node(*child, graph, duplicates, cache, fixed_points)),
+            UnaryOp::Not => negate_set(&graph_struct.stg, &eval_node(*child, graph_struct, eval_info)),
+            UnaryOp::Ex => ex(&graph_struct, &eval_node(*child, graph_struct, eval_info)),
+            UnaryOp::Ax => ax(graph_struct, &eval_node(*child, graph_struct, eval_info)),
+            UnaryOp::Ef => ef_saturated(&graph_struct.stg, &eval_node(*child, graph_struct, eval_info)),
+            UnaryOp::Af => af(graph_struct, &eval_node(*child, graph_struct, eval_info)),
+            UnaryOp::Eg => eg(graph_struct, &eval_node(*child, graph_struct, eval_info)),
+            UnaryOp::Ag => ag(&graph_struct.stg, &eval_node(*child, graph_struct, eval_info)),
         },
         NodeType::BinaryNode(op, left, right) => match op {
-            BinaryOp::And => eval_node(*left, graph, duplicates, cache, fixed_points)
-                .intersect(&eval_node(*right, graph, duplicates, cache, fixed_points)),
-            BinaryOp::Or => eval_node(*left, graph, duplicates, cache, fixed_points)
-                .union(&eval_node(*right, graph, duplicates, cache, fixed_points)),
+            BinaryOp::And => eval_node(*left, graph_struct, eval_info)
+                .intersect(&eval_node(*right, graph_struct, eval_info)),
+            BinaryOp::Or => eval_node(*left, graph_struct, eval_info)
+                .union(&eval_node(*right, graph_struct, eval_info)),
             BinaryOp::Xor => non_equiv(
-                graph,
-                &eval_node(*left, graph, duplicates, cache, fixed_points),
-                &eval_node(*right, graph, duplicates, cache, fixed_points),
+                &graph_struct.stg,
+                &eval_node(*left, graph_struct, eval_info),
+                &eval_node(*right, graph_struct, eval_info),
             ),
             BinaryOp::Imp => imp(
-                graph,
-                &eval_node(*left, graph, duplicates, cache, fixed_points),
-                &eval_node(*right, graph, duplicates, cache, fixed_points),
+                &graph_struct.stg,
+                &eval_node(*left, graph_struct, eval_info),
+                &eval_node(*right, graph_struct, eval_info),
             ),
             BinaryOp::Iff => equiv(
-                graph,
-                &eval_node(*left, graph, duplicates, cache, fixed_points),
-                &eval_node(*right, graph, duplicates, cache, fixed_points),
+                &graph_struct.stg,
+                &eval_node(*left, graph_struct, eval_info),
+                &eval_node(*right, graph_struct, eval_info),
             ),
             BinaryOp::Eu => eu_saturated(
-                graph,
-                &eval_node(*left, graph, duplicates, cache, fixed_points),
-                &eval_node(*right, graph, duplicates, cache, fixed_points),
+                &graph_struct.stg,
+                &eval_node(*left, graph_struct, eval_info),
+                &eval_node(*right, graph_struct, eval_info),
             ),
             BinaryOp::Au => au(
-                graph,
-                &eval_node(*left, graph, duplicates, cache, fixed_points),
-                &eval_node(*right, graph, duplicates, cache, fixed_points),
+                graph_struct,
+                &eval_node(*left, graph_struct, eval_info),
+                &eval_node(*right, graph_struct, eval_info),
             ),
             BinaryOp::Ew => ew(
-                graph,
-                &eval_node(*left, graph, duplicates, cache, fixed_points),
-                &eval_node(*right, graph, duplicates, cache, fixed_points),
+                graph_struct,
+                &eval_node(*left, graph_struct, eval_info),
+                &eval_node(*right, graph_struct, eval_info),
             ),
             BinaryOp::Aw => aw(
-                graph,
-                &eval_node(*left, graph, duplicates, cache, fixed_points),
-                &eval_node(*right, graph, duplicates, cache, fixed_points),
+                &graph_struct.stg,
+                &eval_node(*left, graph_struct, eval_info),
+                &eval_node(*right, graph_struct, eval_info),
             ),
         },
         NodeType::HybridNode(op, var, child) => match op {
             HybridOp::Bind => bind(
-                graph,
-                &eval_node(*child, graph, duplicates, cache, fixed_points),
+                &graph_struct.stg,
+                &eval_node(*child, graph_struct, eval_info),
                 var.as_str(),
             ),
             HybridOp::Jump => jump(
-                graph,
-                &eval_node(*child, graph, duplicates, cache, fixed_points),
+                &graph_struct.stg,
+                &eval_node(*child, graph_struct, eval_info),
                 var.as_str(),
             ),
             HybridOp::Exist => existential(
-                graph,
-                &eval_node(*child, graph, duplicates, cache, fixed_points),
+                &graph_struct.stg,
+                &eval_node(*child, graph_struct, eval_info),
                 var.as_str(),
             ),
         },
     };
 
     if save_to_cache {
-        cache.insert(node.subform_str.clone(), result.clone());
+        eval_info.cache.insert(node.subform_str.clone(), result.clone());
     }
     result
 }
@@ -267,6 +277,35 @@ fn canonize_subform(
         }
     }
     (subform_chars, canonical, mapping_dict, stack_len)
+}
+
+/// computes fixed points using "(V1 <=> f_V1) & ... & (Vn <=> f_Vn)"
+/// can be used as optimised procedure for formula "!{x}: AX {x}"
+pub fn compute_fixed_points(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+    // TODO: make nicer
+    let context = graph.symbolic_context();
+    let network = graph.as_network();
+    let update_functions: Vec<Bdd> = network
+        .as_graph()
+        .variables()
+        .map(|variable| {
+            let regulators = network.regulators(variable);
+            let function_is_one = network
+                .get_update_function(variable)
+                .as_ref()
+                .map(|fun| context.mk_fn_update_true(fun))
+                .unwrap_or_else(|| context.mk_implicit_function_is_true(variable, &regulators));
+            let variable_is_one = context.mk_state_variable_is_true(variable);
+            bdd!(variable_is_one <=> function_is_one)
+        })
+        .collect();
+
+    GraphColoredVertices::new(
+        update_functions
+            .iter()
+            .fold(graph.mk_unit_colored_vertices().into_bdd(), |r, v| r.and(v)),
+        context,
+    )
 }
 
 #[allow(dead_code)]
