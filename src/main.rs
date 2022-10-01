@@ -4,7 +4,6 @@ use std::fs::read_to_string;
 
 /* TODOs for the general model checking */
 // TODO: check generating predecessors in EU_saturated (check including self-loops)
-// TODO: update generating predecessors in commented versions of EU and EF (use ex not pre)
 
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator, maybe few more special cases

@@ -162,7 +162,7 @@ pub fn eu(
 
     while old_set != new_set {
         new_set = old_set.clone();
-        old_set = old_set.union(&phi1.intersect(&graph.pre(&old_set)))
+        old_set = old_set.union(&phi1.intersect(&ex(graph, &old_set)));
     }
     old_set
 }
@@ -175,7 +175,7 @@ pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
 
     while old_set != new_set {
         new_set = old_set.clone();
-        old_set = old_set.union(&graph.pre(&old_set))
+        old_set = old_set.union(&ex(graph, &old_set));
     }
     old_set
 }
@@ -220,7 +220,7 @@ pub fn eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
 
     while old_set != new_set {
         new_set = old_set.clone();
-        old_set = old_set.intersect(&ex(graph, &old_set))
+        old_set = old_set.intersect(&ex(graph, &old_set));
     }
     old_set
 }
@@ -251,7 +251,7 @@ pub fn au(
 
     while old_set != new_set {
         new_set = old_set.clone();
-        old_set = old_set.union(&phi1.intersect(&ax(graph, &old_set)))
+        old_set = old_set.union(&phi1.intersect(&ax(graph, &old_set)));
     }
     old_set
 }
