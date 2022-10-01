@@ -1,5 +1,4 @@
 use crate::evaluator::eval_minimized_tree;
-#[allow(unused_imports)]
 use crate::io::{print_results, print_results_fast};
 use crate::operation_enums::*;
 use crate::parser::*;
@@ -20,9 +19,9 @@ pub enum PrintOptions {
     LongPrint,
 }
 
-/// renames vars to canonical form of "x", "xx", ...
-/// works only FOR FORMULAS WITHOUT FREE VARIABLES
-/// renames as many state-vars as possible to the identical names, without changing the formula
+/// Renames hctl vars in the formula tree to canonical form - "x", "xx", ...
+/// Works only for formulae without free variables
+/// Renames as many state-vars as possible to identical names, without changing the semantics
 fn minimize_number_of_state_vars(
     orig_node: Node,
     mut mapping_dict: HashMap<String, String>,
@@ -81,7 +80,7 @@ fn minimize_number_of_state_vars(
 
 /// Returns the set of all uniquely named HCTL variables in the formula tree
 /// Variable names are collected from BIND and EXIST quantifiers
-/// That is sufficient, since the formula have to be closed
+/// (That is sufficient, since the formula has to be closed to be evaluated)
 fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) -> HashSet<String> {
     match formula_tree.node_type {
         NodeType::TerminalNode(_) => {}
@@ -106,9 +105,8 @@ fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) 
     seen_vars
 }
 
-/// Performs the whole model checking process, including parsing of formula and model
-/// Creates only as many HCTL vars as is needed
-/// Prints selected amount of results (no prints / summary prints / all results printed)
+/// Performs the whole model checking process, including parsing at the beginning
+/// Prints selected amount of result info (no prints / summary / all results printed)
 pub fn analyse_formula(aeon_string: String, formula: String, print_option: PrintOptions) {
     let start = SystemTime::now();
 
@@ -156,9 +154,10 @@ pub fn analyse_formula(aeon_string: String, formula: String, print_option: Print
     }
 }
 
-/// Just performs the model checking on GIVEN graph and returns result, no prints happen
-/// UNSAFE - does not parse the graph from formula, assumes that graph was created correctly
-/// Graph must have enough HCTL variables for the formula
+/// Performs the model checking on GIVEN graph and returns result, no prints happen
+/// UNSAFE - does not modify the graph based on formula (number of hctl vars, etc.),
+/// Assumes that graph was created correctly (meaning graph's BDD must have enough HCTL variables)
+/// Only use this function for testing and internal operations
 pub fn model_check_formula_unsafe(
     formula: String,
     stg: &SymbolicAsyncGraph,

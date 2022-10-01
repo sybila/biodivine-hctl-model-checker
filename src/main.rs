@@ -68,6 +68,8 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
 ";
 
     #[test]
+    /// Test evaluation of several important formulae on model FISSION-YEAST-2008
+    /// Compare numbers of results with the numbers acquired by Python model checker or AEON
     fn test_model_check_basic_formulae() {
         let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
         // test formulae use 3 HCTL vars at most

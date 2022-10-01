@@ -94,9 +94,9 @@ pub fn compute_terminal_scc(
 }
 
 #[allow(dead_code)]
-/// Computes terminal SCCs and writes the contained states to the given file
-/// Is separate from previous fn because of performance and different return types
-pub fn write_attractors_to_file(graph: &SymbolicAsyncGraph, file_name: &str) -> () {
+/// Computes terminal SCCs and outputs the contained states to the given file
+/// Is made separately from previous fn because of performance and different return types
+pub fn compute_and_write_attractors_to_file(graph: &SymbolicAsyncGraph, file_name: &str) -> () {
     let task_context = GraphTaskContext::new();
     task_context.restart(graph);
 

@@ -321,6 +321,7 @@ mod tests {
     use crate::tokenizer::tokenize_formula;
 
     #[test]
+    /// Test parsing of several valid HCTL formulae
     fn test_parse_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}".to_string();
         let tokens1 = tokenize_formula(valid1).unwrap();
@@ -336,6 +337,7 @@ mod tests {
     }
 
     #[test]
+    /// Test parsing of several invalid HCTL formulae
     fn test_parse_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EK {x}",

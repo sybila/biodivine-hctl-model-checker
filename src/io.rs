@@ -6,7 +6,6 @@ use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 /// Prints general info about result set - cardinality of the set and color/vertex projections
-#[allow(dead_code)]
 pub fn print_results_fast(results: &GraphColoredVertices) -> () {
     println!("{} results in total", results.approx_cardinality());
     println!("{} colors", results.colors().approx_cardinality());
@@ -15,7 +14,6 @@ pub fn print_results_fast(results: &GraphColoredVertices) -> () {
 
 /// Prints the general info about the resulting set and also all the contained items
 /// If param `show_names` is true, full proposition names are displayed (otherwise 0/1 only)
-#[allow(dead_code)]
 pub fn print_results(
     graph: &SymbolicAsyncGraph,
     results: &GraphColoredVertices,
@@ -67,7 +65,7 @@ pub fn print_results(
     println!("{} result states found in total.", counter)
 }
 
-/// write 0/1 vectors for all states from the given set to the given file
+/// Prints 0/1 vectors for all states from the given set to the given file
 #[allow(dead_code)]
 pub fn write_states_to_file(mut file: &File, set_of_states: &GraphColoredVertices) -> () {
     write!(file, "{}\n", set_of_states.vertices().approx_cardinality()).unwrap();

@@ -25,7 +25,7 @@ pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColor
         duplicates: mark_duplicates(&tree),
         cache: HashMap::new(),
     };
-    let steady_states = compute_fixed_points(graph);
+    let steady_states = compute_steady_states(graph);
     let graph_with_steady_states =
         SymbolicAsyncGraph::new_add_steady_states_to_existing(
             graph.clone(),
@@ -158,7 +158,8 @@ pub fn eval_node(
     result
 }
 
-/// checks whether node represents formula for attractors !{x}: AG EF {x}
+/// Checks whether node represents formula for attractors !{x}: AG EF {x}
+/// This recognition step is used to later optimize the attractor pattern
 fn is_attractor_pattern(node: Node) -> bool {
     return match node.node_type {
         NodeType::HybridNode(HybridOp::Bind, var1, child1) => match (*child1).node_type {
@@ -175,7 +176,8 @@ fn is_attractor_pattern(node: Node) -> bool {
     };
 }
 
-/// checks whether node represents formula for fixed-points !{x}: AX {x}
+/// Checks whether node represents formula for fixed-points !{x}: AX {x}
+/// This recognition step is used to later optimize the fixed-point pattern
 fn is_fixed_point_pattern(node: Node) -> bool {
     return match node.node_type {
         NodeType::HybridNode(HybridOp::Bind, var1, child1) => match (*child1).node_type {
@@ -189,11 +191,11 @@ fn is_fixed_point_pattern(node: Node) -> bool {
     };
 }
 
-/// returns string representing the same subformula, but with canonized var names (var0, var1...)
-/// subform must be valid HCTL formula, minimized by minimize_number_of_state_vars function
-/// subform MUST include all PARENTHESES and MUST NOT include excess spaces
-/// for example "(3{x}:(3{xx}:((@{x}:((~{xx})&&(AX{x})))&&(@{xx}:(AX{xx})))))" is valid input
-/// any node.subform_string field should be OK to use
+/// Returns string representing the same subformula, but with canonized var names (var0, var1...)
+/// Subform must be valid HCTL formula, minimized by minimize_number_of_state_vars function
+/// Subform MUST include all PARENTHESES and MUST NOT include excess spaces
+/// For example "(3{x}:(3{xx}:((@{x}:((~{xx})&&(AX{x})))&&(@{xx}:(AX{xx})))))" is valid input
+/// Any node.subform_string field should be OK to use
 fn canonize_subform(
     mut subform_chars: Peekable<Chars>,
     mut mapping_dict: HashMap<String, String>,
@@ -276,10 +278,10 @@ fn canonize_subform(
     (subform_chars, canonical, mapping_dict, stack_len)
 }
 
-/// computes fixed points using "(V1 <=> f_V1) & ... & (Vn <=> f_Vn)"
-/// fixed-points are used for adding self-loops in the EX computation
-/// can also be used as optimised procedure for formula "!{x}: AX {x}"
-pub fn compute_fixed_points(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+/// Computes steady states using "(V1 <=> f_V1) & ... & (Vn <=> f_Vn)"
+/// Steady states are used for adding self-loops in the EX computation
+/// Can also be used as optimised procedure for formula "!{x}: AX {x}"
+pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     // TODO: make nicer
     let context = graph.symbolic_context();
     let network = graph.as_network();
@@ -307,7 +309,8 @@ pub fn compute_fixed_points(graph: &SymbolicAsyncGraph) -> GraphColoredVertices 
 }
 
 #[allow(dead_code)]
-/// returns string of the semantically same subformula, but with "canonized" var names
+/// Returns string of the semantically same sub-formula, but with "canonized" var names
+/// It is used in the process of marking duplicate sub-formulae
 fn get_canonical(subform_string: String) -> String {
     let canonized_tuple = canonize_subform(
         subform_string.chars().peekable(),
@@ -319,7 +322,8 @@ fn get_canonical(subform_string: String) -> String {
 }
 
 #[allow(dead_code)]
-/// returns tuple with the canonized subformula string and mapping dictionary used for canonization
+/// Returns tuple with the canonized sub-formula string and canonization mapping dictionary
+/// It is used in the process of marking duplicate sub-formulae
 fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<String, String>) {
     let canonized_tuple = canonize_subform(
         subform_string.chars().peekable(),
@@ -331,9 +335,10 @@ fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<String,
 }
 
 /*
-/// find out if we have some duplicate subtrees in our syntax tree
-/// marks duplicate nodes' string + the number of its appearances
-/// uses some kind of canonization - EX{x} and EX{y} recognized as duplicates
+/// TODO: fix this cache version and use it instead of the current hot-fix version
+/// Checks if we have some duplicate subtrees in our syntax tree
+/// Marks sub-formula strings for duplicate nodes + the number of their appearances
+/// Uses some kind of canonization - EX{x} and EX{y} recognized as duplicates
 pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
     // go through the nodes from top, use height to compare only those with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
@@ -396,10 +401,10 @@ pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
  */
 
 /// TEMPORARY VERSION FOR NOW, FIX CACHE AND >UPDATE< VERSION ABOVE in future (this one does not use canonical forms)
-/// find out if we have some duplicate subtrees in our syntax tree
-/// marks duplicate nodes' string + the number of its appearances
-/// this version does not consider canonical forms
-/// it also does not mark terminal node duplicates (not worth)
+/// Checks if we have some duplicate subtrees in our syntax tree
+/// Marks sub-formula strings for duplicate nodes + the number of their appearances
+/// This version does not consider canonical forms! - does not recognize all duplicates, resulting in slower computation
+/// It also does not mark terminal node duplicates (not worth)
 pub fn mark_duplicates(root_node: &Node) -> HashMap<String, i32> {
     // go through the nodes from top, use height to compare only those with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)

@@ -1,6 +1,6 @@
 use std::fmt;
 
-/// Enum of all possible unary operators occurring in a HCTL formula string
+/// Enum for all possible unary operators occurring in a HCTL formula string
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum UnaryOp {
     Not, // '~'
@@ -12,7 +12,7 @@ pub enum UnaryOp {
     Ag,  // 'AG'
 }
 
-/// Enum of all possible binary operators occurring in a HCTL formula string
+/// Enum for all possible binary operators occurring in a HCTL formula string
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum BinaryOp {
     And, // '&'

@@ -275,6 +275,7 @@ mod tests {
     use crate::tokenizer::{tokenize_formula, Token};
 
     #[test]
+    /// Test tokenization process on several valid HCTL formulae
     fn test_tokenize_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}".to_string();
         let tokens1_result = tokenize_formula(valid1);
@@ -336,6 +337,7 @@ mod tests {
     }
 
     #[test]
+    /// Test tokenization process on several invalid HCTL formulae
     fn test_tokenize_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EF {x<&}",
