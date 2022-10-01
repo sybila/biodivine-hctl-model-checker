@@ -3,9 +3,6 @@ use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::fs::read_to_string;
 
 /* TODOs for the general model checking */
-// TODO: somehow move fixed points variable into the SymbolicAsyncGraph
-    // TODO: put placeholder field with None into object at the beginning ("maybe_steady_states")
-    // TODO: feed Some(fixed_points) into it after it is computed just before the eval
 // TODO: check generating predecessors in EU_saturated (check including self-loops)
 // TODO: update generating predecessors in commented versions of EU and EF (use ex not pre)
 
