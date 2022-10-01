@@ -33,8 +33,8 @@ Several interesting formulae are listed in the ```benchmark_formulae.txt``` file
 To create custom formulae, you can use any HCTL operators and many derived ones.
 We use the following syntax:
 * constants: `true`, `false`
-* propositions: `alphanumeric characters and underscores` (e.g. p_1)
-* variables: `alphanumeric characters and underscores enclosed in "{}"` (e.g. {x_1})
+* propositions: `alphanumeric characters and underscores` (e.g. `p_1`)
+* variables: `alphanumeric characters and underscores enclosed in "{}"` (e.g. `{x_1}`)
 * negation: `~`
 * boolean binary operators: `&`, `|`, `=>`, `<=>`, `^`
 * temporal unary operators: `AX`, `EX`, `AF`, `EF`, `AG`, `EG`
