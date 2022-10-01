@@ -25,12 +25,13 @@ pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColor
         duplicates: mark_duplicates(&tree),
         cache: HashMap::new(),
     };
-    let fixed_points = compute_fixed_points(graph);
-    let graph_struct: GraphStruct = GraphStruct {
-        stg: graph.clone(),
-        fixed_points,
-    };
-    eval_node(tree, &graph_struct, &mut eval_info)
+    let steady_states = compute_fixed_points(graph);
+    let graph_with_steady_states =
+        SymbolicAsyncGraph::new_add_steady_states_to_existing(
+            graph.clone(),
+            steady_states,
+        );
+    eval_node(tree, &graph_with_steady_states, &mut eval_info)
 }
 
 /// Evaluates the formula sub-tree `node` on the given `graph`
@@ -38,7 +39,7 @@ pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColor
 /// TODO: fix cache
 pub fn eval_node(
     node: Node,
-    graph_struct: &GraphStruct,
+    graph: &SymbolicAsyncGraph,
     eval_info: &mut EvalInfo,
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
@@ -68,7 +69,7 @@ pub fn eval_node(
     // first lets check for special cases, which can be optimised:
     // attractors
     if is_attractor_pattern(node.clone()) {
-        let result = compute_terminal_scc(&graph_struct.stg, graph_struct.stg.mk_unit_colored_vertices());
+        let result = compute_terminal_scc(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
             eval_info.cache.insert(node.subform_str.clone(), result.clone());
         }
@@ -76,80 +77,80 @@ pub fn eval_node(
     }
     // fixed-points
     if is_fixed_point_pattern(node.clone()) {
-        return graph_struct.fixed_points.clone();
+        return graph.steady_states().unwrap();
     }
 
     let result = match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
-            Atomic::True => graph_struct.stg.mk_unit_colored_vertices(),
-            Atomic::False => graph_struct.stg.mk_empty_vertices(),
-            Atomic::Var(name) => create_comparator(&graph_struct.stg, name.as_str()),
-            Atomic::Prop(name) => labeled_by(&graph_struct.stg, &name),
+            Atomic::True => graph.mk_unit_colored_vertices(),
+            Atomic::False => graph.mk_empty_vertices(),
+            Atomic::Var(name) => create_comparator(graph, name.as_str()),
+            Atomic::Prop(name) => labeled_by(graph, &name),
         },
         NodeType::UnaryNode(op, child) => match op {
-            UnaryOp::Not => negate_set(&graph_struct.stg, &eval_node(*child, graph_struct, eval_info)),
-            UnaryOp::Ex => ex(&graph_struct, &eval_node(*child, graph_struct, eval_info)),
-            UnaryOp::Ax => ax(graph_struct, &eval_node(*child, graph_struct, eval_info)),
-            UnaryOp::Ef => ef_saturated(&graph_struct.stg, &eval_node(*child, graph_struct, eval_info)),
-            UnaryOp::Af => af(graph_struct, &eval_node(*child, graph_struct, eval_info)),
-            UnaryOp::Eg => eg(graph_struct, &eval_node(*child, graph_struct, eval_info)),
-            UnaryOp::Ag => ag(&graph_struct.stg, &eval_node(*child, graph_struct, eval_info)),
+            UnaryOp::Not => negate_set(graph, &eval_node(*child, graph, eval_info)),
+            UnaryOp::Ex => ex(graph, &eval_node(*child, graph, eval_info)),
+            UnaryOp::Ax => ax(graph, &eval_node(*child, graph, eval_info)),
+            UnaryOp::Ef => ef_saturated(graph, &eval_node(*child, graph, eval_info)),
+            UnaryOp::Af => af(graph, &eval_node(*child, graph, eval_info)),
+            UnaryOp::Eg => eg(graph, &eval_node(*child, graph, eval_info)),
+            UnaryOp::Ag => ag(graph, &eval_node(*child, graph, eval_info)),
         },
         NodeType::BinaryNode(op, left, right) => match op {
-            BinaryOp::And => eval_node(*left, graph_struct, eval_info)
-                .intersect(&eval_node(*right, graph_struct, eval_info)),
-            BinaryOp::Or => eval_node(*left, graph_struct, eval_info)
-                .union(&eval_node(*right, graph_struct, eval_info)),
+            BinaryOp::And => eval_node(*left, graph, eval_info)
+                .intersect(&eval_node(*right, graph, eval_info)),
+            BinaryOp::Or => eval_node(*left, graph, eval_info)
+                .union(&eval_node(*right, graph, eval_info)),
             BinaryOp::Xor => non_equiv(
-                &graph_struct.stg,
-                &eval_node(*left, graph_struct, eval_info),
-                &eval_node(*right, graph_struct, eval_info),
+                graph,
+                &eval_node(*left, graph, eval_info),
+                &eval_node(*right, graph, eval_info),
             ),
             BinaryOp::Imp => imp(
-                &graph_struct.stg,
-                &eval_node(*left, graph_struct, eval_info),
-                &eval_node(*right, graph_struct, eval_info),
+                graph,
+                &eval_node(*left, graph, eval_info),
+                &eval_node(*right, graph, eval_info),
             ),
             BinaryOp::Iff => equiv(
-                &graph_struct.stg,
-                &eval_node(*left, graph_struct, eval_info),
-                &eval_node(*right, graph_struct, eval_info),
+                graph,
+                &eval_node(*left, graph, eval_info),
+                &eval_node(*right, graph, eval_info),
             ),
             BinaryOp::Eu => eu_saturated(
-                &graph_struct.stg,
-                &eval_node(*left, graph_struct, eval_info),
-                &eval_node(*right, graph_struct, eval_info),
+                graph,
+                &eval_node(*left, graph, eval_info),
+                &eval_node(*right, graph, eval_info),
             ),
             BinaryOp::Au => au(
-                graph_struct,
-                &eval_node(*left, graph_struct, eval_info),
-                &eval_node(*right, graph_struct, eval_info),
+                graph,
+                &eval_node(*left, graph, eval_info),
+                &eval_node(*right, graph, eval_info),
             ),
             BinaryOp::Ew => ew(
-                graph_struct,
-                &eval_node(*left, graph_struct, eval_info),
-                &eval_node(*right, graph_struct, eval_info),
+                graph,
+                &eval_node(*left, graph, eval_info),
+                &eval_node(*right, graph, eval_info),
             ),
             BinaryOp::Aw => aw(
-                &graph_struct.stg,
-                &eval_node(*left, graph_struct, eval_info),
-                &eval_node(*right, graph_struct, eval_info),
+                graph,
+                &eval_node(*left, graph, eval_info),
+                &eval_node(*right, graph, eval_info),
             ),
         },
         NodeType::HybridNode(op, var, child) => match op {
             HybridOp::Bind => bind(
-                &graph_struct.stg,
-                &eval_node(*child, graph_struct, eval_info),
+                graph,
+                &eval_node(*child, graph, eval_info),
                 var.as_str(),
             ),
             HybridOp::Jump => jump(
-                &graph_struct.stg,
-                &eval_node(*child, graph_struct, eval_info),
+                graph,
+                &eval_node(*child, graph, eval_info),
                 var.as_str(),
             ),
             HybridOp::Exist => existential(
-                &graph_struct.stg,
-                &eval_node(*child, graph_struct, eval_info),
+                graph,
+                &eval_node(*child, graph, eval_info),
                 var.as_str(),
             ),
         },

@@ -2,11 +2,6 @@ use biodivine_lib_bdd::{BddVariable};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-pub struct GraphStruct {
-    pub stg: SymbolicAsyncGraph,
-    pub fixed_points: GraphColoredVertices,
-}
-
 /// shortcut for negation which respects the allowed universe
 pub fn negate_set(graph: &SymbolicAsyncGraph, set: &GraphColoredVertices) -> GraphColoredVertices {
     let unit_set = graph.mk_unit_colored_vertices();
@@ -147,10 +142,10 @@ pub fn jump(
 /// EX computed using pre, but with added self-loops
 /// (EX phi) == PRE(phi) | (phi & fixed-points)
 pub fn ex(
-    graph_struct: &GraphStruct,
+    graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    graph_struct.stg.pre(&phi).union(&phi.intersect(&graph_struct.fixed_points))
+    graph.pre(&phi).union(&phi.intersect(&graph.steady_states().unwrap()))
 }
 
 // TODO make these commented algorithms use EX function instead of pre function
@@ -219,25 +214,25 @@ pub fn ef_saturated(
 }
 
 /// EG computed using fixpoint
-pub fn eg(graph_struct: &GraphStruct, phi: &GraphColoredVertices) -> GraphColoredVertices {
+pub fn eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
-    let mut new_set = graph_struct.stg.mk_empty_vertices();
+    let mut new_set = graph.mk_empty_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();
-        old_set = old_set.intersect(&ex(graph_struct, &old_set))
+        old_set = old_set.intersect(&ex(graph, &old_set))
     }
     old_set
 }
 
 /// AX computed through the EX
-pub fn ax(graph_struct: &GraphStruct, phi: &GraphColoredVertices) -> GraphColoredVertices {
-    negate_set(&graph_struct.stg, &ex(graph_struct, &negate_set(&graph_struct.stg, &phi)))
+pub fn ax(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+    negate_set(graph, &ex(graph, &negate_set(graph, &phi)))
 }
 
 /// AF computed through the EG
-pub fn af(graph_struct: &GraphStruct, phi: &GraphColoredVertices) -> GraphColoredVertices {
-    negate_set(&graph_struct.stg, &eg(graph_struct, &negate_set(&graph_struct.stg, &phi)))
+pub fn af(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+    negate_set(graph, &eg(graph, &negate_set(graph, &phi)))
 }
 
 /// AG computed through the EF
@@ -247,31 +242,29 @@ pub fn ag(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
 
 /// AU computed through the fixpoint
 pub fn au(
-    graph_struct: &GraphStruct,
+    graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
     phi2: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     let mut old_set = phi2.clone();
-    let mut new_set = graph_struct.stg.mk_empty_vertices();
+    let mut new_set = graph.mk_empty_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();
-        old_set = old_set.union(&phi1.intersect(&ax(graph_struct, &old_set)))
+        old_set = old_set.union(&phi1.intersect(&ax(graph, &old_set)))
     }
     old_set
 }
 
 /// EW computed through the AU
 pub fn ew(
-    graph_struct: &GraphStruct,
+    graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
     phi2: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     negate_set(
-        &graph_struct.stg,
-        &au(graph_struct,
-            &negate_set(&graph_struct.stg, &phi1),
-            &negate_set(&graph_struct.stg, &phi2)
+        graph,
+        &au(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)
         ),
     )
 }
