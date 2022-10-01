@@ -114,17 +114,14 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         assert_eq!(1., result.colors().approx_cardinality());
         assert_eq!(12., result.vertices().approx_cardinality());
 
-        result = model_check_formula_unsafe(
-            "AF (!{x}: (AX (~{x} & AF {x})))".to_string()
-            , &stg
-        );
+        result = model_check_formula_unsafe("AF (!{x}: (AX (~{x} & AF {x})))".to_string(), &stg);
         assert_eq!(0., result.approx_cardinality());
         assert_eq!(0., result.colors().approx_cardinality());
         assert_eq!(0., result.vertices().approx_cardinality());
 
         result = model_check_formula_unsafe(
             "AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))".to_string(),
-            &stg
+            &stg,
         );
         assert_eq!(0., result.approx_cardinality());
         assert_eq!(0., result.colors().approx_cardinality());

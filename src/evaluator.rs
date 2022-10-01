@@ -3,9 +3,9 @@ use crate::implementation_components::*;
 use crate::operation_enums::*;
 use crate::parser::{Node, NodeType};
 
+use biodivine_lib_bdd::{Bdd, bdd};
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
-use biodivine_lib_bdd::{Bdd, bdd};
 
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
@@ -18,8 +18,8 @@ pub struct EvalInfo {
     cache: HashMap<String, GraphColoredVertices>,
 }
 
-/// Prepares formula `tree` for efficient evaluation (duplicates & cache)
-/// and then evaluates it on the given `graph`
+/// Efficiently evaluates formula on the given stg
+/// First prepares list of duplicates & cache, computes steady states
 pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     let mut eval_info: EvalInfo = EvalInfo {
         duplicates: mark_duplicates(&tree),
@@ -36,7 +36,7 @@ pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColor
 
 /// Evaluates the formula sub-tree `node` on the given `graph`
 /// Uses pre-computed set of `duplicate` sub-formulae to allow for caching
-/// TODO: fix cache
+/// TODO: fix cache to compute faster
 pub fn eval_node(
     node: Node,
     graph: &SymbolicAsyncGraph,
@@ -51,7 +51,11 @@ pub fn eval_node(
 
             // we will get bdd, but sometimes we must rename its vars
             // because it might have differently named state variables before
-            let result = eval_info.cache.get(node.subform_str.as_str()).unwrap().clone();
+            let result = eval_info
+                .cache
+                .get(node.subform_str.as_str())
+                .unwrap()
+                .clone();
 
             // if we already visited all of the duplicates, lets delete the cached value
             if eval_info.duplicates[node.subform_str.as_str()] == 0 {
@@ -71,7 +75,9 @@ pub fn eval_node(
     if is_attractor_pattern(node.clone()) {
         let result = compute_terminal_scc(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
-            eval_info.cache.insert(node.subform_str.clone(), result.clone());
+            eval_info
+                .cache
+                .insert(node.subform_str.clone(), result.clone());
         }
         return result;
     }
@@ -138,26 +144,16 @@ pub fn eval_node(
             ),
         },
         NodeType::HybridNode(op, var, child) => match op {
-            HybridOp::Bind => bind(
-                graph,
-                &eval_node(*child, graph, eval_info),
-                var.as_str(),
-            ),
-            HybridOp::Jump => jump(
-                graph,
-                &eval_node(*child, graph, eval_info),
-                var.as_str(),
-            ),
-            HybridOp::Exist => existential(
-                graph,
-                &eval_node(*child, graph, eval_info),
-                var.as_str(),
-            ),
+            HybridOp::Bind => bind(graph, &eval_node(*child, graph, eval_info), var.as_str()),
+            HybridOp::Jump => jump(graph, &eval_node(*child, graph, eval_info), var.as_str()),
+            HybridOp::Exist => existential(graph, &eval_node(*child, graph, eval_info), var.as_str()),
         },
     };
 
     if save_to_cache {
-        eval_info.cache.insert(node.subform_str.clone(), result.clone());
+        eval_info
+            .cache
+            .insert(node.subform_str.clone(), result.clone());
     }
     result
 }
@@ -281,7 +277,8 @@ fn canonize_subform(
 }
 
 /// computes fixed points using "(V1 <=> f_V1) & ... & (Vn <=> f_Vn)"
-/// can be used as optimised procedure for formula "!{x}: AX {x}"
+/// fixed-points are used for adding self-loops in the EX computation
+/// can also be used as optimised procedure for formula "!{x}: AX {x}"
 pub fn compute_fixed_points(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     // TODO: make nicer
     let context = graph.symbolic_context();

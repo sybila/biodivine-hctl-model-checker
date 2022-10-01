@@ -271,59 +271,68 @@ pub fn print_tokens(tokens: &Vec<Token>) -> () {
 
 #[cfg(test)]
 mod tests {
-    use crate::tokenizer::{Token, tokenize_formula};
     use crate::operation_enums::*;
+    use crate::tokenizer::{tokenize_formula, Token};
 
     #[test]
     fn test_tokenize_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}".to_string();
         let tokens1_result = tokenize_formula(valid1);
-        assert_eq!(tokens1_result.unwrap(), vec![
-            Token::Hybrid(HybridOp::Bind, "x".to_string()),
-            Token::Unary(UnaryOp::Ag),
-            Token::Unary(UnaryOp::Ef),
-            Token::Atom(Atomic::Var("x".to_string())),
-        ]);
+        assert_eq!(
+            tokens1_result.unwrap(),
+            vec![
+                Token::Hybrid(HybridOp::Bind, "x".to_string()),
+                Token::Unary(UnaryOp::Ag),
+                Token::Unary(UnaryOp::Ef),
+                Token::Atom(Atomic::Var("x".to_string())),
+            ]
+        );
 
         let valid2 = "AF (!{x}: (AX (~{x} & AF {x})))".to_string();
         let tokens2_result = tokenize_formula(valid2);
-        assert_eq!(tokens2_result.unwrap(), vec![
-            Token::Unary(UnaryOp::Af),
-            Token::Tokens(vec![
-                Token::Hybrid(HybridOp::Bind, "x".to_string()),
+        assert_eq!(
+            tokens2_result.unwrap(),
+            vec![
+                Token::Unary(UnaryOp::Af),
                 Token::Tokens(vec![
-                    Token::Unary(UnaryOp::Ax),
+                    Token::Hybrid(HybridOp::Bind, "x".to_string()),
                     Token::Tokens(vec![
-                        Token::Unary(UnaryOp::Not),
-                        Token::Atom(Atomic::Var("x".to_string())),
-                        Token::Binary(BinaryOp::And),
-                        Token::Unary(UnaryOp::Af),
-                        Token::Atom(Atomic::Var("x".to_string())),
+                        Token::Unary(UnaryOp::Ax),
+                        Token::Tokens(vec![
+                            Token::Unary(UnaryOp::Not),
+                            Token::Atom(Atomic::Var("x".to_string())),
+                            Token::Binary(BinaryOp::And),
+                            Token::Unary(UnaryOp::Af),
+                            Token::Atom(Atomic::Var("x".to_string())),
+                        ]),
                     ]),
                 ]),
-            ]),
-        ]);
+            ]
+        );
 
         let valid3 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string();
         let tokens3_result = tokenize_formula(valid3);
-        assert_eq!(tokens3_result.unwrap(), vec![
-            Token::Hybrid(HybridOp::Bind, "x".to_string()),
-            Token::Hybrid(HybridOp::Exist, "y".to_string()),
-            Token::Tokens(vec![
-                Token::Hybrid(HybridOp::Jump, "x".to_string()),
-                Token::Unary(UnaryOp::Not),
-                Token::Atom(Atomic::Var("y".to_string())),
+        assert_eq!(
+            tokens3_result.unwrap(),
+            vec![
+                Token::Hybrid(HybridOp::Bind, "x".to_string()),
+                Token::Hybrid(HybridOp::Exist, "y".to_string()),
+                Token::Tokens(vec![
+                    Token::Hybrid(HybridOp::Jump, "x".to_string()),
+                    Token::Unary(UnaryOp::Not),
+                    Token::Atom(Atomic::Var("y".to_string())),
+                    Token::Binary(BinaryOp::And),
+                    Token::Unary(UnaryOp::Ax),
+                    Token::Atom(Atomic::Var("x".to_string())),
+                ]),
                 Token::Binary(BinaryOp::And),
-                Token::Unary(UnaryOp::Ax),
-                Token::Atom(Atomic::Var("x".to_string())),
-            ]),
-            Token::Binary(BinaryOp::And),
-            Token::Tokens(vec![
-                Token::Hybrid(HybridOp::Jump, "y".to_string()),
-                Token::Unary(UnaryOp::Ax),
-                Token::Atom(Atomic::Var("y".to_string())),
-            ]),
-        ]);
+                Token::Tokens(vec![
+                    Token::Hybrid(HybridOp::Jump, "y".to_string()),
+                    Token::Unary(UnaryOp::Ax),
+                    Token::Atom(Atomic::Var("y".to_string())),
+                ]),
+            ]
+        );
     }
 
     #[test]

@@ -317,8 +317,8 @@ fn parse_9_terminal(tokens: &[Token]) -> Result<Box<Node>, String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::tokenizer::tokenize_formula;
     use crate::parser::parse_hctl_formula;
+    use crate::tokenizer::tokenize_formula;
 
     #[test]
     fn test_parse_valid_formulae() {

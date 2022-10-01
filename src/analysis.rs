@@ -82,10 +82,7 @@ fn minimize_number_of_state_vars(
 /// Returns the set of all uniquely named HCTL variables in the formula tree
 /// Variable names are collected from BIND and EXIST quantifiers
 /// That is sufficient, since the formula have to be closed
-fn collect_unique_hctl_vars(
-    formula_tree: Node,
-    mut seen_vars: HashSet<String>
-) -> HashSet<String> {
+fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) -> HashSet<String> {
     match formula_tree.node_type {
         NodeType::TerminalNode(_) => {}
         NodeType::UnaryNode(_, child) => {

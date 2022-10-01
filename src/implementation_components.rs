@@ -1,14 +1,14 @@
-use biodivine_lib_bdd::{BddVariable};
+use biodivine_lib_bdd::BddVariable;
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-/// shortcut for negation which respects the allowed universe
+/// Shortcut for negation which respects the allowed universe
 pub fn negate_set(graph: &SymbolicAsyncGraph, set: &GraphColoredVertices) -> GraphColoredVertices {
     let unit_set = graph.mk_unit_colored_vertices();
     unit_set.minus(set)
 }
 
-/// evaluates the implication operation
+/// Evaluates the implication operation
 pub fn imp(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
@@ -17,7 +17,7 @@ pub fn imp(
     negate_set(graph, left).union(right)
 }
 
-/// evaluates the equivalence operation
+/// Evaluates the equivalence operation
 pub fn equiv(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
@@ -27,7 +27,7 @@ pub fn equiv(
         .union(&negate_set(graph, left).intersect(&negate_set(graph, right)))
 }
 
-/// evaluates the non-equivalence operation (xor)
+/// Evaluates the non-equivalence operation (xor)
 pub fn non_equiv(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
@@ -47,8 +47,8 @@ pub fn labeled_by(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertice
     )
 }
 
-/// creates comparator between variables from network and corresponding HCTL var' components
-/// it will be a set representing expression "(s__1 <=> var__1) & (s__2 <=> var__2) ... "
+/// Creates comparator between variables from network and corresponding HCTL var' components
+/// It will be a set representing expression "(s__1 <=> var__1) & (s__2 <=> var__2) ... "
 pub fn create_comparator(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> GraphColoredVertices {
     // TODO: use eval_expression_string() method ?
     let reg_graph = graph.as_network().as_graph();
@@ -73,7 +73,7 @@ pub fn create_comparator(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> Gra
         .intersect(graph.unit_colored_vertices())
 }
 
-/// evaluates bind operator - does intersection with comparator and projects out hctl var
+/// Evaluates bind operator - does intersection with comparator and projects out hctl var
 pub fn bind(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -99,7 +99,7 @@ pub fn bind(
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
-/// evaluates existential operator - projects out given hctl var from bdd
+/// Evaluates existential operator - projects out given hctl var from bdd
 pub fn existential(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -122,7 +122,7 @@ pub fn existential(
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
-/// evaluates jump operator - does intersection with comparator and projects out BN variables
+/// Evaluates jump operator - does intersection with comparator and projects out BN variables
 pub fn jump(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -139,18 +139,16 @@ pub fn jump(
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
-/// EX computed using pre, but with added self-loops
-/// (EX phi) == PRE(phi) | (phi & fixed-points)
-pub fn ex(
-    graph: &SymbolicAsyncGraph,
-    phi: &GraphColoredVertices,
-) -> GraphColoredVertices {
-    graph.pre(&phi).union(&phi.intersect(&graph.steady_states().unwrap()))
+/// Evaluates EX operator by computing predecessors, but adds self-loops to steady states
+/// (EX phi) == PRE(phi) | (phi & steady_states)
+pub fn ex(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+    graph
+        .pre(&phi)
+        .union(&phi.intersect(&graph.steady_states().unwrap()))
 }
 
-// TODO make these commented algorithms use EX function instead of pre function
 /*
-/// EU computed using fixpoint algorithm
+/// Evaluates EU operator using fixpoint algorithm
 /// deprecated version, use eu_saturated
 pub fn eu(
     graph: &SymbolicAsyncGraph,
@@ -167,7 +165,7 @@ pub fn eu(
     old_set
 }
 
-/// EF computed using fixpoint algorithm
+/// Evaluates EF operator using fixpoint algorithm
 /// deprecated version, use ef_saturated
 pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
@@ -181,7 +179,8 @@ pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
 }
  */
 
-// TODO: update generating predecessors (check including self-loops)
+/// Evaluates EU operator using algorithm with saturation
+/// TODO: check generating predecessors (check if including self-loops is needed)
 pub fn eu_saturated(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
@@ -203,7 +202,7 @@ pub fn eu_saturated(
     result
 }
 
-/// EF computed via the EU with saturation
+/// Evaluates EF operator via the algorithm for EU with saturation
 /// This is possible because EF(phi) = EU(true,phi)
 pub fn ef_saturated(
     graph: &SymbolicAsyncGraph,
@@ -213,7 +212,7 @@ pub fn ef_saturated(
     eu_saturated(graph, &unit_set, phi)
 }
 
-/// EG computed using fixpoint
+/// Evaluates EG operator using fixpoint algorithm
 pub fn eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
     let mut new_set = graph.mk_empty_vertices();
@@ -225,22 +224,22 @@ pub fn eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
     old_set
 }
 
-/// AX computed through the EX
+/// Evaluates AX operator through the EX computation
 pub fn ax(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     negate_set(graph, &ex(graph, &negate_set(graph, &phi)))
 }
 
-/// AF computed through the EG
+/// Evaluates AF operator using the EG computation
 pub fn af(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     negate_set(graph, &eg(graph, &negate_set(graph, &phi)))
 }
 
-/// AG computed through the EF
+/// Evaluates AG operator using the EF computation
 pub fn ag(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     negate_set(graph, &ef_saturated(graph, &negate_set(graph, &phi)))
 }
 
-/// AU computed through the fixpoint
+/// Evaluates AU operator using the fixpoint algorithm
 pub fn au(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
@@ -256,7 +255,7 @@ pub fn au(
     old_set
 }
 
-/// EW computed through the AU
+/// Evaluates EW operator using the AU computation
 pub fn ew(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
@@ -264,12 +263,11 @@ pub fn ew(
 ) -> GraphColoredVertices {
     negate_set(
         graph,
-        &au(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)
-        ),
+        &au(graph, &negate_set(graph, &phi1), &negate_set(graph, &phi2)),
     )
 }
 
-/// AW computed through the EU
+/// Evaluates AW using the EU computation
 pub fn aw(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
