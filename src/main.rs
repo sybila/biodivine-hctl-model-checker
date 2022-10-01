@@ -3,27 +3,18 @@ use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::fs::read_to_string;
 
 /* TODOs for the general model checking */
-// TODO: check generating predecessors in EU_saturated (check including self-loops)
-
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
-// TODO: optimisations for evaluator, maybe few more special cases
-// TODO: documentation
+// TODO: optimisations for evaluator (changing tree, etc.), maybe few more special cases
+// TODO: add documentation, tests
 // TODO: refactor tokenizer (remove duplicity, divide functionality, etc)
 // TODO: check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
-
-/* TODOs for evaluation specifically */
-// TODO: caching for evaluator
-// TODO: SCC computation without the prints
-// TODO: possible optimizations (changing tree, or during evaluation)
+// TODO: check generating predecessors in EU_saturated (check including self-loops)
+// TODO: modify aeon SCC computation to not print everything
 
 /* Potential BUGS and issues to fix */
-// TODO: when I comment the fixed-point optimisation (lines 72-78 in evaluator), tests in main fail
-    // Particularly the test with 3 vars (CAV formula 4)
 // TODO: parse / tokenize issues
-/*
-   "AU !{x}: {x}" is parsed as valid
-   "!{var}: AG EF {var} & & !{var}: AG EF {var}" is parsed as valid
-*/
+   // "AU !{x}: {x}" is parsed as valid
+   // "!{var}: AG EF {var} & & !{var}: AG EF {var}" is parsed as valid
 
 /// Structure to collect CLI arguments
 #[derive(Parser)]
@@ -79,8 +70,8 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
     #[test]
     fn test_model_check_basic_formulae() {
         let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
-        // test formulae use 2 HCTL vars at most
-        let stg = SymbolicAsyncGraph::new(bn, 2).unwrap();
+        // test formulae use 3 HCTL vars at most
+        let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
         let mut result = model_check_formula_unsafe("!{x}: AG EF {x}".to_string(), &stg);
         assert_eq!(76., result.approx_cardinality());
