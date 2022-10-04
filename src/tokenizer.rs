@@ -237,18 +237,18 @@ impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Token::Unary(UnaryOp::Not) => write!(f, "~"),
+            Token::Unary(c) => write!(f, "{}", format!("{:?}", c)), // unary temporal
             Token::Binary(BinaryOp::And) => write!(f, "&"),
             Token::Binary(BinaryOp::Or) => write!(f, "|"),
             Token::Binary(BinaryOp::Xor) => write!(f, "^"),
             Token::Binary(BinaryOp::Imp) => write!(f, "=>"),
             Token::Binary(BinaryOp::Iff) => write!(f, "<=>"),
-            Token::Unary(c) => write!(f, "{}", format!("{:?}", c)),
-            Token::Binary(c) => write!(f, "{}", format!("{:?}", c)),
+            Token::Binary(c) => write!(f, "{}", format!("{:?}", c)), // binary temporal
             Token::Hybrid(op, var) => write!(f, "{}", format!("{:?} {{{}}}:", op, var)),
             Token::Atom(Atomic::Prop(name)) => write!(f, "{}", name),
             Token::Atom(Atomic::Var(name)) => write!(f, "{{{}}}", name),
             Token::Atom(constant) => write!(f, "{:?}", constant),
-            _ => write!(f, "( TOKENS )"),
+            Token::Tokens(_) => write!(f, "( TOKENS )"), // debug purposes only
         }
     }
 }

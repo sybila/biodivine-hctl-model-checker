@@ -153,16 +153,25 @@ pub fn parse_hctl_formula(tokens: &[Token]) -> Result<Box<Node>, String> {
 }
 
 /// Recursive parsing step 1: extract hybrid operators.
+/// Hybrid operator must not be immediately preceded by any other kind of operator.
+/// We only allow it to be preceded by another hybrid operator, else brackets must be used.
+/// (things like "AF !{x}: ..." are forbidden, must be written in brackets as "AF (!{x}: ...)"
 fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<Node>, String> {
     let hybrid_token = index_of_first_hybrid(tokens);
     Ok(if let Some(i) = hybrid_token {
+        // perform check that hybrid operator is not preceded by other type of operators
+        if i > 0 {
+            if !matches!(&tokens[i - 1], Token::Hybrid(_, _)) {
+                return Err(format!("Hybrid operator can't be directly preceded by {}.", &tokens[i - 1]));
+            }
+        }
         match &tokens[i] {
             Token::Hybrid(op, var) => Box::new(create_hybrid(
                 parse_1_hybrid(&tokens[(i + 1)..])?,
                 var.clone(),
                 op.clone(),
             )),
-            _ => Box::new(Node::new()), // This branch cant happen
+            _ => Box::new(Node::new()), // This branch cant happen, but must result in same type
         }
     } else {
         parse_2_iff(tokens)?
@@ -249,7 +258,7 @@ fn parse_7_binary_temp(tokens: &[Token]) -> Result<Box<Node>, String> {
                 parse_7_binary_temp(&tokens[(i + 1)..])?,
                 op.clone(),
             )),
-            _ => Box::new(Node::new()), // This branch cant happen
+            _ => Box::new(Node::new()), // This branch cant happen, but must result in same type
         }
     } else {
         parse_8_unary(tokens)?
@@ -264,15 +273,16 @@ fn parse_8_unary(tokens: &[Token]) -> Result<Box<Node>, String> {
             Token::Unary(op) => {
                 Box::new(create_unary(parse_8_unary(&tokens[(i + 1)..])?, op.clone()))
             }
-            _ => Box::new(Node::new()), // This branch cant happen
+            _ => Box::new(Node::new()), // This branch cant happen, but must result in same type
         }
     } else {
-        parse_9_terminal(tokens)?
+        parse_9_terminal_and_brackets(tokens)?
     })
 }
 
-/// Recursive parsing step 9: extract terminals.
-fn parse_9_terminal(tokens: &[Token]) -> Result<Box<Node>, String> {
+/// Recursive parsing step 9: extract terminals and recursively solve
+/// parts in brackets.
+fn parse_9_terminal_and_brackets(tokens: &[Token]) -> Result<Box<Node>, String> {
     if tokens.is_empty() {
         Err("Expected formula, found nothing.".to_string())
     } else {
@@ -347,6 +357,8 @@ mod tests {
             "!{x}: AU AU {x}",
             "& prop",
             "prop1 prop2",
+            "AU !{x}: {x}",
+            "AF (AF !{x}: {x})",
         ];
 
         for formula in invalid_formulae {
