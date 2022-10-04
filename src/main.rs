@@ -2,19 +2,15 @@ use clap::Parser;
 use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::fs::read_to_string;
 
-/* TODOs for the general model checking */
+
+/* TODOs */
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator (changing tree, etc.), maybe few more special cases
-// TODO: add documentation, tests
-// TODO: refactor tokenizer (remove duplicity, divide functionality, etc)
-// TODO: check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
+// TODO: add check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
+// TODO: add check that formula doesnt contain free vars (during parsing or var collecting)
 // TODO: check generating predecessors in EU_saturated (check including self-loops)
 // TODO: modify aeon SCC computation to not print everything
 
-/* Potential BUGS and issues to fix */
-// TODO: parse / tokenize issues
-   // "AU !{x}: {x}" is parsed as valid
-   // "!{var}: AG EF {var} & & !{var}: AG EF {var}" is parsed as valid
 
 /// Structure to collect CLI arguments
 #[derive(Parser)]

@@ -36,7 +36,6 @@ pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColor
 
 /// Evaluates the formula sub-tree `node` on the given `graph`
 /// Uses pre-computed set of `duplicate` sub-formulae to allow for caching
-/// TODO: fix cache to compute faster
 pub fn eval_node(
     node: Node,
     graph: &SymbolicAsyncGraph,
