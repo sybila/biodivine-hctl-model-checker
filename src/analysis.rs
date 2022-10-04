@@ -175,7 +175,7 @@ mod tests {
     use crate::analysis::model_check_formula_unsafe;
 
     // model FISSION-YEAST-2008
-    const BNET_MODEL: &str = r"
+    const FISSION_YEAST_MODEL: &str = r"
 targets,factors
 Cdc25, ((!Cdc2_Cdc13 & (Cdc25 & !PP)) | ((Cdc2_Cdc13 & (!Cdc25 & !PP)) | (Cdc2_Cdc13 & Cdc25)))
 Cdc2_Cdc13, (!Ste9 & (!Rum1 & !Slp1))
@@ -192,71 +192,36 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
     #[test]
     /// Test evaluation of several important formulae on model FISSION-YEAST-2008
     /// Compare numbers of results with the numbers acquired by Python model checker or AEON
-    fn test_model_check_basic_formulae() {
-        let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
+    fn test_model_check_basic_formulae_yeast() {
+        let bn = BooleanNetwork::try_from_bnet(FISSION_YEAST_MODEL).unwrap();
         // test formulae use 3 HCTL vars at most
         let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
-        let mut result = model_check_formula_unsafe("!{x}: AG EF {x}".to_string(), &stg);
-        assert_eq!(76., result.approx_cardinality());
-        assert_eq!(2., result.colors().approx_cardinality());
-        assert_eq!(76., result.vertices().approx_cardinality());
+        // tuples consisting of <formula, num_total, num_colors, num_states>
+        // num_x are numbers of expected results
+        let test_tuples = vec![
+            ("!{x}: AG EF {x}", 76., 2., 76.),
+            ("!{x}: AX {x}", 12., 1., 12.),
+            ("!{x}: AX EF {x}", 132., 2., 132.),
+            ("AF (!{x}: AX {x})", 60., 1., 60.),
+            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 12., 1., 12.),
+            ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 11., 1., 11.),
+            ("!{x}: (AX (AF {x}))", 12., 1., 12.),
+            ("AF (!{x}: (AX (~{x} & AF {x})))", 0., 0., 0.),
+            ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 0., 0., 0.),
+        ];
 
-        result = model_check_formula_unsafe("!{x}: AX {x}".to_string(), &stg);
-        assert_eq!(12., result.approx_cardinality());
-        assert_eq!(1., result.colors().approx_cardinality());
-        assert_eq!(12., result.vertices().approx_cardinality());
-
-        result = model_check_formula_unsafe("!{x}: AX EF {x}".to_string(), &stg);
-        assert_eq!(132., result.approx_cardinality());
-        assert_eq!(2., result.colors().approx_cardinality());
-        assert_eq!(132., result.vertices().approx_cardinality());
-
-        result = model_check_formula_unsafe("AF (!{x}: AX {x})".to_string(), &stg);
-        assert_eq!(60., result.approx_cardinality());
-        assert_eq!(1., result.colors().approx_cardinality());
-        assert_eq!(60., result.vertices().approx_cardinality());
-
-        result = model_check_formula_unsafe(
-            "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string(),
-            &stg,
-        );
-        assert_eq!(12., result.approx_cardinality());
-        assert_eq!(1., result.colors().approx_cardinality());
-        assert_eq!(12., result.vertices().approx_cardinality());
-
-        result = model_check_formula_unsafe(
-            "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))".to_string(),
-            &stg,
-        );
-        assert_eq!(11., result.approx_cardinality());
-        assert_eq!(1., result.colors().approx_cardinality());
-        assert_eq!(11., result.vertices().approx_cardinality());
-
-        result = model_check_formula_unsafe("!{x}: (AX (AF {x}))".to_string(), &stg);
-        assert_eq!(12., result.approx_cardinality());
-        assert_eq!(1., result.colors().approx_cardinality());
-        assert_eq!(12., result.vertices().approx_cardinality());
-
-        result = model_check_formula_unsafe("AF (!{x}: (AX (~{x} & AF {x})))".to_string(), &stg);
-        assert_eq!(0., result.approx_cardinality());
-        assert_eq!(0., result.colors().approx_cardinality());
-        assert_eq!(0., result.vertices().approx_cardinality());
-
-        result = model_check_formula_unsafe(
-            "AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))".to_string(),
-            &stg,
-        );
-        assert_eq!(0., result.approx_cardinality());
-        assert_eq!(0., result.colors().approx_cardinality());
-        assert_eq!(0., result.vertices().approx_cardinality());
+        for (formula, num_total, num_colors, num_states) in test_tuples {
+            let result = model_check_formula_unsafe(formula.to_string(), &stg);
+            assert_eq!(num_total, result.approx_cardinality());
+            assert_eq!(num_colors, result.colors().approx_cardinality());
+            assert_eq!(num_states, result.vertices().approx_cardinality());
+        }
     }
 
-    #[test]
-    /// Test evaluation of pairs of equivalent formulae on model FISSION-YEAST-2008
+    /// Test evaluation of pairs of equivalent formulae on given BN model
     /// Compare whether the results are the same
-    fn test_model_check_equivalences() {
-        let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
+    fn test_model_check_equivalences(bn: BooleanNetwork) {
         // test formulae use 3 HCTL vars at most
         let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
@@ -272,7 +237,14 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
             let result1 = model_check_formula_unsafe(formula1.to_string(), &stg);
             let result2 = model_check_formula_unsafe(formula2.to_string(), &stg);
             assert_eq!(result1, result2);
-
         }
     }
+
+    #[test]
+    /// Test evaluation of pairs of equivalent formulae on model FISSION-YEAST-2008
+    fn test_model_check_equivalences_yeast() {
+        let bn = BooleanNetwork::try_from_bnet(FISSION_YEAST_MODEL).unwrap();
+        test_model_check_equivalences(bn);
+    }
+
 }

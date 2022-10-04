@@ -154,7 +154,7 @@ pub fn parse_hctl_formula(tokens: &[Token]) -> Result<Box<Node>, String> {
 
 /// Recursive parsing step 1: extract hybrid operators.
 /// Hybrid operator must not be immediately preceded by any other kind of operator.
-/// We only allow it to be preceded by another hybrid operator, else brackets must be used.
+/// We only allow it to be preceded by another hybrid operator, or parentheses must be used.
 /// (things like "AF !{x}: ..." are forbidden, must be written in brackets as "AF (!{x}: ...)"
 fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<Node>, String> {
     let hybrid_token = index_of_first_hybrid(tokens);
@@ -276,13 +276,13 @@ fn parse_8_unary(tokens: &[Token]) -> Result<Box<Node>, String> {
             _ => Box::new(Node::new()), // This branch cant happen, but must result in same type
         }
     } else {
-        parse_9_terminal_and_brackets(tokens)?
+        parse_9_terminal_and_parentheses(tokens)?
     })
 }
 
 /// Recursive parsing step 9: extract terminals and recursively solve
-/// parts in brackets.
-fn parse_9_terminal_and_brackets(tokens: &[Token]) -> Result<Box<Node>, String> {
+/// sub-formulae in parentheses.
+fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<Node>, String> {
     if tokens.is_empty() {
         Err("Expected formula, found nothing.".to_string())
     } else {
@@ -317,6 +317,7 @@ fn parse_9_terminal_and_brackets(tokens: &[Token]) -> Result<Box<Node>, String> 
                         node_type: NodeType::TerminalNode(Atomic::Var(name.clone())),
                     }))
                 }
+                // recursively solve sub-formulae in parentheses
                 Token::Tokens(inner) => return parse_hctl_formula(inner),
                 _ => {} // otherwise, fall through to the error at the end.
             }
