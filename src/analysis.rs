@@ -251,4 +251,28 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         assert_eq!(0., result.colors().approx_cardinality());
         assert_eq!(0., result.vertices().approx_cardinality());
     }
+
+    #[test]
+    /// Test evaluation of pairs of equivalent formulae on model FISSION-YEAST-2008
+    /// Compare whether the results are the same
+    fn test_model_check_equivalences() {
+        let bn = BooleanNetwork::try_from_bnet(BNET_MODEL).unwrap();
+        // test formulae use 3 HCTL vars at most
+        let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
+
+        let equivalent_formulae_pairs = vec![
+            ("!{x}: AG EF {x}", "!{x}: AG EF ({x} & {x})"),  // one is evaluated using optimisations
+            ("!{x}: AX {x}", "!{x}: AX ({x} & {x})"),        // one is evaluated using optimisations
+            ("!{x}: AX {x}", "!{x}: ~EX ~{x}"),
+            ("!{x}: AX AF {x}", "!{x}: AX ~EG ~{x}"),
+            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))"),
+        ];
+
+        for (formula1, formula2) in equivalent_formulae_pairs {
+            let result1 = model_check_formula_unsafe(formula1.to_string(), &stg);
+            let result2 = model_check_formula_unsafe(formula2.to_string(), &stg);
+            assert_eq!(result1, result2);
+
+        }
+    }
 }
