@@ -49,4 +49,5 @@ The operator precedence is following:
 * binary temporal operators: 2
 * boolean binary operators: and=3, xor=4, or=5, imp=6, eq=7
 * hybrid operators: 8
-However, we recommend using parentheses wherever possible to prevent any issues.
+* 
+However, we strongly recommend using parentheses wherever possible to prevent any parsing issues.
