@@ -12,6 +12,12 @@ use std::fs::{read_to_string, File};
 use std::io::Write;
 use std::time::SystemTime;
 
+/**
+ IMPORTANT - to use this binary, you must create the models (and results)
+ directory "experiment" and include the input files.
+ */
+
+/// ID of BN model to be analyzed
 const MODEL_ID: &str = "001";
 
 /// Compute the network input variables.
@@ -65,6 +71,7 @@ fn bool_vec_to_string(bool_vec: Vec<bool>) -> String {
 }
 
 #[allow(dead_code)]
+/// Export Boolean network with inputs fixed to given values
 fn export_network(input_values: Vec<bool>, network: &BooleanNetwork) {
     let input_val_string = bool_vec_to_string(input_values);
     let bnet_file = format!(
@@ -73,6 +80,7 @@ fn export_network(input_values: Vec<bool>, network: &BooleanNetwork) {
     );
     std::fs::write(bnet_file, network.to_bnet(false).unwrap()).unwrap();
 
+    // print also aeon format
     /*
     let aeon_file = format!(
         "experiment\\{}\\fixed_networks\\{}.aeon",
@@ -83,6 +91,8 @@ fn export_network(input_values: Vec<bool>, network: &BooleanNetwork) {
 }
 
 #[allow(dead_code)]
+/// Transform integer value into binary value represented as vector
+/// The binary vector can be used to define BN input values
 fn int_to_bool_vec(mut decimal: i32, inputs_num: i32) -> Vec<bool> {
     let mut bits: Vec<bool> = Vec::new();
 
@@ -99,6 +109,9 @@ fn int_to_bool_vec(mut decimal: i32, inputs_num: i32) -> Vec<bool> {
 }
 
 #[allow(dead_code)]
+/// Analyze BN attractors for 10000 random input valuations
+/// This is used for BNs with large number of input valuations that can't be enumerated
+/// Results and times are exported
 fn analyze_random_instantiations() {
     let attractor_file = File::create(format!("experiment\\{}\\attractors.txt", MODEL_ID)).unwrap();
     let times_file = File::create(format!("experiment\\{}\\aeon_results.txt", MODEL_ID)).unwrap();
@@ -164,6 +177,8 @@ fn main2() {
     analyze_random_instantiations();
 }
 
+/// Analyze BN attractors for all input valuations
+/// Results and times are exported
 fn main() {
     let attractor_file = File::create(format!("experiment\\{}\\attractors.txt", MODEL_ID)).unwrap();
     let times_file = File::create(format!("experiment\\{}\\aeon_results.txt", MODEL_ID)).unwrap();
