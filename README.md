@@ -43,11 +43,12 @@ We use the following syntax:
   * bind x: `!{x}:`
   * jump x: `@{x}:`
   * exists x: `3{x}:`
+* parentheses: `(`, `)`
 
-The operator precedence is following:
+The operator precedence is following (the lower, the stronger):
 * unary operators (negation + temporal): 1
 * binary temporal operators: 2
 * boolean binary operators: and=3, xor=4, or=5, imp=6, eq=7
 * hybrid operators: 8
 
-However, we strongly recommend using parentheses wherever possible to prevent any parsing issues.
+However, it is strongly recommended to use parentheses wherever possible to prevent any parsing issues.

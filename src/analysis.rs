@@ -246,5 +246,4 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
         let bn = BooleanNetwork::try_from_bnet(FISSION_YEAST_MODEL).unwrap();
         test_model_check_equivalences(bn);
     }
-
 }

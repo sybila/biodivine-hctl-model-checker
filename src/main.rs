@@ -1,5 +1,5 @@
 use clap::Parser;
-use hctl_model_checker::analysis::{analyse_formula, PrintOptions};
+use biodivine_hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use std::fs::read_to_string;
 
 

@@ -7,19 +7,19 @@ AF (!{x}: (AX (~{x} & AF {x})))
 AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))
 
 # steady states, in case there are at least two of them
-!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})
+!{x}: 3{y}: ((@{x}: ~{y} & AX {x}) & (@{y}: AX {y}))
 
 # existence of "fork" states in the system (states where system decides which terminal steady state to visit)
-3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))
+3{x}: 3{y}: ((@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z}))))
 
 
 ## OTHER USEFUL FORMULAE
 
 # attractor states
-!{x}: AG EF {x}
+!{x}: (AG EF {x})
 
 # steady states
-!{x}: AX {x}
+!{x}: (AX {x})
 
 # attractor states which are always visited repeatedly
 !{x}: (AX (~{x} & AF {x}))
