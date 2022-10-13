@@ -1,9 +1,9 @@
 use crate::evaluator::eval_minimized_tree;
-use crate::io::{print_results, print_results_fast};
-use crate::operation_enums::*;
-use crate::parser::*;
+use crate::result_print::{print_results, print_results_fast};
+use crate::formula_preprocessing::operation_enums::*;
+use crate::formula_preprocessing::parser::*;
 #[allow(unused_imports)]
-use crate::tokenizer::{print_tokens, tokenize_formula};
+use crate::formula_preprocessing::tokenizer::{print_tokens, tokenize_formula};
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
@@ -170,12 +170,12 @@ pub fn model_check_formula_unsafe(
 
 #[cfg(test)]
 mod tests {
+    use crate::analysis::model_check_formula_unsafe;
     use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
     use biodivine_lib_param_bn::BooleanNetwork;
-    use crate::analysis::model_check_formula_unsafe;
 
     // model FISSION-YEAST-2008
-    const FISSION_YEAST_MODEL: &str = r"
+    const MODEL_FISSION_YEAST: &str = r"
 targets,factors
 Cdc25, ((!Cdc2_Cdc13 & (Cdc25 & !PP)) | ((Cdc2_Cdc13 & (!Cdc25 & !PP)) | (Cdc2_Cdc13 & Cdc25)))
 Cdc2_Cdc13, (!Ste9 & (!Rum1 & !Slp1))
@@ -189,14 +189,43 @@ Ste9, ((!SK & (!Cdc2_Cdc13 & (!Ste9 & (!Cdc2_Cdc13_A & PP)))) | ((!SK & (!Cdc2_C
 Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cdc2_Cdc13 & (Wee1_Mik1 & PP))))
 ";
 
+    // model MAMMALIAN-CELL-CYCLE-2006
+    const MODEL_MAMMALIAN_CELL_CYCLE: &str = r"
+targets,factors
+v_Cdc20, v_CycB
+v_Cdh1, ((v_Cdc20 | (v_p27 & !v_CycB)) | !(((v_p27 | v_CycB) | v_CycA) | v_Cdc20))
+v_CycA, ((v_CycA & !(((v_Cdh1 & v_UbcH10) | v_Cdc20) | v_Rb)) | (v_E2F & !(((v_Cdh1 & v_UbcH10) | v_Cdc20) | v_Rb)))
+v_CycB, !(v_Cdc20 | v_Cdh1)
+v_CycE, (v_E2F & !v_Rb)
+v_E2F, ((v_p27 & !(v_CycB | v_Rb)) | !(((v_p27 | v_Rb) | v_CycB) | v_CycA))
+v_Rb, ((v_p27 & !(v_CycD | v_CycB)) | !((((v_CycE | v_p27) | v_CycB) | v_CycD) | v_CycA))
+v_UbcH10, (((((v_UbcH10 & ((v_Cdh1 & ((v_CycB | v_Cdc20) | v_CycA)) | !v_Cdh1)) | (v_CycA & !v_Cdh1)) | (v_Cdc20 & !v_Cdh1)) | (v_CycB & !v_Cdh1)) | !((((v_UbcH10 | v_Cdh1) | v_CycB) | v_Cdc20) | v_CycA))
+v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27) | v_CycB) | v_CycD) | v_CycA))
+";
+
+    /// Run the evaluation tests for the set of given formulae on given model
+    /// Compare numbers of results with the expected numbers given
+    /// `test_tuples` consist of <formula, num_total, num_colors, num_states>
+    fn test_model_check_basic_formulae(
+        test_tuples: Vec<(&str, f64, f64, f64)>,
+        model_name: &str
+    ) {
+        let bn = BooleanNetwork::try_from_bnet(model_name).unwrap();
+        // test formulae use 3 HCTL vars at most
+        let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
+
+        for (formula, num_total, num_colors, num_states) in test_tuples {
+            let result = model_check_formula_unsafe(formula.to_string(), &stg);
+            assert_eq!(num_total, result.approx_cardinality());
+            assert_eq!(num_colors, result.colors().approx_cardinality());
+            assert_eq!(num_states, result.vertices().approx_cardinality());
+        }
+    }
+
     #[test]
     /// Test evaluation of several important formulae on model FISSION-YEAST-2008
     /// Compare numbers of results with the numbers acquired by Python model checker or AEON
     fn test_model_check_basic_formulae_yeast() {
-        let bn = BooleanNetwork::try_from_bnet(FISSION_YEAST_MODEL).unwrap();
-        // test formulae use 3 HCTL vars at most
-        let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
-
         // tuples consisting of <formula, num_total, num_colors, num_states>
         // num_x are numbers of expected results
         let test_tuples = vec![
@@ -211,17 +240,33 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
             ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 0., 0., 0.),
         ];
 
-        for (formula, num_total, num_colors, num_states) in test_tuples {
-            let result = model_check_formula_unsafe(formula.to_string(), &stg);
-            assert_eq!(num_total, result.approx_cardinality());
-            assert_eq!(num_colors, result.colors().approx_cardinality());
-            assert_eq!(num_states, result.vertices().approx_cardinality());
-        }
+        test_model_check_basic_formulae(test_tuples, MODEL_FISSION_YEAST);
+    }
+
+    #[test]
+    /// Test evaluation of several important formulae on model MAMMALIAN-CELL-CYCLE-2006
+    /// Compare numbers of results with the numbers acquired by Python model checker or AEON
+    fn test_model_check_basic_formulae_mammal() {
+        // tuples consisting of <formula, num_total, num_colors, num_states>
+        // num_x are numbers of expected results
+        let test_tuples = vec![
+            ("!{x}: AG EF {x}", 113., 2., 113.),
+            ("!{x}: AX {x}", 1., 1., 1.),
+            ("!{x}: AX EF {x}", 425., 2., 425.),
+            ("AF (!{x}: AX {x})", 32., 1., 32.),
+            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 0., 0., 0.),
+            ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 0., 0., 0.),
+            ("!{x}: (AX (AF {x}))", 1., 1., 1.),
+            ("AF (!{x}: (AX (~{x} & AF {x})))", 0., 0., 0.),
+            ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 0., 0., 0.),
+        ];
+        test_model_check_basic_formulae(test_tuples, MODEL_MAMMALIAN_CELL_CYCLE);
     }
 
     /// Test evaluation of pairs of equivalent formulae on given BN model
     /// Compare whether the results are the same
-    fn test_model_check_equivalences(bn: BooleanNetwork) {
+    fn test_model_check_equivalences(model_name: &str) {
+        let bn = BooleanNetwork::try_from_bnet(model_name).unwrap();
         // test formulae use 3 HCTL vars at most
         let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
@@ -243,7 +288,12 @@ Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cd
     #[test]
     /// Test evaluation of pairs of equivalent formulae on model FISSION-YEAST-2008
     fn test_model_check_equivalences_yeast() {
-        let bn = BooleanNetwork::try_from_bnet(FISSION_YEAST_MODEL).unwrap();
-        test_model_check_equivalences(bn);
+        test_model_check_equivalences(MODEL_FISSION_YEAST);
+    }
+
+    #[test]
+    /// Test evaluation of pairs of equivalent formulae on model FISSION-YEAST-2008
+    fn test_model_check_equivalences_mammal() {
+        test_model_check_equivalences(MODEL_MAMMALIAN_CELL_CYCLE);
     }
 }

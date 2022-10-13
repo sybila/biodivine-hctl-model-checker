@@ -1,9 +1,9 @@
+use biodivine_lib_param_bn::{BooleanNetwork, Monotonicity};
+
 use std::env;
 use std::fs::{read_to_string, File};
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-
-use biodivine_lib_param_bn::{BooleanNetwork, Monotonicity};
 
 fn print_steady_states(data_path: String) {
     let data_file = File::open(Path::new(data_path.as_str())).unwrap();

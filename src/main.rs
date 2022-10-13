@@ -1,5 +1,5 @@
-use clap::Parser;
 use biodivine_hctl_model_checker::analysis::{analyse_formula, PrintOptions};
+use clap::Parser;
 use std::fs::read_to_string;
 
 
@@ -9,7 +9,6 @@ use std::fs::read_to_string;
 // TODO: add check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
 // TODO: add check that formula doesnt contain free vars (during parsing or var collecting)
 // TODO: check generating predecessors in EU_saturated (check including self-loops)
-// TODO: modify aeon SCC computation to not print everything
 
 
 /// Structure to collect CLI arguments

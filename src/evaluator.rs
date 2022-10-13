@@ -1,9 +1,10 @@
-use crate::compute_scc::compute_terminal_scc;
+use crate::aeon::scc_computation::compute_terminal_components;
 use crate::implementation_components::*;
-use crate::operation_enums::*;
-use crate::parser::{Node, NodeType};
+use crate::formula_preprocessing::operation_enums::*;
+use crate::formula_preprocessing::parser::{Node, NodeType};
 
 use biodivine_lib_bdd::{Bdd, bdd};
+
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
@@ -72,7 +73,7 @@ pub fn eval_node(
     // first lets check for special cases, which can be optimised:
     // attractors
     if is_attractor_pattern(node.clone()) {
-        let result = compute_terminal_scc(graph, graph.mk_unit_colored_vertices());
+        let result = compute_terminal_components(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
             eval_info
                 .cache

@@ -1,0 +1,13 @@
+/**
+ Modified versions of algorithms adapted from AEON.
+ These can be used to compute attractor states and optimize some procedures.
+ */
+
+/// Interleaved transition guided reduction quickly eliminates most non-attractor states.
+mod itgr;
+/// Reachability algorithms that use saturation for improved efficiency.
+mod saturated_reachability;
+/// Xie-Beerel TSCC algorithm
+mod algo_xie_beerel;
+/// Computing SCCs using Xie-Beerel algorithm enhanced with ITGR as preprocessing.
+pub mod scc_computation;

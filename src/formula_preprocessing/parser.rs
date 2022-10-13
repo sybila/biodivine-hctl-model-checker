@@ -1,5 +1,5 @@
-use crate::operation_enums::*;
-use crate::tokenizer::Token;
+use crate::formula_preprocessing::tokenizer::Token;
+use crate::formula_preprocessing::operation_enums::*;
 
 use std::cmp;
 use std::cmp::Ordering;
@@ -328,8 +328,8 @@ fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<Node>, Strin
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::parse_hctl_formula;
-    use crate::tokenizer::tokenize_formula;
+    use crate::formula_preprocessing::parser::parse_hctl_formula;
+    use crate::formula_preprocessing::tokenizer::tokenize_formula;
 
     #[test]
     /// Test parsing of several valid HCTL formulae

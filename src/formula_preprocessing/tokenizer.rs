@@ -1,8 +1,8 @@
+use crate::formula_preprocessing::operation_enums::*;
+
 use std::fmt;
 use std::iter::Peekable;
 use std::str::Chars;
-
-use crate::operation_enums::*;
 
 /// Enum of all possible tokens occurring in a HCTL formula string
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -271,8 +271,8 @@ pub fn print_tokens(tokens: &Vec<Token>) -> () {
 
 #[cfg(test)]
 mod tests {
-    use crate::operation_enums::*;
-    use crate::tokenizer::{tokenize_formula, Token};
+    use crate::formula_preprocessing::operation_enums::*;
+    use crate::formula_preprocessing::tokenizer::{tokenize_formula, Token};
 
     #[test]
     /// Test tokenization process on several valid HCTL formulae

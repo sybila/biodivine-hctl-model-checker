@@ -1,7 +1,7 @@
 [package]
 name = "biodivine-hctl-model-checker"
 version = "0.1.0"
-authors = ["Ondrej Huvar <ohuvar@gmail.com>"]
+authors = ["Ondrej Huvar <ohuvar@gmail.com>", "Samuel Pastva <daemontus@gmail.com>"]
 edition = "2021"
 description = "Library for symbolic HCTL model checking on partially defined BN models."
 homepage = "https://github.com/sybila/biodivine-hctl-model-checker"
@@ -10,7 +10,6 @@ readme = "README.md"
 keywords = ["hctl", "model-checking", "boolean-network", "symbolic", "systems-biology"]
 categories = ["science", "simulation"]
 license = "MIT"
-
 
 #[profile.release]
 #lto = true
@@ -23,18 +22,12 @@ name = "model-check"
 path = "src/main.rs"
 
 [[bin]]
-name = "experiment-aeon"
-path = "src/bin/experiment_aeon.rs"
-
-[[bin]]
 name = "print-regulations"
 path = "src/bin/print_regulations.rs"
-
 
 [dependencies]
 biodivine-lib-bdd = "0.4.0"
 biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn.git", branch = "hctl-experimental" }
-biodivine-aeon-server = { git = "https://github.com/sybila/biodivine-aeon-server", branch = "hctl-experimental" }
 clap = { version = "3.1.6", features = ["derive"] }
 rand = "0.6.5"
 termcolor = "1.1.2"
