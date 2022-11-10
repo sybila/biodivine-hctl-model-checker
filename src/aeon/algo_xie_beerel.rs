@@ -7,7 +7,7 @@ use biodivine_lib_param_bn::VariableId;
 /// Uses a simplified Xie-Beerel algorithm adapted to coloured setting to find all bottom
 /// SCCs in the given `universe` set. It only tests transitions using `active_variables`.
 /// All resulting components are collected into the `components` set.
-pub fn xie_beerel_attractors_collect(
+pub fn xie_beerel_attractor_set(
     graph: &SymbolicAsyncGraph,
     universe: &GraphColoredVertices,
     active_variables: &[VariableId],

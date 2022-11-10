@@ -9,7 +9,6 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, Symboli
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
 use std::time::SystemTime;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -107,7 +106,7 @@ fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) 
 
 /// Performs the whole model checking process, including parsing at the beginning
 /// Prints selected amount of result info (no prints / summary / all results printed)
-pub fn analyse_formula(aeon_string: String, formula: String, print_option: PrintOptions) {
+pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintOptions) {
     let start = SystemTime::now();
 
     let tokens = match tokenize_formula(formula) {
@@ -127,7 +126,6 @@ pub fn analyse_formula(aeon_string: String, formula: String, print_option: Print
 
             // count the number of needed HCTL vars and instantiate graph with it
             let num_hctl_vars = collect_unique_hctl_vars(new_tree.clone(), HashSet::new()).len();
-            let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
             let graph = SymbolicAsyncGraph::new(bn, num_hctl_vars as i16).unwrap();
 
             if print_option != PrintOptions::NoPrint {

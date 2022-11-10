@@ -1,10 +1,13 @@
 # Symbolic model checker for logic HCTL written in RUST
 
-Work in progress.
+This repository contains the Rust implementation of the symbolic model checker for hybrid logic HCTL. 
+The tool is focused on the analysis of (partially specified) Boolean networks. 
+In particular, it allows to check for any behavioural hypotheses expressible in HCTL on large, non-trivial networks. 
+This includes properties like stability, bi-stability, attractors, or oscillatory behaviour.
 
-This repository contains the Rust implementation of the symbolic model checker for hybrid logic HCTL. The tool is focused on the analysis of (partially specified) Boolean networks. In particular, it allows to check for any behavioural hypotheses expressible in HCTL on large, non-trivial networks. This includes properties like stability, bi-stability, attractors, or oscillatory behaviour.
-
-For a given (partially defined) Boolean network and a HCTL formula (representing the property we want to check), it computes all the states of the network (and corresponding colours) that satisfy the formula. Currently, there is only a command-line interface, with a GUI soon to be implemented. Depending on the mode, it either prints the numbers of satisfying states and colours, or prints all the satisfying assignments. 
+For a given (partially defined) Boolean network and a HCTL formula (representing the property we want to check), it computes all the states of the network (and corresponding colours) that satisfy the formula. 
+Currently, there is only a command-line interface, with a GUI soon to be implemented. 
+Depending on the mode, the program can either print the numbers of satisfying states and colours, or print all the satisfying assignments. 
 
 To directly invoke the model checker, compile the code using
 ```
@@ -12,18 +15,23 @@ cargo build --release
 ```
 and then run the binary:
 ```
-.\target\release\model-check <MODEL_PATH> <FORMULA> [-p <PRINT_OPTION>]
+.\target\release\model-check <MODEL_PATH> <FORMULA> [-m <MODEL_FORMAT>] [-p <PRINT_OPTION>]
 ```
 
 - `MODEL_PATH` is a path to a file with BN model in aeon format
 - `FORMULA` is a valid HCTL formula without free variables in correct format
-- `PRINT_OPTION` is one of none/short/full and defines the output mode
+- `PRINT_OPTION` is one of none/short/full and defines the output mode (short is default)
+- `MODEL_FORMAT` is one of aeon/bnet/smbl and defines the input format (aeon is default)
 
+For more help, run:
+```
+.\target\release\model-check --help
+```
 
 ## Models
 
-The tool takes BN models in `aeon` format as its input, with many example models present in the `benchmark_models` directory.
-Many benchmark models are also present in bnet format, but this is just for the convenience of the user, and those can't be used as inputs for now.
+The tool takes BN models in `aeon` format as its default input, with many example models present in the `benchmark_models` directory.
+You can also use `sbml` and `bnet` models by specifying the format as a CLI option (see above).
 
 
 ## HCTL formulae

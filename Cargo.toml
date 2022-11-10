@@ -25,6 +25,10 @@ path = "src/main.rs"
 name = "print-regulations"
 path = "src/bin/print_regulations.rs"
 
+[[bin]]
+name = "example-sketch"
+path = "src/bin/example_sketches.rs"
+
 [dependencies]
 biodivine-lib-bdd = "0.4.0"
 biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn.git", branch = "hctl-experimental" }

@@ -1,4 +1,4 @@
-use crate::aeon::algo_xie_beerel::xie_beerel_attractors_collect;
+use crate::aeon::algo_xie_beerel::xie_beerel_attractor_set;
 use crate::aeon::itgr::interleaved_transition_guided_reduction;
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
@@ -11,7 +11,7 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, Symboli
 /// Computes the set of colored states contained in terminal SCCs
 /// Initial universe can be used to e.g. restrict considered colors
 /// Good default value would be graph.mk_unit_colored_vertices()
-pub fn compute_terminal_components(
+pub fn compute_attractor_states(
     graph: &SymbolicAsyncGraph,
     initial_universe: GraphColoredVertices,
 ) -> GraphColoredVertices {
@@ -20,7 +20,7 @@ pub fn compute_terminal_components(
         interleaved_transition_guided_reduction(&graph, initial_universe);
 
     // Then run Xie-Beerel to actually collect all the components
-    xie_beerel_attractors_collect(
+    xie_beerel_attractor_set(
         &graph,
         &universe,
         &active_variables,

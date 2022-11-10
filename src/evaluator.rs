@@ -1,4 +1,4 @@
-use crate::aeon::scc_computation::compute_terminal_components;
+use crate::aeon::scc_computation::compute_attractor_states;
 use crate::implementation_components::*;
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::{Node, NodeType};
@@ -73,7 +73,7 @@ pub fn eval_node(
     // first lets check for special cases, which can be optimised:
     // attractors
     if is_attractor_pattern(node.clone()) {
-        let result = compute_terminal_components(graph, graph.mk_unit_colored_vertices());
+        let result = compute_attractor_states(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
             eval_info
                 .cache
