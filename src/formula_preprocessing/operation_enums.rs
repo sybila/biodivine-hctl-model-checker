@@ -29,9 +29,10 @@ pub enum BinaryOp {
 /// Enum for all possible hybrid operators occurring in a HCTL formula string
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum HybridOp {
-    Bind,  // '!'
-    Jump,  // '@'
-    Exist, // '3'
+    Bind,   // '!'
+    Jump,   // '@'
+    Exists, // '3'
+    Forall, // 'V'
 }
 
 /// Enum for atomic formulas - propositions, variables, constants

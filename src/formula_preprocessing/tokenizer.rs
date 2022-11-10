@@ -9,7 +9,7 @@ use std::str::Chars;
 pub enum Token {
     Unary(UnaryOp),           // Unary operators: '~','EX','AX','EF','AF','EG','AG'
     Binary(BinaryOp),         // Binary operators: '&','|','^','=>','<=>','EU','AU','EW','AW'
-    Hybrid(HybridOp, String), // Hybrid operator and its variable: '!', '@', '3'
+    Hybrid(HybridOp, String), // Hybrid operator and its variable: '!', '@', '3', 'V'
     Atom(Atomic),             // Proposition, variable, or 'true'/'false' constant
     Tokens(Vec<Token>),       // A block of tokens inside parentheses
 }
@@ -125,7 +125,13 @@ fn tokenize_recursive(
             '3' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
                 let name = collect_var_from_operator(input_chars, '3')?;
-                output.push(Token::Hybrid(HybridOp::Exist, name));
+                output.push(Token::Hybrid(HybridOp::Exists, name));
+            }
+            // "V" can be either forall quantifier or part of some proposition
+            'V' if !is_valid_in_name_optional(input_chars.peek()) => {
+                // we will collect the variable name via inside helper function
+                let name = collect_var_from_operator(input_chars, 'V')?;
+                output.push(Token::Hybrid(HybridOp::Forall, name));
             }
             ')' => {
                 return if !top_level {
@@ -317,7 +323,7 @@ mod tests {
             tokens3_result.unwrap(),
             vec![
                 Token::Hybrid(HybridOp::Bind, "x".to_string()),
-                Token::Hybrid(HybridOp::Exist, "y".to_string()),
+                Token::Hybrid(HybridOp::Exists, "y".to_string()),
                 Token::Tokens(vec![
                     Token::Hybrid(HybridOp::Jump, "x".to_string()),
                     Token::Unary(UnaryOp::Not),

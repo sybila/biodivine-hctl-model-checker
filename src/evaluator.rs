@@ -146,7 +146,8 @@ pub fn eval_node(
         NodeType::HybridNode(op, var, child) => match op {
             HybridOp::Bind => bind(graph, &eval_node(*child, graph, eval_info), var.as_str()),
             HybridOp::Jump => jump(graph, &eval_node(*child, graph, eval_info), var.as_str()),
-            HybridOp::Exist => existential(graph, &eval_node(*child, graph, eval_info), var.as_str()),
+            HybridOp::Exists => existential(graph, &eval_node(*child, graph, eval_info), var.as_str()),
+            HybridOp::Forall => forall(graph, &eval_node(*child, graph, eval_info), var.as_str()),
         },
     };
 
@@ -220,8 +221,8 @@ fn canonize_subform(
                 should_return = true;
             }
             // introduce new 'quantified' var (jump is not listed as it does not introduce vars)
-            // we must distinguish situations where '3' is existential and when it is part of some prop name
-            '!' | '3' if subform_chars.peek() == Some(&'{') => {
+            // distinguish situations where '3' or 'V' is quantifier and when part of some prop name
+            '!' | '3' | 'V' if subform_chars.peek() == Some(&'{') => {
                 // move to the beginning of the var name (skip '{')
                 subform_chars.next();
                 let mut var_name = String::new();

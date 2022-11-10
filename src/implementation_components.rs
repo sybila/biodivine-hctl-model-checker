@@ -122,6 +122,14 @@ pub fn existential(
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
+pub fn forall(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+    var_name: &str,
+) -> GraphColoredVertices {
+    negate_set(graph, &existential(graph, &negate_set(graph, &phi), var_name))
+}
+
 /// Evaluates jump operator - does intersection with comparator and projects out BN variables
 pub fn jump(
     graph: &SymbolicAsyncGraph,

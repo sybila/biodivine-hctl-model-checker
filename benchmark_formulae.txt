@@ -1,4 +1,4 @@
-## BENCHMARK FORMULAE
+### BENCHMARK FORMULAE
 
 # states from which all outgoing paths eventually reach a "checkpoint" state
 AF (!{x}: (AX (~{x} & AF {x})))
@@ -13,7 +13,7 @@ AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))
 3{x}: 3{y}: ((@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z}))))
 
 
-## OTHER USEFUL FORMULAE
+### OTHER USEFUL FORMULAE
 
 # attractor states
 !{x}: (AG EF {x})
@@ -29,3 +29,12 @@ AG (!{x}: (AX (~{x} & AF {x})))
 
 # existence of at least two attractors
 3{x}: (3{y}: (@{x}: (AG~{y}) & (AG EF {x})) & (@{y}: AG EF {y}))
+
+
+## EXPERIMENTAL FORMULAE EMPLOYING UNIVERSAL QUANTIFIER
+
+# existence of a state weakly reachable from every state
+3{x}: V{y}: (@{y}: EF {x})
+
+# existence of a state strongly reachable from every state (cant use AF because of cycles on the path)
+3{x}: V{y}: (@{y}: AG EF {x})

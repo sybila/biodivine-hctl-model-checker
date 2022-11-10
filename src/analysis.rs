@@ -59,7 +59,7 @@ fn minimize_number_of_state_vars(
             // if we hit binder or exist, we are adding its new var name to dict & stack
             // no need to do this for jump, jump is not quantifier
             match op {
-                HybridOp::Bind | HybridOp::Exist => {
+                HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
                     last_used_name.push('x'); // this represents adding to stack
                     mapping_dict.insert(var.clone(), last_used_name.clone());
                 }
@@ -93,7 +93,7 @@ fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) 
         // collect variables from exist and bind nodes
         NodeType::HybridNode(op, var_name, child) => {
             match op {
-                HybridOp::Bind | HybridOp::Exist => {
+                HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
                     seen_vars.insert(var_name); // we do not care whether insert is successful
                 }
                 _ => {}
@@ -108,6 +108,7 @@ fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) 
 /// Prints selected amount of result info (no prints / summary / all results printed)
 pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintOptions) {
     let start = SystemTime::now();
+    let print_progress = print_option != PrintOptions::NoPrint;
 
     let tokens = match tokenize_formula(formula) {
         Ok(r) => r,
@@ -120,15 +121,21 @@ pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintO
 
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
-            println!("parsed formula:   {}", tree.subform_str);
+            if print_progress {
+                println!("parsed formula:   {}", tree.subform_str);
+            }
             let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
-            println!("modified formula: {}", new_tree.subform_str);
+            if print_progress {
+                println!("modified formula: {}", new_tree.subform_str);
+                println!("-----");
+            }
 
             // count the number of needed HCTL vars and instantiate graph with it
             let num_hctl_vars = collect_unique_hctl_vars(new_tree.clone(), HashSet::new()).len();
             let graph = SymbolicAsyncGraph::new(bn, num_hctl_vars as i16).unwrap();
 
-            if print_option != PrintOptions::NoPrint {
+            if print_progress {
+                println!("Loaded BN with {} vars", graph.as_network().num_vars());
                 println!(
                     "Formula parse + graph build time: {}ms",
                     start.elapsed().unwrap().as_millis()
@@ -137,9 +144,9 @@ pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintO
 
             let result = eval_minimized_tree(new_tree, &graph);
 
-            if print_option != PrintOptions::NoPrint {
+            if print_progress {
                 println!("Eval time: {}ms", start.elapsed().unwrap().as_millis());
-                println!("{} vars in network", graph.as_network().num_vars());
+                println!("-----");
             }
 
             match print_option {

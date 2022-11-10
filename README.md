@@ -51,6 +51,7 @@ We use the following syntax:
   * bind x: `!{x}:`
   * jump x: `@{x}:`
   * exists x: `3{x}:`
+  * forall x: `V{x}:`
 * parentheses: `(`, `)`
 
 The operator precedence is following (the lower, the stronger):
