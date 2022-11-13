@@ -1,4 +1,4 @@
-use crate::evaluator::eval_minimized_tree;
+use crate::evaluator::{eval_minimized_tree, eval_minimized_tree_unsafe_ex};
 use crate::result_print::{print_results, print_results_fast};
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::*;
@@ -160,17 +160,25 @@ pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintO
 }
 
 /// Performs the model checking on GIVEN graph and returns result, no prints happen
-/// UNSAFE - does not modify the graph based on formula (number of hctl vars, etc.),
-/// Assumes that graph was created correctly (meaning graph's BDD must have enough HCTL variables)
-/// Only use this function for testing and internal operations
+/// UNSAFE - it does not generate the extended transition graph based on given formula, but
+/// assumes that graph was created correctly (meaning graph's BDD must have enough HCTL variables)
+/// If `compute_steady_first` is false, EX will not explicitly consider self-loops in its
+/// computation, which is fine for some formulae, but incorrect for others - it is UNSAFE
+/// optimisation, only use it if you are sure everything will work fine
 pub fn model_check_formula_unsafe(
     formula: String,
     stg: &SymbolicAsyncGraph,
+    optimize_unsafe_ex: bool
 ) -> GraphColoredVertices {
     let tokens = tokenize_formula(formula).unwrap();
     let tree = parse_hctl_formula(&tokens).unwrap();
     let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
-    eval_minimized_tree(modified_tree, stg)
+
+    if optimize_unsafe_ex {
+        eval_minimized_tree_unsafe_ex(modified_tree, stg)
+    } else {
+        eval_minimized_tree(modified_tree, stg)
+    }
 }
 
 #[cfg(test)]
@@ -220,7 +228,7 @@ v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27
         let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
         for (formula, num_total, num_colors, num_states) in test_tuples {
-            let result = model_check_formula_unsafe(formula.to_string(), &stg);
+            let result = model_check_formula_unsafe(formula.to_string(), &stg, false);
             assert_eq!(num_total, result.approx_cardinality());
             assert_eq!(num_colors, result.colors().approx_cardinality());
             assert_eq!(num_states, result.vertices().approx_cardinality());
@@ -284,8 +292,8 @@ v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27
         ];
 
         for (formula1, formula2) in equivalent_formulae_pairs {
-            let result1 = model_check_formula_unsafe(formula1.to_string(), &stg);
-            let result2 = model_check_formula_unsafe(formula2.to_string(), &stg);
+            let result1 = model_check_formula_unsafe(formula1.to_string(), &stg, false);
+            let result2 = model_check_formula_unsafe(formula2.to_string(), &stg, false);
             assert_eq!(result1, result2);
         }
     }

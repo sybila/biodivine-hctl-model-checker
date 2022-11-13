@@ -12,7 +12,7 @@ fn main() {
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
     let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
-    let result = model_check_formula_unsafe(formula.to_string(), &stg);
+    let result = model_check_formula_unsafe(formula.to_string(), &stg, false);
 
     let res_color = result.colors();
     let witness_bn = stg.pick_witness(&res_color);

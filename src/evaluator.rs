@@ -27,6 +27,24 @@ pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColor
         cache: HashMap::new(),
     };
     let steady_states = compute_steady_states(graph);
+    println!("steady states computed");
+    let graph_with_steady_states =
+        SymbolicAsyncGraph::new_add_steady_states_to_existing(
+            graph.clone(),
+            steady_states,
+        );
+    eval_node(tree, &graph_with_steady_states, &mut eval_info)
+}
+
+/// Same as previous fn, but UNSAFE, since it does not consider self-loops for EX computation
+/// Do not use if you are not sure it does not affect the result
+/// Must not be used for formulae involving "!{x}: AX {x}" sub-formula
+pub fn eval_minimized_tree_unsafe_ex(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+    let mut eval_info: EvalInfo = EvalInfo {
+        duplicates: mark_duplicates(&tree),
+        cache: HashMap::new(),
+    };
+    let steady_states = graph.mk_empty_vertices();
     let graph_with_steady_states =
         SymbolicAsyncGraph::new_add_steady_states_to_existing(
             graph.clone(),
