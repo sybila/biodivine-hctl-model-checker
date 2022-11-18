@@ -143,7 +143,7 @@ fn index_of_first_unary(tokens: &[Token]) -> Option<usize> {
  * PRIORITY OF OPERATORS
  * unary operators (negation + temporal): 1
  * temporal binary operators: 2
- * boolean binary operators: and=3, xor=4, or=5, imp=6, eq=7
+ * boolean binary operators: and=3, xor=4, or=5, imp=6, equiv=7
  * hybrid operators: 8
  */
 

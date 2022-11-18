@@ -1,9 +1,10 @@
-use crate::evaluator::{eval_minimized_tree, eval_minimized_tree_unsafe_ex};
-use crate::result_print::{print_results, print_results_fast};
+use crate::formula_evaluation::algorithm::{eval_minimized_tree, eval_minimized_tree_unsafe_ex};
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::*;
+use crate::formula_preprocessing::rename_vars::minimize_number_of_state_vars;
 #[allow(unused_imports)]
 use crate::formula_preprocessing::tokenizer::{print_tokens, tokenize_formula};
+use crate::result_print::{print_results, print_results_fast};
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
@@ -16,65 +17,6 @@ pub enum PrintOptions {
     NoPrint,
     ShortPrint,
     LongPrint,
-}
-
-/// Renames hctl vars in the formula tree to canonical form - "x", "xx", ...
-/// Works only for formulae without free variables
-/// Renames as many state-vars as possible to identical names, without changing the semantics
-fn minimize_number_of_state_vars(
-    orig_node: Node,
-    mut mapping_dict: HashMap<String, String>,
-    mut last_used_name: String,
-) -> Node {
-    // If we find hybrid node with bind or exist, we add new var-name to rename_dict and stack (x, xx, xxx...)
-    // After we leave this binder/exist, we remove its var from rename_dict
-    // When we find terminal with free var or jump node, we rename the var using rename-dict
-    return match orig_node.node_type {
-        // rename vars in terminal state-var nodes
-        NodeType::TerminalNode(ref atom) => match atom {
-            Atomic::Var(name) => {
-                let renamed_var = mapping_dict.get(name.as_str()).unwrap();
-                Node {
-                    subform_str: format!("{{{}}}", renamed_var.to_string()),
-                    height: 0,
-                    node_type: NodeType::TerminalNode(Atomic::Var(renamed_var.to_string())),
-                }
-            }
-            _ => return orig_node,
-        },
-        // just dive one level deeper for unary nodes, and rename string
-        NodeType::UnaryNode(op, child) => {
-            let node = minimize_number_of_state_vars(*child, mapping_dict, last_used_name.clone());
-            create_unary(Box::new(node), op)
-        }
-        // just dive deeper for binary nodes, and rename string
-        NodeType::BinaryNode(op, left, right) => {
-            let node1 =
-                minimize_number_of_state_vars(*left, mapping_dict.clone(), last_used_name.clone());
-            let node2 = minimize_number_of_state_vars(*right, mapping_dict, last_used_name);
-            create_binary(Box::new(node1), Box::new(node2), op)
-        }
-        // hybrid nodes are more complicated
-        NodeType::HybridNode(op, var, child) => {
-            // if we hit binder or exist, we are adding its new var name to dict & stack
-            // no need to do this for jump, jump is not quantifier
-            match op {
-                HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
-                    last_used_name.push('x'); // this represents adding to stack
-                    mapping_dict.insert(var.clone(), last_used_name.clone());
-                }
-                _ => {}
-            }
-
-            // dive deeper
-            let node =
-                minimize_number_of_state_vars(*child, mapping_dict.clone(), last_used_name.clone());
-
-            // rename the variable in the node
-            let renamed_var = mapping_dict.get(var.as_str()).unwrap();
-            create_hybrid(Box::new(node), renamed_var.clone(), op)
-        }
-    };
 }
 
 /// Returns the set of all uniquely named HCTL variables in the formula tree
@@ -90,7 +32,7 @@ fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) 
             seen_vars.extend(collect_unique_hctl_vars(*left, seen_vars.clone()));
             seen_vars.extend(collect_unique_hctl_vars(*right, seen_vars.clone()));
         }
-        // collect variables from exist and bind nodes
+        // collect variables from exist and binder nodes
         NodeType::HybridNode(op, var_name, child) => {
             match op {
                 HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
@@ -162,9 +104,9 @@ pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintO
 /// Performs the model checking on GIVEN graph and returns result, no prints happen
 /// UNSAFE - it does not generate the extended transition graph based on given formula, but
 /// assumes that graph was created correctly (meaning graph's BDD must have enough HCTL variables)
-/// If `compute_steady_first` is false, EX will not explicitly consider self-loops in its
-/// computation, which is fine for some formulae, but incorrect for others - it is UNSAFE
-/// optimisation, only use it if you are sure everything will work fine
+/// If `compute_steady_first` is false, self-loops are ignored in EX computation, which is fine for
+/// some formulae, but incorrect for others - it is UNSAFE optimisation - only use it if you are
+/// sure everything will work fine (+must not be used if formula involves !{x}:AX{x} sub-formulae)
 pub fn model_check_formula_unsafe(
     formula: String,
     stg: &SymbolicAsyncGraph,
@@ -175,7 +117,9 @@ pub fn model_check_formula_unsafe(
     let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
 
     if optimize_unsafe_ex {
-        eval_minimized_tree_unsafe_ex(modified_tree, stg)
+        // do not consider self-loops during EX computation (UNSAFE optimisation)
+        let self_loop_states = stg.mk_empty_vertices();
+        eval_minimized_tree_unsafe_ex(modified_tree, stg, self_loop_states)
     } else {
         eval_minimized_tree(modified_tree, stg)
     }
@@ -284,11 +228,15 @@ v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27
         let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
         let equivalent_formulae_pairs = vec![
-            ("!{x}: AG EF {x}", "!{x}: AG EF ({x} & {x})"),  // one is evaluated using optimisations
-            ("!{x}: AX {x}", "!{x}: AX ({x} & {x})"),        // one is evaluated using optimisations
+            ("!{x}: AG EF {x}", "!{x}: AG EF ({x} & {x})"),  // one is evaluated using attr pattern
+            ("!{x}: AX {x}", "!{x}: AX ({x} & {x})"),  // one is evaluated using fixed-point pattern
             ("!{x}: AX {x}", "!{x}: ~EX ~{x}"),
+            ("!{x}: ((AG EF {x}) & (AG EF {x}))", "!{x}: AG EF {x}"),  // one involves basic caching
+            ("!{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: AG EF {x}"),  // one involves advanced caching
+            ("3{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: 3{y}: ((AG EF {y}) & (AG EF {x}))"),  // one involves advanced caching
             ("!{x}: AX AF {x}", "!{x}: AX ~EG ~{x}"),
             ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))"),
+            // TODO: more tests for complex cache utilization
         ];
 
         for (formula1, formula2) in equivalent_formulae_pairs {

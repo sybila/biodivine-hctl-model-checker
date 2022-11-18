@@ -1,3 +1,4 @@
-pub mod parser;
-pub mod tokenizer;
 pub mod operation_enums;
+pub mod parser;
+pub mod rename_vars;
+pub mod tokenizer;

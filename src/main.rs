@@ -9,10 +9,10 @@ use std::fs::read_to_string;
 /* TODOs */
 // TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator (changing tree, etc.), maybe few more special cases
-// TODO: add universal quantifier operator A{x}:phi == ~E{x}:~phi
 // TODO: add check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
 // TODO: add check that formula doesnt contain free vars (during parsing or var collecting)
 // TODO: check generating predecessors in EU_saturated (check including self-loops)
+// TODO: create general function combining functionality of "model_check" and "model_check_unsafe", and make new version of "model_check_unsafe" way more hacky
 
 
 /// Structure to collect CLI arguments
