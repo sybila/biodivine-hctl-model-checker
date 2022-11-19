@@ -1,10 +1,12 @@
 use crate::aeon::scc_computation::compute_attractor_states;
+use crate::formula_evaluation::canonization::get_canonical_and_mapping;
 use crate::formula_evaluation::eval_hctl_components::*;
+use crate::formula_evaluation::eval_utils::substitute_hctl_var;
 use crate::formula_evaluation::mark_duplicate_subform::*;
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::{Node, NodeType};
 
-use biodivine_lib_bdd::{Bdd, bdd};
+use biodivine_lib_bdd::{bdd, Bdd};
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
@@ -13,25 +15,24 @@ use std::collections::HashMap;
 
 pub struct EvalInfo {
     duplicates: HashMap<String, i32>,
-    cache: HashMap<String, GraphColoredVertices>,
+    cache: HashMap<String, (GraphColoredVertices, HashMap<String, String>)>,
 }
 
 /// Preprocess and evaluate formula on the given transition graph
 pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     // prepare the list of duplicates & cache
     let mut eval_info: EvalInfo = EvalInfo {
-        duplicates: mark_duplicates(&tree),
+        duplicates: mark_duplicates_canonized(&tree),
         cache: HashMap::new(),
     };
 
+    println!("duplicate canonized sub-formulae: {:?}", eval_info.duplicates.clone());
+
     // compute states with self-loops which will be needed
     let steady_states = compute_steady_states(graph);
-    println!("steady states computed");
+    println!("self-loops computed");
     let graph_with_steady_states =
-        SymbolicAsyncGraph::new_add_steady_states_to_existing(
-            graph.clone(),
-            steady_states,
-        );
+        SymbolicAsyncGraph::new_add_steady_states_to_existing(graph.clone(), steady_states);
 
     eval_node(tree, &graph_with_steady_states, &mut eval_info)
 }
@@ -44,17 +45,14 @@ pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColor
 pub fn eval_minimized_tree_unsafe_ex(
     tree: Node,
     graph: &SymbolicAsyncGraph,
-    self_loop_states: GraphColoredVertices
+    self_loop_states: GraphColoredVertices,
 ) -> GraphColoredVertices {
     let mut eval_info: EvalInfo = EvalInfo {
-        duplicates: mark_duplicates(&tree),
+        duplicates: mark_duplicates_canonized(&tree),
         cache: HashMap::new(),
     };
     let graph_with_steady_states =
-        SymbolicAsyncGraph::new_add_steady_states_to_existing(
-            graph.clone(),
-            self_loop_states,
-        );
+        SymbolicAsyncGraph::new_add_steady_states_to_existing(graph.clone(), self_loop_states);
     eval_node(tree, &graph_with_steady_states, &mut eval_info)
 }
 
@@ -67,25 +65,41 @@ pub fn eval_node(
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
     let mut save_to_cache = false;
-    if eval_info.duplicates.contains_key(node.subform_str.as_str()) {
-        if eval_info.cache.contains_key(node.subform_str.as_str()) {
-            // decrement number of duplicates left
-            *eval_info.duplicates.get_mut(node.subform_str.as_str()).unwrap() -= 1;
 
-            // we will get bdd, but sometimes we must rename its vars
-            // because it might have differently named state variables before
-            let result = eval_info
+    // get canonized form of this sub-formula, and mapping of how vars are canonized
+    let (canonized_form, renaming) = get_canonical_and_mapping(node.subform_str.clone());
+
+    if eval_info.duplicates.contains_key(canonized_form.as_str()) {
+        if eval_info.cache.contains_key(canonized_form.as_str()) {
+            // decrement number of duplicates left
+            *eval_info
+                .duplicates
+                .get_mut(canonized_form.as_str())
+                .unwrap() -= 1;
+
+            // get cached result, but it might be using differently named state-variables
+            // so we might have to rename them later
+            let (mut result, result_renaming) = eval_info
                 .cache
-                .get(node.subform_str.as_str())
+                .get(canonized_form.as_str())
                 .unwrap()
                 .clone();
 
             // if we already visited all of the duplicates, lets delete the cached value
-            if eval_info.duplicates[node.subform_str.as_str()] == 0 {
-                eval_info.duplicates.remove(node.subform_str.as_str());
-                eval_info.cache.remove(node.subform_str.as_str());
+            if eval_info.duplicates[canonized_form.as_str()] == 0 {
+                eval_info.duplicates.remove(canonized_form.as_str());
+                eval_info.cache.remove(canonized_form.as_str());
             }
-            // since we are working with canonical cache, we must rename vars in result bdd
+
+            // since we are working with canonical cache, we might need to rename vars in result bdd
+            let mut reverse_renaming: HashMap<String, String> = HashMap::new();
+            for (var_curr, var_canon) in renaming.iter() {
+                reverse_renaming.insert(var_canon.clone(), var_curr.clone());
+            }
+            for (var_res, var_canon) in result_renaming.iter() {
+                let var_curr = reverse_renaming.get(var_canon).unwrap();
+                result = substitute_hctl_var(graph, &result, var_res, var_curr);
+            }
             return result;
         } else {
             // if the cache does not contain result for this subformula, set insert flag
@@ -98,7 +112,9 @@ pub fn eval_node(
     if is_attractor_pattern(node.clone()) {
         let result = compute_attractor_states(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
-            eval_info.cache.insert(node.subform_str.clone(), result.clone());
+            eval_info
+                .cache
+                .insert(canonized_form, (result.clone(), renaming));
         }
         return result;
     }
@@ -174,7 +190,9 @@ pub fn eval_node(
 
     // save result to cache if needed
     if save_to_cache {
-        eval_info.cache.insert(node.subform_str.clone(), result.clone());
+        eval_info
+            .cache
+            .insert(canonized_form, (result.clone(), renaming));
     }
     result
 }

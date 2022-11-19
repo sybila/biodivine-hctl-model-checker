@@ -110,7 +110,7 @@ pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintO
 pub fn model_check_formula_unsafe(
     formula: String,
     stg: &SymbolicAsyncGraph,
-    optimize_unsafe_ex: bool
+    optimize_unsafe_ex: bool,
 ) -> GraphColoredVertices {
     let tokens = tokenize_formula(formula).unwrap();
     let tree = parse_hctl_formula(&tokens).unwrap();
@@ -127,9 +127,14 @@ pub fn model_check_formula_unsafe(
 
 #[cfg(test)]
 mod tests {
-    use crate::analysis::model_check_formula_unsafe;
+    use crate::analysis::{collect_unique_hctl_vars, model_check_formula_unsafe};
+    use crate::formula_preprocessing::parser::parse_hctl_formula;
+    use crate::formula_preprocessing::rename_vars::minimize_number_of_state_vars;
+    use crate::formula_preprocessing::tokenizer::tokenize_formula;
     use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
     use biodivine_lib_param_bn::BooleanNetwork;
+    use std::collections::{HashMap, HashSet};
+
 
     // model FISSION-YEAST-2008
     const MODEL_FISSION_YEAST: &str = r"
@@ -160,14 +165,29 @@ v_UbcH10, (((((v_UbcH10 & ((v_Cdh1 & ((v_CycB | v_Cdc20) | v_CycA)) | !v_Cdh1)) 
 v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27) | v_CycB) | v_CycD) | v_CycA))
 ";
 
+    // fully parametrized version of the model ASYMMETRIC-CELL-DIVISION-B
+    const MODEL_ASYMMETRIC_CELL_DIVISION: &str = r"
+DivJ -?? DivK
+PleC -?? DivK
+DivK -?? DivL
+DivL -?? CckA
+CckA -?? ChpT
+ChpT -?? CpdR
+CpdR -?? ClpXP_RcdA
+ChpT -?? CtrAb
+ClpXP_RcdA -?? CtrAb
+DivK -?? DivJ
+PleC -?? DivJ
+DivK -?? PleC
+";
+
     /// Run the evaluation tests for the set of given formulae on given model
     /// Compare numbers of results with the expected numbers given
     /// `test_tuples` consist of <formula, num_total, num_colors, num_states>
     fn test_model_check_basic_formulae(
         test_tuples: Vec<(&str, f64, f64, f64)>,
-        model_name: &str
+        bn: BooleanNetwork,
     ) {
-        let bn = BooleanNetwork::try_from_bnet(model_name).unwrap();
         // test formulae use 3 HCTL vars at most
         let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
@@ -195,9 +215,12 @@ v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27
             ("!{x}: (AX (AF {x}))", 12., 1., 12.),
             ("AF (!{x}: (AX (~{x} & AF {x})))", 0., 0., 0.),
             ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 0., 0., 0.),
+            // TODO: more tests regarding formulae for inference using concrete observations
         ];
 
-        test_model_check_basic_formulae(test_tuples, MODEL_FISSION_YEAST);
+        // model is in bnet format
+        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+        test_model_check_basic_formulae(test_tuples, bn);
     }
 
     #[test]
@@ -216,24 +239,51 @@ v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27
             ("!{x}: (AX (AF {x}))", 1., 1., 1.),
             ("AF (!{x}: (AX (~{x} & AF {x})))", 0., 0., 0.),
             ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 0., 0., 0.),
+            // TODO: more tests regarding formulae for inference using concrete observations
         ];
-        test_model_check_basic_formulae(test_tuples, MODEL_MAMMALIAN_CELL_CYCLE);
+
+        // model is in bnet format
+        let bn = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
+        test_model_check_basic_formulae(test_tuples, bn);
+    }
+
+    #[test]
+    /// Test evaluation of several important formulae on model ASYMMETRIC-CELL-DIVISION-B
+    /// Compare numbers of results with the numbers acquired by Python model checker or AEON
+    fn test_model_check_basic_formulae_cell_division() {
+        // tuples consisting of <formula, num_total, num_colors, num_states>
+        // num_x are numbers of expected results
+        let test_tuples = vec![
+            ("!{x}: AG EF {x}", 109428736., 16777216., 512.),
+            ("!{x}: AX {x}", 16777216., 13631488., 512.),
+            ("!{x}: AX EF {x}", 143294464., 16777216., 512.),
+            ("AF (!{x}: AX {x})", 5670699008., 13631488., 512.),
+            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 6291456., 3145728., 512.),
+            ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 5767168., 3014656., 512.),
+            ("!{x}: (AX (AF {x}))", 21102592., 14909440., 512.),
+            ("AF (!{x}: (AX (~{x} & AF {x})))", 9830400., 1277952., 512.),
+            ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 4718592., 589824., 512.),
+            // TODO: more tests regarding formulae for inference using concrete observations
+        ];
+
+        // model is in aeon format
+        let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
+        test_model_check_basic_formulae(test_tuples, bn);
     }
 
     /// Test evaluation of pairs of equivalent formulae on given BN model
     /// Compare whether the results are the same
-    fn test_model_check_equivalences(model_name: &str) {
-        let bn = BooleanNetwork::try_from_bnet(model_name).unwrap();
+    fn test_model_check_equivalences(bn: BooleanNetwork) {
         // test formulae use 3 HCTL vars at most
         let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
         let equivalent_formulae_pairs = vec![
-            ("!{x}: AG EF {x}", "!{x}: AG EF ({x} & {x})"),  // one is evaluated using attr pattern
-            ("!{x}: AX {x}", "!{x}: AX ({x} & {x})"),  // one is evaluated using fixed-point pattern
+            ("!{x}: AG EF {x}", "!{x}: AG EF ({x} & {x})"), // one is evaluated using attr pattern
+            ("!{x}: AX {x}", "!{x}: AX ({x} & {x})"), // one is evaluated using fixed-point pattern
             ("!{x}: AX {x}", "!{x}: ~EX ~{x}"),
-            ("!{x}: ((AG EF {x}) & (AG EF {x}))", "!{x}: AG EF {x}"),  // one involves basic caching
-            ("!{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: AG EF {x}"),  // one involves advanced caching
-            ("3{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: 3{y}: ((AG EF {y}) & (AG EF {x}))"),  // one involves advanced caching
+            ("!{x}: ((AG EF {x}) & (AG EF {x}))", "!{x}: AG EF {x}"), // one involves basic caching
+            ("!{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: AG EF {x}"), // one involves advanced caching
+            ("3{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: 3{y}: ((AG EF {y}) & (AG EF {x}))"), // one involves advanced caching
             ("!{x}: AX AF {x}", "!{x}: AX ~EG ~{x}"),
             ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))"),
             // TODO: more tests for complex cache utilization
@@ -249,12 +299,52 @@ v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27
     #[test]
     /// Test evaluation of pairs of equivalent formulae on model FISSION-YEAST-2008
     fn test_model_check_equivalences_yeast() {
-        test_model_check_equivalences(MODEL_FISSION_YEAST);
+        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+        test_model_check_equivalences(bn);
     }
 
     #[test]
-    /// Test evaluation of pairs of equivalent formulae on model FISSION-YEAST-2008
+    /// Test evaluation of pairs of equivalent formulae on model MAMMALIAN-CELL-CYCLE-2006
     fn test_model_check_equivalences_mammal() {
-        test_model_check_equivalences(MODEL_MAMMALIAN_CELL_CYCLE);
+        let bn = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
+        test_model_check_equivalences(bn);
+    }
+
+    #[test]
+    /// Test evaluation of pairs of equivalent formulae on model ASYMMETRIC-CELL-DIVISION-B
+    fn test_model_check_equivalences_cell_division() {
+        let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
+        test_model_check_equivalences(bn);
+    }
+
+    #[test]
+    /// Test regarding collecting state vars from HCTL formulae
+    fn test_state_var_collecting() {
+        // formula "FORKS1 & FORKS2" - both parts are semantically same, just use different var names
+        let formula = "(!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))) & (!{x1}: 3{y1}: (@{x1}: ~{y1} & (!{z1}: AX {z1})) & (@{y1}: (!{z1}: AX {z1})))".to_string();
+        let tokens = tokenize_formula(formula).unwrap();
+        let tree = parse_hctl_formula(&tokens).unwrap();
+
+        // test for original tree
+        let expected_vars = vec![
+            "x".to_string(),
+            "y".to_string(),
+            "z".to_string(),
+            "x1".to_string(),
+            "y1".to_string(),
+            "z1".to_string()
+        ];
+        assert_eq!(
+            collect_unique_hctl_vars(*tree.clone(), HashSet::new()),
+            HashSet::from_iter(expected_vars)
+        );
+
+        // and for tree with minimized number of renamed state vars
+        let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
+        let expected_vars = vec!["x".to_string(), "xx".to_string(), "xxx".to_string()];
+        assert_eq!(
+            collect_unique_hctl_vars(modified_tree, HashSet::new()),
+            HashSet::from_iter(expected_vars)
+        );
     }
 }

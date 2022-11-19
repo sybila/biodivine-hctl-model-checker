@@ -88,8 +88,12 @@ pub fn substitute_hctl_var(
     graph: &SymbolicAsyncGraph,
     colored_states: &GraphColoredVertices,
     hctl_var_before: &str,
-    hctl_var_after: &str
+    hctl_var_after: &str,
 ) -> GraphColoredVertices {
+    // if both vars are identical, dont do anything
+    if hctl_var_before == hctl_var_after {
+        return colored_states.clone();
+    }
     // TODO: check that BDD for `set` does not depend on hctl_var_after
 
     // set new HCTL var to the same values as the current one

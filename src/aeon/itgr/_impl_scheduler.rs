@@ -6,10 +6,7 @@ use crate::aeon::itgr::{Process, Scheduler};
 
 impl Scheduler {
     /// Create a new `Scheduler` with initial universe and active variables.
-    pub fn new(
-        initial: GraphColoredVertices,
-        variables: Vec<VariableId>,
-    ) -> Scheduler {
+    pub fn new(initial: GraphColoredVertices, variables: Vec<VariableId>) -> Scheduler {
         Scheduler {
             active_variables: variables,
             universe: initial,

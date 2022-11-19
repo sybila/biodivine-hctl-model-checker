@@ -1,5 +1,5 @@
-use crate::formula_preprocessing::tokenizer::Token;
 use crate::formula_preprocessing::operation_enums::*;
+use crate::formula_preprocessing::tokenizer::Token;
 
 use std::cmp;
 use std::cmp::Ordering;
@@ -162,7 +162,10 @@ fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<Node>, String> {
         // perform check that hybrid operator is not preceded by other type of operators
         if i > 0 {
             if !matches!(&tokens[i - 1], Token::Hybrid(_, _)) {
-                return Err(format!("Hybrid operator can't be directly preceded by {}.", &tokens[i - 1]));
+                return Err(format!(
+                    "Hybrid operator can't be directly preceded by {}.",
+                    &tokens[i - 1])
+                );
             }
         }
         match &tokens[i] {

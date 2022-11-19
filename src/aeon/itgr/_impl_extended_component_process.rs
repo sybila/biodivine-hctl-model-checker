@@ -2,9 +2,7 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::VariableId;
 
-use crate::aeon::itgr::{
-    BwdProcess, ExtendedComponentProcess, Process, Scheduler,
-};
+use crate::aeon::itgr::{BwdProcess, ExtendedComponentProcess, Process, Scheduler};
 use crate::aeon::saturated_reachability::reach_bwd;
 
 impl ExtendedComponentProcess {
@@ -35,8 +33,8 @@ impl Process for ExtendedComponentProcess {
                     &bottom,
                     scheduler.get_universe(),
                     scheduler.get_active_variables(),
-                )
-                    .minus(&bottom);
+                ).minus(&bottom);
+
                 if !basin_only.is_empty() {
                     scheduler.discard_vertices(&basin_only);
                 }

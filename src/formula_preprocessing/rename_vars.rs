@@ -61,3 +61,50 @@ pub fn minimize_number_of_state_vars(
         }
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::formula_preprocessing::parser::parse_hctl_formula;
+    use crate::formula_preprocessing::rename_vars::minimize_number_of_state_vars;
+    use crate::formula_preprocessing::tokenizer::tokenize_formula;
+    use std::collections::HashMap;
+
+    /// Compare tree for formula with automatically minimized state var number to the
+    /// tree for the semantically same, but already minimized formula
+    fn test_state_var_minimization(formula: String, formula_minimized: String) {
+        // automatically modify the original formula
+        let tokens = tokenize_formula(formula).unwrap();
+        let tree = parse_hctl_formula(&tokens).unwrap();
+        let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
+
+        // get expected tree using the same formula with already minimized vars
+        let tokens_minimized = tokenize_formula(formula_minimized).unwrap();
+        let tree_minimized = parse_hctl_formula(&tokens_minimized).unwrap();
+
+        assert_eq!(*tree_minimized, modified_tree);
+    }
+
+    #[test]
+    /// Test minimization of number of state variables and their renaming
+    fn test_state_var_minimization_simple() {
+        let formula = "(!{x}: AG EF {x}) | (!{y}: !{x}: (AX {y} & AX {x})) | (!{z}: AG EF {z})";
+
+        // same formula with already minimized vars
+        let formula_minimized =
+            "(!{x}: AG EF {x}) | (!{x}: !{xx}: (AX {x} & AX {xx})) | (!{x}: AG EF {x})";
+
+        test_state_var_minimization(formula.to_string(), formula_minimized.to_string());
+    }
+
+    #[test]
+    /// Test minimization of number of state variables and their renaming
+    fn test_state_var_minimization_complex() {
+        // formula "FORKS1 & FORKS2" - both parts are semantically same, just use different var names
+        let formula = "(!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))) & (!{x1}: 3{y1}: (@{x1}: ~{y1} & (!{z1}: AX {z1})) & (@{y1}: (!{z1}: AX {z1})))";
+
+        // same formula with already minimized vars
+        let formula_minimized = "(!{x}: 3{xx}: (@{x}: ~{xx} & (!{xxx}: AX {xxx})) & (@{xx}: (!{xxx}: AX {xxx}))) & (!{x}: 3{xx}: (@{x}: ~{xx} & (!{xxx}: AX {xxx})) & (@{xx}: (!{xxx}: AX {xxx})))";
+
+        test_state_var_minimization(formula.to_string(), formula_minimized.to_string());
+    }
+}

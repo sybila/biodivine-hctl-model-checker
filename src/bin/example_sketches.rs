@@ -1,8 +1,9 @@
-use std::fs::read_to_string;
-use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
-use biodivine_lib_param_bn::BooleanNetwork;
 use biodivine_hctl_model_checker::analysis::model_check_formula_unsafe;
 
+use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
+use biodivine_lib_param_bn::BooleanNetwork;
+
+use std::fs::read_to_string;
 
 fn main() {
     let model_name = ".\\benchmark_models\\sketches-example\\model-example-sketches.aeon";

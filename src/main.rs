@@ -1,13 +1,13 @@
 use biodivine_hctl_model_checker::analysis::{analyse_formula, PrintOptions};
 use biodivine_lib_param_bn::BooleanNetwork;
 
-use clap::Parser;
 use clap::builder::PossibleValuesParser;
+use clap::Parser;
+
 use std::fs::read_to_string;
 
 
 /* TODOs */
-// TODO: USE PROPER DUPLICATE MARKING AND IMPLEMENT PROPER CACHE FOR EVALUATOR
 // TODO: optimisations for evaluator (changing tree, etc.), maybe few more special cases
 // TODO: add check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
 // TODO: add check that formula doesnt contain free vars (during parsing or var collecting)
@@ -45,7 +45,7 @@ fn parse_bn_model(format: &str, model_string: &str) -> Result<BooleanNetwork, St
         "bnet" => BooleanNetwork::try_from_bnet(model_string),
         // this cant really happen, just here to be exhaustive
         _ => Err("Invalid model format".to_string()),
-    }
+    };
 }
 
 fn main() {

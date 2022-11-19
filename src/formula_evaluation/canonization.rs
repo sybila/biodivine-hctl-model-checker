@@ -5,7 +5,7 @@ use std::str::Chars;
 /// Returns string representing the same subformula, but with canonized var names (var0, var1...)
 /// `subform_chars` must represent valid formula minimized by minimize_number_of_state_vars function
 /// `subform_chars` MUST include all PARENTHESES and MUST NOT include excess spaces
-/// For example "(3{x}:(3{xx}:((@{x}:((~{xx})&&(AX{x})))&&(@{xx}:(AX{xx})))))" is valid input
+/// For example "(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))" is valid input
 /// Any node.subform_string field should be OK to use
 pub fn canonize_subform(
     mut subform_chars: Peekable<Chars>,
@@ -91,7 +91,7 @@ pub fn canonize_subform(
 
 #[allow(dead_code)]
 /// Returns string of the semantically same sub-formula, but with "canonized" var names
-/// It is used in the process of marking duplicate sub-formulae
+/// It is used in the process of marking duplicate sub-formulae and caching
 pub fn get_canonical(subform_string: String) -> String {
     let canonized_tuple = canonize_subform(
         subform_string.chars().peekable(),
@@ -103,8 +103,8 @@ pub fn get_canonical(subform_string: String) -> String {
 }
 
 #[allow(dead_code)]
-/// Returns tuple with the canonized sub-formula string and canonization mapping dictionary
-/// It is used in the process of marking duplicate sub-formulae
+/// Returns tuple with the canonized sub-formula string, and mapping of var names to canonized form
+/// It is used in the process of marking duplicate sub-formulae and caching
 pub fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<String, String>) {
     let canonized_tuple = canonize_subform(
         subform_string.chars().peekable(),
@@ -113,4 +113,116 @@ pub fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<Str
         0,
     );
     (canonized_tuple.1, canonized_tuple.2)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::formula_evaluation::canonization::{get_canonical, get_canonical_and_mapping};
+    use std::collections::HashMap;
+
+    #[test]
+    /// Compare automatically canonized formula to the expected result
+    fn test_canonization_simple() {
+        // two formulae that should have same canonization
+        let sub_formula1 = "(AX{x})";
+        let sub_formula2 = "(AX{xx})";
+        let sub_formula_canonized = "(AX{var0})";
+
+        assert_eq!(
+            get_canonical(sub_formula1.to_string()),
+            sub_formula_canonized.to_string()
+        );
+        assert_eq!(
+            get_canonical(sub_formula2.to_string()),
+            sub_formula_canonized.to_string()
+        );
+
+        // mappings of variable names between formulae and the canonized version
+        let renaming1 = HashMap::from([("x".to_string(), "var0".to_string())]);
+        let renaming2 = HashMap::from([("xx".to_string(), "var0".to_string())]);
+
+        assert_eq!(get_canonical_and_mapping(
+            sub_formula1.to_string()),
+                   (sub_formula_canonized.to_string(), renaming1)
+        );
+        assert_eq!(
+            get_canonical_and_mapping(sub_formula2.to_string()),
+            (sub_formula_canonized.to_string(), renaming2)
+        );
+    }
+
+    #[test]
+    /// Compare automatically canonized formula to the expected result
+    fn test_canonization_mediate() {
+        // two formulae that should have same canonization
+        let sub_formula1 = "(AX{x})&(AG(EF{xx}))";
+        let sub_formula2 = "(AX{xx})&(AG(EF{xxx}))";
+        let sub_formula_canonized = "(AX{var0})&(AG(EF{var1}))";
+
+        assert_eq!(
+            get_canonical(sub_formula1.to_string()),
+            sub_formula_canonized.to_string()
+        );
+        assert_eq!(
+            get_canonical(sub_formula2.to_string()),
+            sub_formula_canonized.to_string()
+        );
+
+        // mappings of variable names between formulae and the canonized version
+        let renaming1 = HashMap::from([
+            ("x".to_string(), "var0".to_string()),
+            ("xx".to_string(), "var1".to_string()),
+        ]);
+        let renaming2 = HashMap::from([
+            ("xx".to_string(), "var0".to_string()),
+            ("xxx".to_string(), "var1".to_string()),
+        ]);
+
+        assert_eq!(get_canonical_and_mapping(
+            sub_formula1.to_string()),
+                   (sub_formula_canonized.to_string(), renaming1)
+        );
+        assert_eq!(
+            get_canonical_and_mapping(sub_formula2.to_string()),
+            (sub_formula_canonized.to_string(), renaming2)
+        );
+    }
+
+    #[test]
+    /// Compare automatically canonized formula to the expected result
+    fn test_canonization_complex() {
+        // two formulae that should have same canonization
+        let sub_formula1 = "(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))";
+        let sub_formula2 = "(3{xx}:(3{x}:((@{xx}:((~{x})&(AX{xx})))&(@{x}:(AX{x})))))";
+        let sub_formula_canonized =
+            "(3{var0}:(3{var1}:((@{var0}:((~{var1})&(AX{var0})))&(@{var1}:(AX{var1})))))";
+
+        assert_eq!(
+            get_canonical(sub_formula1.to_string()),
+            sub_formula_canonized.to_string()
+        );
+        assert_eq!(
+            get_canonical(sub_formula2.to_string()),
+            sub_formula_canonized.to_string()
+        );
+
+        // mappings of variable names between formulae and the canonized version
+        let renaming1 = HashMap::from([
+            ("x".to_string(), "var0".to_string()),
+            ("xx".to_string(), "var1".to_string()),
+        ]);
+        let renaming2 = HashMap::from([
+            ("xx".to_string(), "var0".to_string()),
+            ("x".to_string(), "var1".to_string()),
+        ]);
+
+        assert_eq!(get_canonical_and_mapping(
+            sub_formula1.to_string()),
+                   (sub_formula_canonized.to_string(), renaming1)
+        );
+        assert_eq!(
+            get_canonical_and_mapping(sub_formula2.to_string()),
+            (sub_formula_canonized.to_string(), renaming2)
+        );
+    }
 }

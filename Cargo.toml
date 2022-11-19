@@ -29,6 +29,10 @@ path = "src/bin/print_regulations.rs"
 name = "example-sketch"
 path = "src/bin/example_sketches.rs"
 
+[[bin]]
+name = "convert-aeon-to-bnet"
+path = "src/bin/convert_aeon_to_bnet.rs"
+
 [dependencies]
 biodivine-lib-bdd = "0.4.0"
 biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn.git", branch = "hctl-experimental" }
