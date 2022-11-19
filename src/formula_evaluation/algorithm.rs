@@ -19,18 +19,26 @@ pub struct EvalInfo {
 }
 
 /// Preprocess and evaluate formula on the given transition graph
-pub fn eval_minimized_tree(tree: Node, graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
+pub fn eval_minimized_tree(
+    tree: Node,
+    graph: &SymbolicAsyncGraph,
+    print_progress: bool,
+) -> GraphColoredVertices {
     // prepare the list of duplicates & cache
     let mut eval_info: EvalInfo = EvalInfo {
         duplicates: mark_duplicates_canonized(&tree),
         cache: HashMap::new(),
     };
 
-    println!("duplicate canonized sub-formulae: {:?}", eval_info.duplicates.clone());
+    if print_progress {
+        println!("Duplicate sub-formulae (canonized): {:?}", eval_info.duplicates.clone());
+    }
 
     // compute states with self-loops which will be needed
     let steady_states = compute_steady_states(graph);
-    println!("self-loops computed");
+    if print_progress {
+        println!("Self-loops computed");
+    }
     let graph_with_steady_states =
         SymbolicAsyncGraph::new_add_steady_states_to_existing(graph.clone(), steady_states);
 

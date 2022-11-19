@@ -1,4 +1,4 @@
-use biodivine_hctl_model_checker::analysis::model_check_formula_unsafe;
+use biodivine_hctl_model_checker::analysis::model_check_formula;
 
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
@@ -13,7 +13,7 @@ fn main() {
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
     let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
-    let result = model_check_formula_unsafe(formula.to_string(), &stg, false);
+    let result = model_check_formula(formula.to_string(), &stg);
 
     let res_color = result.colors();
     let witness_bn = stg.pick_witness(&res_color);

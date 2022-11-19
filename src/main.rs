@@ -52,7 +52,7 @@ fn main() {
     let args = Arguments::parse();
 
     if args.print_option.as_str() != "none" {
-        println!("original formula: {}", args.formula);
+        println!("Original formula: {}", args.formula);
     }
 
     let model_string = read_to_string(args.model_path).unwrap();

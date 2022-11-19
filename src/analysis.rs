@@ -20,8 +20,8 @@ pub enum PrintOptions {
 }
 
 /// Returns the set of all uniquely named HCTL variables in the formula tree
-/// Variable names are collected from BIND and EXIST quantifiers
-/// (That is sufficient, since the formula has to be closed to be evaluated)
+/// Variable names are collected from quantifiers (bind, exists, forall)
+/// (which is sufficient, since the formula has to be closed to be evaluated)
 fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) -> HashSet<String> {
     match formula_tree.node_type {
         NodeType::TerminalNode(_) => {}
@@ -46,7 +46,7 @@ fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) 
     seen_vars
 }
 
-/// Performs the whole model checking process, including parsing at the beginning
+/// Performs the whole model checking process, including complete parsing at the beginning
 /// Prints selected amount of result info (no prints / summary / all results printed)
 pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintOptions) {
     let start = SystemTime::now();
@@ -64,11 +64,11 @@ pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintO
     match parse_hctl_formula(&tokens) {
         Ok(tree) => {
             if print_progress {
-                println!("parsed formula:   {}", tree.subform_str);
+                println!("Parsed formula:   {}", tree.subform_str);
             }
             let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
             if print_progress {
-                println!("modified formula: {}", new_tree.subform_str);
+                println!("Modified formula: {}", new_tree.subform_str);
                 println!("-----");
             }
 
@@ -77,17 +77,21 @@ pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintO
             let graph = SymbolicAsyncGraph::new(bn, num_hctl_vars as i16).unwrap();
 
             if print_progress {
-                println!("Loaded BN with {} vars", graph.as_network().num_vars());
+                println!(
+                    "Loaded BN with {} components and {} parameters",
+                    graph.as_network().num_vars(),
+                    graph.symbolic_context().num_parameter_vars()
+                );
                 println!(
                     "Formula parse + graph build time: {}ms",
                     start.elapsed().unwrap().as_millis()
                 );
             }
 
-            let result = eval_minimized_tree(new_tree, &graph);
+            let result = eval_minimized_tree(new_tree, &graph, print_progress);
 
             if print_progress {
-                println!("Eval time: {}ms", start.elapsed().unwrap().as_millis());
+                println!("Evaluation time: {}ms", start.elapsed().unwrap().as_millis());
                 println!("-----");
             }
 
@@ -101,40 +105,60 @@ pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintO
     }
 }
 
-/// Performs the model checking on GIVEN graph and returns result, no prints happen
-/// UNSAFE - it does not generate the extended transition graph based on given formula, but
-/// assumes that graph was created correctly (meaning graph's BDD must have enough HCTL variables)
-/// If `compute_steady_first` is false, self-loops are ignored in EX computation, which is fine for
-/// some formulae, but incorrect for others - it is UNSAFE optimisation - only use it if you are
-/// sure everything will work fine (+must not be used if formula involves !{x}:AX{x} sub-formulae)
-pub fn model_check_formula_unsafe(
+/// Performs the model checking on GIVEN graph and returns resulting colored set
+/// Panics if given symbolic graph does not support enough HCTL state-variables
+pub fn model_check_formula(
     formula: String,
     stg: &SymbolicAsyncGraph,
-    optimize_unsafe_ex: bool,
 ) -> GraphColoredVertices {
     let tokens = tokenize_formula(formula).unwrap();
     let tree = parse_hctl_formula(&tokens).unwrap();
     let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
 
-    if optimize_unsafe_ex {
-        // do not consider self-loops during EX computation (UNSAFE optimisation)
-        let self_loop_states = stg.mk_empty_vertices();
-        eval_minimized_tree_unsafe_ex(modified_tree, stg, self_loop_states)
-    } else {
-        eval_minimized_tree(modified_tree, stg)
+    // check that given extended symbolic graph supports enough stated variables
+    let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
+    if num_vars_formula > stg.symbolic_context().num_hctl_var_sets() as usize {
+        panic!("Graph does not support enough HCTL state variables");
     }
+
+    // get the result while not printing progress information
+    eval_minimized_tree(modified_tree, stg, false)
+}
+
+#[allow(dead_code)]
+/// Performs the model checking on GIVEN graph and returns resulting colored set.
+/// Panics if given symbolic graph does not support enough HCTL state-variables.
+/// Self-loops are not pre-computed, and thus are ignored in EX computation, which is fine for
+/// some formulae, but incorrect for others - it is UNSAFE optimisation - only use it if you are
+/// sure everything will work fine (+must not be used if formula involves !{x}:AX{x} sub-formulae).
+pub fn model_check_formula_unsafe_ex(
+    formula: String,
+    stg: &SymbolicAsyncGraph,
+) -> GraphColoredVertices {
+    let tokens = tokenize_formula(formula).unwrap();
+    let tree = parse_hctl_formula(&tokens).unwrap();
+    let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
+
+    // check that given extended symbolic graph supports enough stated variables
+    let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
+    if num_vars_formula > stg.symbolic_context().num_hctl_var_sets() as usize {
+        panic!("Graph does not support enough HCTL state variables");
+    }
+
+    // do not consider self-loops during EX computation (UNSAFE optimisation)
+    let self_loop_states = stg.mk_empty_vertices();
+    eval_minimized_tree_unsafe_ex(modified_tree, stg, self_loop_states)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::analysis::{collect_unique_hctl_vars, model_check_formula_unsafe};
+    use crate::analysis::{collect_unique_hctl_vars, model_check_formula};
     use crate::formula_preprocessing::parser::parse_hctl_formula;
     use crate::formula_preprocessing::rename_vars::minimize_number_of_state_vars;
     use crate::formula_preprocessing::tokenizer::tokenize_formula;
     use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::{HashMap, HashSet};
-
 
     // model FISSION-YEAST-2008
     const MODEL_FISSION_YEAST: &str = r"
@@ -192,7 +216,7 @@ DivK -?? PleC
         let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
         for (formula, num_total, num_colors, num_states) in test_tuples {
-            let result = model_check_formula_unsafe(formula.to_string(), &stg, false);
+            let result = model_check_formula(formula.to_string(), &stg);
             assert_eq!(num_total, result.approx_cardinality());
             assert_eq!(num_colors, result.colors().approx_cardinality());
             assert_eq!(num_states, result.vertices().approx_cardinality());
@@ -284,14 +308,14 @@ DivK -?? PleC
             ("!{x}: ((AG EF {x}) & (AG EF {x}))", "!{x}: AG EF {x}"), // one involves basic caching
             ("!{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: AG EF {x}"), // one involves advanced caching
             ("3{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: 3{y}: ((AG EF {y}) & (AG EF {x}))"), // one involves advanced caching
+            ("!{x}: AX {x}", "!{y}: AX {y}"),
             ("!{x}: AX AF {x}", "!{x}: AX ~EG ~{x}"),
             ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))"),
-            // TODO: more tests for complex cache utilization
         ];
 
         for (formula1, formula2) in equivalent_formulae_pairs {
-            let result1 = model_check_formula_unsafe(formula1.to_string(), &stg, false);
-            let result2 = model_check_formula_unsafe(formula2.to_string(), &stg, false);
+            let result1 = model_check_formula(formula1.to_string(), &stg);
+            let result2 = model_check_formula(formula2.to_string(), &stg);
             assert_eq!(result1, result2);
         }
     }
@@ -315,6 +339,19 @@ DivK -?? PleC
     fn test_model_check_equivalences_cell_division() {
         let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
         test_model_check_equivalences(bn);
+    }
+
+    #[test]
+    #[should_panic]
+    /// Test that function panics correctly if graph does not support enough state variables
+    fn test_model_check_panic() {
+        // create symbolic graph supporting only one variable
+        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+        let stg = SymbolicAsyncGraph::new(bn, 1).unwrap();
+
+        // define formula with two variables
+        let formula = "!{x}: !{y}: (AX {x} & AX {y})".to_string();
+        model_check_formula(formula, &stg);
     }
 
     #[test]
