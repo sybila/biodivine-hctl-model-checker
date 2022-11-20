@@ -3,7 +3,7 @@ use std::iter::Peekable;
 use std::str::Chars;
 
 /// Returns string representing the same subformula, but with canonized var names (var0, var1...)
-/// `subform_chars` must represent valid formula minimized by minimize_number_of_state_vars function
+/// `subform_chars` must represent valid formula processed by check_props_and_rename_vars function
 /// `subform_chars` MUST include all PARENTHESES and MUST NOT include excess spaces
 /// For example "(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))" is valid input
 /// Any node.subform_string field should be OK to use

@@ -8,11 +8,8 @@ use std::fs::read_to_string;
 
 
 /* TODOs */
-// TODO: optimisations for evaluator (changing tree, etc.), maybe few more special cases
-// TODO: add check that formula doesnt contain same var quantified more times - like "!x: (EF (!x: x))
-// TODO: add check that formula doesnt contain free vars (during parsing or var collecting)
+// TODO: optimisations for evaluator (modifying tree, etc.), maybe few more special cases
 // TODO: check generating predecessors in EU_saturated (check including self-loops)
-// TODO: create general function combining functionality of "model_check" and "model_check_unsafe", and make new version of "model_check_unsafe" way more hacky
 
 
 /// Structure to collect CLI arguments
@@ -58,11 +55,15 @@ fn main() {
     let model_string = read_to_string(args.model_path).unwrap();
     let bn = parse_bn_model(args.model_format.as_str(), model_string.as_str()).unwrap();
 
-    match args.print_option.as_str() {
+    let res = match args.print_option.as_str() {
         "none" => analyse_formula(bn, args.formula, PrintOptions::NoPrint),
         "short" => analyse_formula(bn, args.formula, PrintOptions::ShortPrint),
         "full" => analyse_formula(bn, args.formula, PrintOptions::LongPrint),
         // this cant really happen, just here to be exhaustive
-        _ => println!("Wrong print option \"{}\".", args.print_option.as_str()),
+        _ => Err(format!("Wrong print option \"{}\".", args.print_option.as_str())),
+    };
+
+    if res.is_err() {
+        println!("{}", res.err().unwrap());
     }
 }

@@ -1,7 +1,7 @@
 use crate::formula_evaluation::algorithm::{eval_minimized_tree, eval_minimized_tree_unsafe_ex};
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::*;
-use crate::formula_preprocessing::rename_vars::minimize_number_of_state_vars;
+use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
 #[allow(unused_imports)]
 use crate::formula_preprocessing::tokenizer::{print_tokens, tokenize_formula};
 use crate::result_print::{print_results, print_results_fast};
@@ -48,81 +48,77 @@ fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) 
 
 /// Performs the whole model checking process, including complete parsing at the beginning
 /// Prints selected amount of result info (no prints / summary / all results printed)
-pub fn analyse_formula(bn: BooleanNetwork, formula: String, print_option: PrintOptions) {
+pub fn analyse_formula(
+    bn: BooleanNetwork,
+    formula: String,
+    print_option: PrintOptions,
+) -> Result<(), String> {
     let start = SystemTime::now();
     let print_progress = print_option != PrintOptions::NoPrint;
 
-    let tokens = match tokenize_formula(formula) {
-        Ok(r) => r,
-        Err(e) => {
-            println!("{}", e);
-            Vec::new()
-        }
-    };
+    let tokens = tokenize_formula(formula)?;
     //print_tokens(&tokens);
 
-    match parse_hctl_formula(&tokens) {
-        Ok(tree) => {
-            if print_progress {
-                println!("Parsed formula:   {}", tree.subform_str);
-            }
-            let new_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
-            if print_progress {
-                println!("Modified formula: {}", new_tree.subform_str);
-                println!("-----");
-            }
-
-            // count the number of needed HCTL vars and instantiate graph with it
-            let num_hctl_vars = collect_unique_hctl_vars(new_tree.clone(), HashSet::new()).len();
-            let graph = SymbolicAsyncGraph::new(bn, num_hctl_vars as i16).unwrap();
-
-            if print_progress {
-                println!(
-                    "Loaded BN with {} components and {} parameters",
-                    graph.as_network().num_vars(),
-                    graph.symbolic_context().num_parameter_vars()
-                );
-                println!(
-                    "Formula parse + graph build time: {}ms",
-                    start.elapsed().unwrap().as_millis()
-                );
-            }
-
-            let result = eval_minimized_tree(new_tree, &graph, print_progress);
-
-            if print_progress {
-                println!("Evaluation time: {}ms", start.elapsed().unwrap().as_millis());
-                println!("-----");
-            }
-
-            match print_option {
-                PrintOptions::LongPrint => print_results(&graph, &result, true),
-                PrintOptions::ShortPrint => print_results_fast(&result),
-                _ => {}
-            }
-        }
-        Err(message) => println!("{}", message),
+    let tree = parse_hctl_formula(&tokens)?;
+    if print_progress {
+        println!("Parsed formula:   {}", tree.subform_str);
     }
+
+    let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn)?;
+    if print_progress {
+        println!("Modified formula: {}", modified_tree.subform_str);
+        println!("-----");
+    }
+
+    // count the number of needed HCTL vars and instantiate extended transition graph with it
+    let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
+    let graph = SymbolicAsyncGraph::new(bn, num_hctl_vars as i16).unwrap();
+    if print_progress {
+        println!(
+            "Loaded BN with {} components and {} parameters",
+            graph.as_network().num_vars(),
+            graph.symbolic_context().num_parameter_vars()
+        );
+        println!(
+            "Formula parse + graph build time: {}ms",
+            start.elapsed().unwrap().as_millis()
+        );
+    }
+
+    // perform the actual model checking
+    let result = eval_minimized_tree(modified_tree, &graph, print_progress);
+    if print_progress {
+        println!("Evaluation time: {}ms", start.elapsed().unwrap().as_millis());
+        println!("-----");
+    }
+
+    match print_option {
+        PrintOptions::LongPrint => print_results(&graph, &result, true),
+        PrintOptions::ShortPrint => print_results_fast(&result),
+        PrintOptions::NoPrint => {}
+    }
+    Ok(())
 }
 
 /// Performs the model checking on GIVEN graph and returns resulting colored set
-/// Panics if given symbolic graph does not support enough HCTL state-variables
+/// Panics if given symbolic graph does not support enough HCTL state-variables or formula
+/// is badly formed
 pub fn model_check_formula(
     formula: String,
     stg: &SymbolicAsyncGraph,
-) -> GraphColoredVertices {
+) -> Result<GraphColoredVertices, String> {
     let tokens = tokenize_formula(formula).unwrap();
     let tree = parse_hctl_formula(&tokens).unwrap();
-    let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
 
+    let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
     // check that given extended symbolic graph supports enough stated variables
     let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
     if num_vars_formula > stg.symbolic_context().num_hctl_var_sets() as usize {
-        panic!("Graph does not support enough HCTL state variables");
+        return Err("Graph does not support enough HCTL state variables".to_string());
     }
 
     // get the result while not printing progress information
-    eval_minimized_tree(modified_tree, stg, false)
+    Ok(eval_minimized_tree(modified_tree, stg, false))
 }
 
 #[allow(dead_code)]
@@ -134,27 +130,26 @@ pub fn model_check_formula(
 pub fn model_check_formula_unsafe_ex(
     formula: String,
     stg: &SymbolicAsyncGraph,
-) -> GraphColoredVertices {
+) -> Result<GraphColoredVertices, String> {
     let tokens = tokenize_formula(formula).unwrap();
     let tree = parse_hctl_formula(&tokens).unwrap();
-    let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
-
+    let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
     // check that given extended symbolic graph supports enough stated variables
     let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
     if num_vars_formula > stg.symbolic_context().num_hctl_var_sets() as usize {
-        panic!("Graph does not support enough HCTL state variables");
+        return Err("Graph does not support enough HCTL state variables".to_string());
     }
 
     // do not consider self-loops during EX computation (UNSAFE optimisation)
     let self_loop_states = stg.mk_empty_vertices();
-    eval_minimized_tree_unsafe_ex(modified_tree, stg, self_loop_states)
+    Ok(eval_minimized_tree_unsafe_ex(modified_tree, stg, self_loop_states))
 }
 
 #[cfg(test)]
 mod tests {
     use crate::analysis::{collect_unique_hctl_vars, model_check_formula};
     use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::rename_vars::minimize_number_of_state_vars;
+    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use crate::formula_preprocessing::tokenizer::tokenize_formula;
     use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
     use biodivine_lib_param_bn::BooleanNetwork;
@@ -216,7 +211,7 @@ DivK -?? PleC
         let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
 
         for (formula, num_total, num_colors, num_states) in test_tuples {
-            let result = model_check_formula(formula.to_string(), &stg);
+            let result = model_check_formula(formula.to_string(), &stg).unwrap();
             assert_eq!(num_total, result.approx_cardinality());
             assert_eq!(num_colors, result.colors().approx_cardinality());
             assert_eq!(num_states, result.vertices().approx_cardinality());
@@ -314,8 +309,8 @@ DivK -?? PleC
         ];
 
         for (formula1, formula2) in equivalent_formulae_pairs {
-            let result1 = model_check_formula(formula1.to_string(), &stg);
-            let result2 = model_check_formula(formula2.to_string(), &stg);
+            let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
+            let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
             assert_eq!(result1, result2);
         }
     }
@@ -342,16 +337,51 @@ DivK -?? PleC
     }
 
     #[test]
-    #[should_panic]
-    /// Test that function panics correctly if graph does not support enough state variables
-    fn test_model_check_panic() {
+    /// Test that function errors correctly if graph does not support enough state variables
+    fn test_model_check_error_1() {
         // create symbolic graph supporting only one variable
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
         let stg = SymbolicAsyncGraph::new(bn, 1).unwrap();
 
         // define formula with two variables
         let formula = "!{x}: !{y}: (AX {x} & AX {y})".to_string();
-        model_check_formula(formula, &stg);
+        assert!(model_check_formula(formula, &stg).is_err());
+    }
+
+    #[test]
+    /// Test that function errors correctly if formula contains free variables
+    fn test_model_check_error_2() {
+        // create placeholder symbolic graph
+        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+        let stg = SymbolicAsyncGraph::new(bn, 2).unwrap();
+
+        // define formula that contains free variable
+        let formula = "AX {x}".to_string();
+        assert!(model_check_formula(formula, &stg).is_err());
+    }
+
+    #[test]
+    /// Test that function errors correctly if formula contains several times quantified vars
+    fn test_model_check_error_3() {
+        // create placeholder symbolic graph
+        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+        let stg = SymbolicAsyncGraph::new(bn, 2).unwrap();
+
+        // define formula with several times quantified var
+        let formula = "!{x}: !{x}: AX {x}".to_string();
+        assert!(model_check_formula(formula, &stg).is_err());
+    }
+
+    #[test]
+    /// Test that function errors correctly if formula contains invalid propositions
+    fn test_model_check_error_4() {
+        // create placeholder symbolic graph
+        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+        let stg = SymbolicAsyncGraph::new(bn, 2).unwrap();
+
+        // define formula with invalid proposition
+        let formula = "AX invalid_proposition".to_string();
+        assert!(model_check_formula(formula, &stg).is_err());
     }
 
     #[test]
@@ -376,8 +406,11 @@ DivK -?? PleC
             HashSet::from_iter(expected_vars)
         );
 
+        // define any placeholder bn
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+
         // and for tree with minimized number of renamed state vars
-        let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
+        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
         let expected_vars = vec!["x".to_string(), "xx".to_string(), "xxx".to_string()];
         assert_eq!(
             collect_unique_hctl_vars(modified_tree, HashSet::new()),

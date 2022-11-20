@@ -40,14 +40,13 @@ pub fn eval_xor(
 /// Returns set where network var (proposition in HCTL formula) given by name is true
 /// If var is invalid, panics
 pub fn eval_prop(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertices {
-    let network_variable = graph.as_network().as_graph().find_variable(name);
-    if network_variable.is_none() {
-        panic!("There is no network variable named {}.", name);
-    }
+    // propositions are checked during preproc, and must be valid network variables
+    let network_variable = graph.as_network().as_graph().find_variable(name).unwrap();
+
     GraphColoredVertices::new(
         graph
             .symbolic_context()
-            .mk_state_variable_is_true(network_variable.unwrap()),
+            .mk_state_variable_is_true(network_variable),
         graph.symbolic_context(),
     )
 }

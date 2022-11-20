@@ -155,11 +155,12 @@ pub fn mark_duplicates_deprecated(root_node: &Node) -> HashMap<String, i32> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use crate::formula_evaluation::mark_duplicate_subform::mark_duplicates_canonized;
     use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::rename_vars::minimize_number_of_state_vars;
+    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use crate::formula_preprocessing::tokenizer::tokenize_formula;
+    use biodivine_lib_param_bn::BooleanNetwork;
+    use std::collections::HashMap;
 
     #[test]
     /// Compare automatically detected duplicate sub-formulae to expected ones
@@ -167,9 +168,12 @@ mod tests {
         let formula = "!{x}: 3{y}: (AX {x} & AX {y})".to_string();
         let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
 
+        // define any placeholder bn
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+
         let tokens = tokenize_formula(formula).unwrap();
         let tree = parse_hctl_formula(&tokens).unwrap();
-        let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
+        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
         let duplicates = mark_duplicates_canonized(&modified_tree);
 
         assert_eq!(duplicates, expected_duplicates);
@@ -184,9 +188,12 @@ mod tests {
             ("(Ef {var0})".to_string(), 2),
         ]);
 
+        // define any placeholder bn
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+
         let tokens = tokenize_formula(formula).unwrap();
         let tree = parse_hctl_formula(&tokens).unwrap();
-        let modified_tree = minimize_number_of_state_vars(*tree, HashMap::new(), String::new());
+        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
         let duplicates = mark_duplicates_canonized(&modified_tree);
 
         assert_eq!(duplicates, expected_duplicates);
