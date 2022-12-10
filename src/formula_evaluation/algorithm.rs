@@ -12,6 +12,7 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
 use std::collections::HashMap;
+use crate::result_print::{print_if_allowed, PrintOptions};
 
 pub struct EvalInfo {
     duplicates: HashMap<String, i32>,
@@ -22,7 +23,7 @@ pub struct EvalInfo {
 pub fn eval_minimized_tree(
     tree: Node,
     graph: &SymbolicAsyncGraph,
-    print_progress: bool,
+    print_op: PrintOptions,
 ) -> GraphColoredVertices {
     // prepare the list of duplicates & cache
     let mut eval_info: EvalInfo = EvalInfo {
@@ -30,15 +31,15 @@ pub fn eval_minimized_tree(
         cache: HashMap::new(),
     };
 
-    if print_progress {
-        println!("Duplicate sub-formulae (canonized): {:?}", eval_info.duplicates.clone());
-    }
+    print_if_allowed(
+        format!("Duplicate sub-formulae (canonized): {:?}", eval_info.duplicates.clone()),
+        print_op
+    );
 
     // compute states with self-loops which will be needed
     let steady_states = compute_steady_states(graph);
-    if print_progress {
-        println!("Self-loops computed");
-    }
+    print_if_allowed("self-loops computed".to_string(), print_op);
+
     let graph_with_steady_states =
         SymbolicAsyncGraph::new_add_steady_states_to_existing(graph.clone(), steady_states);
 

@@ -4,20 +4,13 @@ use crate::formula_preprocessing::parser::*;
 use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
 #[allow(unused_imports)]
 use crate::formula_preprocessing::tokenizer::{print_tokens, tokenize_formula};
-use crate::result_print::{print_results, print_results_fast};
+use crate::result_print::*;
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum PrintOptions {
-    NoPrint,
-    ShortPrint,
-    LongPrint,
-}
 
 /// Returns the set of all uniquely named HCTL variables in the formula tree
 /// Variable names are collected from quantifiers (bind, exists, forall)
@@ -46,79 +39,121 @@ fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) 
     seen_vars
 }
 
-/// Performs the whole model checking process, including complete parsing at the beginning
+/// Performs the whole model checking analysis on several formulae, including complete parsing
+/// at the beginning
 /// Prints selected amount of result info (no prints / summary / all results printed)
-pub fn analyse_formula(
-    bn: BooleanNetwork,
-    formula: String,
-    print_option: PrintOptions,
+pub fn analyse_formulae(
+    bn: &BooleanNetwork,
+    formulae: Vec<String>,
+    print_op: PrintOptions,
 ) -> Result<(), String> {
     let start = SystemTime::now();
-    let print_progress = print_option != PrintOptions::NoPrint;
+    print_if_allowed("=========\nPARSE INFO:\n=========\n".to_string(), print_op);
 
-    let tokens = tokenize_formula(formula)?;
-    //print_tokens(&tokens);
+    // first parse all the formulae and count max number of HCTL variables
+    let mut parsed_trees = Vec::new();
+    let mut max_num_hctl_vars = 0;
+    for formula in formulae {
+        print_if_allowed(format!("Formula: {}", formula), print_op);
+        let tokens = tokenize_formula(formula)?;
+        //print_tokens(&tokens);
 
-    let tree = parse_hctl_formula(&tokens)?;
-    if print_progress {
-        println!("Parsed formula:   {}", tree.subform_str);
+        let tree = parse_hctl_formula(&tokens)?;
+        print_if_allowed(format!("Parsed formula:   {}", tree.subform_str), print_op);
+
+        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), bn)?;
+        let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
+        print_if_allowed(format!("Modified formula: {}", modified_tree.subform_str), print_op);
+        print_if_allowed("-----".to_string(), print_op);
+
+        parsed_trees.push(modified_tree);
+        if num_hctl_vars > max_num_hctl_vars {
+            max_num_hctl_vars = num_hctl_vars;
+        }
     }
 
-    let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn)?;
-    if print_progress {
-        println!("Modified formula: {}", modified_tree.subform_str);
-        println!("-----");
-    }
-
-    // count the number of needed HCTL vars and instantiate extended transition graph with it
-    let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
-    let graph = SymbolicAsyncGraph::new(bn, num_hctl_vars as i16).unwrap();
-    if print_progress {
-        println!(
+    // instantiate one extended STG with enough variables to evaluate all formulae
+    let graph = SymbolicAsyncGraph::new(bn.clone(), max_num_hctl_vars as i16).unwrap();
+    print_if_allowed(
+        format!(
             "Loaded BN with {} components and {} parameters",
             graph.as_network().num_vars(),
             graph.symbolic_context().num_parameter_vars()
-        );
-        println!(
-            "Formula parse + graph build time: {}ms",
-            start.elapsed().unwrap().as_millis()
-        );
+        ),
+        print_op
+    );
+    print_if_allowed(
+        format!("Time to parse all formulae + build STG: {}ms\n", start.elapsed().unwrap().as_millis()),
+        print_op
+    );
+    print_if_allowed("=========\nEVAL INFO:\n=========\n".to_string(), print_op);
+
+    // evaluate the formulae (perform the actual model checking)
+    for parse_tree in parsed_trees {
+        let curr_comp_start = SystemTime::now();
+        let result = eval_minimized_tree(parse_tree, &graph, print_op);
+
+        match print_op {
+            PrintOptions::FullPrint => print_results_full(&graph, &result, curr_comp_start, true),
+            PrintOptions::MediumPrint => summarize_results(&result, curr_comp_start),
+            PrintOptions::ShortPrint => summarize_results(&result, curr_comp_start),
+            PrintOptions::NoPrint => {}
+        }
     }
 
-    // perform the actual model checking
-    let result = eval_minimized_tree(modified_tree, &graph, print_progress);
-    if print_progress {
-        println!("Evaluation time: {}ms", start.elapsed().unwrap().as_millis());
-        println!("-----");
-    }
-
-    match print_option {
-        PrintOptions::LongPrint => print_results(&graph, &result, true),
-        PrintOptions::ShortPrint => print_results_fast(&result),
-        PrintOptions::NoPrint => {}
-    }
+    print_if_allowed(
+        format!("Total computation time: {}ms", start.elapsed().unwrap().as_millis()),
+        print_op
+    );
     Ok(())
 }
 
-/// Performs the model checking on GIVEN graph and returns resulting colored set
-/// Panics if given symbolic graph does not support enough HCTL state-variables or formula
+#[allow(dead_code)]
+/// Wrapper for model checking analysis of one particular formula
+pub fn analyse_formula(
+    bn: &BooleanNetwork,
+    formula: String,
+    print_option: PrintOptions,
+) -> Result<(), String> {
+    analyse_formulae(bn, vec![formula], print_option)
+}
+
+#[allow(dead_code)]
+/// Performs the model checking for the list of formulae on GIVEN graph and returns list
+/// of resulting colored set (in the same order)
+/// Panics if given symbolic graph does not support enough HCTL state-variables or formulae
 /// is badly formed
+pub fn model_check_multiple_formulae(
+    formulae: Vec<String>,
+    stg: &SymbolicAsyncGraph,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    let mut results: Vec<GraphColoredVertices> = Vec::new();
+
+    // initial naive implementation
+    for formula in formulae {
+        let tokens = tokenize_formula(formula).unwrap();
+        let tree = parse_hctl_formula(&tokens).unwrap();
+
+        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
+        // check that given extended symbolic graph supports enough stated variables
+        let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
+        if num_vars_formula > stg.symbolic_context().num_hctl_var_sets() as usize {
+            return Err("Graph does not support enough HCTL state variables".to_string());
+        }
+
+        // compute the resulting set, do not print intermediate info
+        results.push(eval_minimized_tree(modified_tree, stg, PrintOptions::ShortPrint));
+    }
+    Ok(results)
+}
+
+/// Wrapper for model checking one particular formula on GIVEN graph
 pub fn model_check_formula(
     formula: String,
     stg: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
-    let tokens = tokenize_formula(formula).unwrap();
-    let tree = parse_hctl_formula(&tokens).unwrap();
-
-    let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
-    // check that given extended symbolic graph supports enough stated variables
-    let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
-    if num_vars_formula > stg.symbolic_context().num_hctl_var_sets() as usize {
-        return Err("Graph does not support enough HCTL state variables".to_string());
-    }
-
-    // get the result while not printing progress information
-    Ok(eval_minimized_tree(modified_tree, stg, false))
+    let result = model_check_multiple_formulae(vec![formula], stg)?;
+    Ok(result[0].clone())
 }
 
 #[allow(dead_code)]
