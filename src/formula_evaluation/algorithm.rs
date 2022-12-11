@@ -1,8 +1,8 @@
 use crate::aeon::scc_computation::compute_attractor_states;
 use crate::formula_evaluation::canonization::get_canonical_and_mapping;
 use crate::formula_evaluation::eval_hctl_components::*;
+use crate::formula_evaluation::eval_info::EvalInfo;
 use crate::formula_evaluation::eval_utils::substitute_hctl_var;
-use crate::formula_evaluation::mark_duplicate_subform::*;
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::{Node, NodeType};
 
@@ -12,39 +12,6 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
 use std::collections::HashMap;
-use crate::result_print::{print_if_allowed, PrintOptions};
-
-pub struct EvalInfo {
-    duplicates: HashMap<String, i32>,
-    cache: HashMap<String, (GraphColoredVertices, HashMap<String, String>)>,
-}
-
-/// Preprocess and evaluate formula on the given transition graph
-pub fn eval_minimized_tree(
-    tree: Node,
-    graph: &SymbolicAsyncGraph,
-    print_op: PrintOptions,
-) -> GraphColoredVertices {
-    // prepare the list of duplicates & cache
-    let mut eval_info: EvalInfo = EvalInfo {
-        duplicates: mark_duplicates_canonized(&tree),
-        cache: HashMap::new(),
-    };
-
-    print_if_allowed(
-        format!("Duplicate sub-formulae (canonized): {:?}", eval_info.duplicates.clone()),
-        print_op
-    );
-
-    // compute states with self-loops which will be needed
-    let steady_states = compute_steady_states(graph);
-    print_if_allowed("self-loops computed".to_string(), print_op);
-
-    let graph_with_steady_states =
-        SymbolicAsyncGraph::new_add_steady_states_to_existing(graph.clone(), steady_states);
-
-    eval_node(tree, &graph_with_steady_states, &mut eval_info)
-}
 
 /// Same as previous fn, but UNSAFE
 /// It does not explicitly compute states with self-loops, but instead allows caller to provide them
@@ -56,10 +23,8 @@ pub fn eval_minimized_tree_unsafe_ex(
     graph: &SymbolicAsyncGraph,
     self_loop_states: GraphColoredVertices,
 ) -> GraphColoredVertices {
-    let mut eval_info: EvalInfo = EvalInfo {
-        duplicates: mark_duplicates_canonized(&tree),
-        cache: HashMap::new(),
-    };
+    let mut eval_info = EvalInfo::from_single_tree(&tree);
+
     let graph_with_steady_states =
         SymbolicAsyncGraph::new_add_steady_states_to_existing(graph.clone(), self_loop_states);
     eval_node(tree, &graph_with_steady_states, &mut eval_info)

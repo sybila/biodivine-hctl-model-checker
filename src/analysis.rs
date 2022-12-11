@@ -1,4 +1,7 @@
-use crate::formula_evaluation::algorithm::{eval_minimized_tree, eval_minimized_tree_unsafe_ex};
+use crate::formula_evaluation::algorithm::{
+    compute_steady_states, eval_minimized_tree_unsafe_ex, eval_node
+};
+use crate::formula_evaluation::eval_info::EvalInfo;
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::*;
 use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
@@ -41,7 +44,7 @@ fn collect_unique_hctl_vars(formula_tree: Node, mut seen_vars: HashSet<String>) 
 
 /// Performs the whole model checking analysis on several formulae, including complete parsing
 /// at the beginning
-/// Prints selected amount of result info (no prints / summary / all results printed)
+/// Prints selected amount of result info (no prints / summary / detailed summary / exhaustive)
 pub fn analyse_formulae(
     bn: &BooleanNetwork,
     formulae: Vec<String>,
@@ -86,12 +89,25 @@ pub fn analyse_formulae(
         format!("Time to parse all formulae + build STG: {}ms\n", start.elapsed().unwrap().as_millis()),
         print_op
     );
+
+    // find duplicate sub-formulae throughout all formulae + initiate caching structures
+    let mut eval_info = EvalInfo::from_multiple_trees(&parsed_trees);
+    print_if_allowed(
+        format!("Duplicate sub-formulae (canonized): {:?}", eval_info.get_duplicates()),
+        print_op
+    );
+    // compute states with self-loops which will be needed, and add them to graph object
+    let steady_states = compute_steady_states(&graph);
+    print_if_allowed("self-loops computed".to_string(), print_op);
+    let graph =
+        SymbolicAsyncGraph::new_add_steady_states_to_existing(graph, steady_states);
+
     print_if_allowed("=========\nEVAL INFO:\n=========\n".to_string(), print_op);
 
-    // evaluate the formulae (perform the actual model checking)
+    // evaluate the formulae (perform the actual model checking) and summarize results
     for parse_tree in parsed_trees {
         let curr_comp_start = SystemTime::now();
-        let result = eval_minimized_tree(parse_tree, &graph, print_op);
+        let result = eval_node(parse_tree, &graph, &mut eval_info);
 
         match print_op {
             PrintOptions::FullPrint => print_results_full(&graph, &result, curr_comp_start, true),
@@ -127,22 +143,33 @@ pub fn model_check_multiple_formulae(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
-    let mut results: Vec<GraphColoredVertices> = Vec::new();
-
-    // initial naive implementation
+    // first parse all the formulae and check that graph supports enough HCTL vars
+    let mut parsed_trees = Vec::new();
     for formula in formulae {
-        let tokens = tokenize_formula(formula).unwrap();
-        let tree = parse_hctl_formula(&tokens).unwrap();
-
+        let tokens = tokenize_formula(formula)?;
+        let tree = parse_hctl_formula(&tokens)?;
         let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
+
         // check that given extended symbolic graph supports enough stated variables
         let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
         if num_vars_formula > stg.symbolic_context().num_hctl_var_sets() as usize {
             return Err("Graph does not support enough HCTL state variables".to_string());
         }
 
-        // compute the resulting set, do not print intermediate info
-        results.push(eval_minimized_tree(modified_tree, stg, PrintOptions::ShortPrint));
+        parsed_trees.push(modified_tree);
+    }
+
+    // find duplicate sub-formulae throughout all formulae + initiate caching structures
+    let mut eval_info = EvalInfo::from_multiple_trees(&parsed_trees);
+    // compute states with self-loops which will be needed, and add them to graph object
+    let steady_states = compute_steady_states(stg);
+    let graph =
+        SymbolicAsyncGraph::new_add_steady_states_to_existing(stg.clone(), steady_states);
+
+    // evaluate the formulae (perform the actual model checking) and collect results
+    let mut results: Vec<GraphColoredVertices> = Vec::new();
+    for parse_tree in parsed_trees {
+        results.push(eval_node(parse_tree, &graph, &mut eval_info));
     }
     Ok(results)
 }
