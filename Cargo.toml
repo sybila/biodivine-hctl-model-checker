@@ -26,10 +26,6 @@ name = "print-regulations"
 path = "src/bin/print_regulations.rs"
 
 [[bin]]
-name = "example-sketch"
-path = "src/bin/example_sketches.rs"
-
-[[bin]]
 name = "convert-aeon-to-bnet"
 path = "src/bin/convert_aeon_to_bnet.rs"
 
