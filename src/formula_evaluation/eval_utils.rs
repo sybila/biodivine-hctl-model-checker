@@ -5,13 +5,12 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, Symboli
 /// Creates comparator between either
 /// 1) network vars and given HCTL var' components: "(s__1 <=> var__1) & (s__2 <=> var__2) ... "
 /// 2) two given HCTL vars' components: "(varA__1 <=> varB__1) & (varA__2 <=> varB__2) ... "
-/// THIS WORKS FOR UP TO 10 VARS ONLY (then indexing breaks) - TODO: make more robust
 pub fn create_comparator(
     graph: &SymbolicAsyncGraph,
     hctl_var_name: &str,
     other_hctl_var_name_opt: Option<&str>,
 ) -> GraphColoredVertices {
-    // TODO: 1) merge both branches to not repeat code
+    // TODO: merge both branches to not repeat code
     let reg_graph = graph.as_network().as_graph();
     let mut comparator = graph.mk_unit_colored_vertices().as_bdd().clone();
 
@@ -64,7 +63,7 @@ pub fn create_comparator(
 }
 
 /// Projects out (existentially quantifies) the given HCTL variable
-/// This is used to evaluate hybrid operators or for HCTL var renaming
+/// This is used during hybrid operators evaluation or during renaming of HCTL vars
 pub fn project_out_hctl_var(
     graph: &SymbolicAsyncGraph,
     colored_state_set: &GraphColoredVertices,
@@ -80,8 +79,7 @@ pub fn project_out_hctl_var(
     }
 
     /*
-    // TODO: DEPRECATED - use previous
-    // collect all BDD vars that encode the HCTL var
+    // DEPRECATED version of collecting all BDD vars that encode the HCTL var
     let vars_total = graph.symbolic_context().num_hctl_var_sets() as usize;
     let bdd_vars_to_project: Vec<BddVariable> = graph
         .symbolic_context()
@@ -93,7 +91,7 @@ pub fn project_out_hctl_var(
         .collect();
      */
 
-    // project them out
+    // project these bdd vars out
     let result_bdd = colored_state_set.as_bdd().project(&bdd_vars_to_project);
 
     // after projection we do not need to intersect with unit bdd
