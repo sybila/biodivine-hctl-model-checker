@@ -9,11 +9,38 @@ use crate::formula_preprocessing::vars_props_manipulation::check_props_and_renam
 use crate::formula_preprocessing::tokenizer::{print_tokens, tokenize_formula};
 use crate::result_print::*;
 
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph, SymbolicContext};
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
+
+/// Create extended symbolic graph that supports all HCTL variables
+pub fn get_extended_symbolic_graph(bn: &BooleanNetwork, num_hctl_vars: u16) -> SymbolicAsyncGraph {
+    // for each BN var, `num_hctl_vars` new BDD vars must be created
+    let mut map_num_vars = HashMap::new();
+    for bn_var in bn.variables() {
+        map_num_vars.insert(bn_var, num_hctl_vars);
+    }
+    let context = SymbolicContext::with_extra_state_variables(bn, &map_num_vars).unwrap();
+    let unit = context.mk_constant(true);
+
+    SymbolicAsyncGraph::with_custom_context(bn.clone(), context, unit).unwrap()
+}
+
+
+/// Check that symbolic graph supports enough HCTL vars
+/// There must be `num_hctl_vars` extra symbolic BDD vars for each BN variable
+fn check_hctl_var_support(stg: &SymbolicAsyncGraph, num_hctl_vars: usize) -> bool {
+    for bn_var in stg.as_network().variables() {
+        if num_hctl_vars > stg.symbolic_context().extra_state_variables(bn_var).len() {
+            return false;
+        }
+    }
+    true
+}
+
+
 
 /// Returns the set of all uniquely named HCTL variables in the formula tree
 /// Variable names are collected from quantifiers (bind, exists, forall)
@@ -76,12 +103,12 @@ pub fn analyse_formulae(
     }
 
     // instantiate one extended STG with enough variables to evaluate all formulae
-    let graph = SymbolicAsyncGraph::new(bn.clone(), max_num_hctl_vars as i16).unwrap();
+    let graph = get_extended_symbolic_graph(bn, max_num_hctl_vars as u16);
     print_if_allowed(
         format!(
             "Loaded BN with {} components and {} parameters",
             graph.as_network().num_vars(),
-            graph.symbolic_context().num_parameter_vars()
+            graph.symbolic_context().num_parameter_variables()
         ),
         print_op
     );
@@ -97,17 +124,15 @@ pub fn analyse_formulae(
         print_op
     );
     // compute states with self-loops which will be needed, and add them to graph object
-    let steady_states = compute_steady_states(&graph);
+    let self_loop_states = compute_steady_states(&graph);
     print_if_allowed("self-loops computed".to_string(), print_op);
-    let graph =
-        SymbolicAsyncGraph::new_add_steady_states_to_existing(graph, steady_states);
 
     print_if_allowed("=========\nEVAL INFO:\n=========\n".to_string(), print_op);
 
     // evaluate the formulae (perform the actual model checking) and summarize results
     for parse_tree in parsed_trees {
         let curr_comp_start = SystemTime::now();
-        let result = eval_node(parse_tree, &graph, &mut eval_info);
+        let result = eval_node(parse_tree, &graph, &mut eval_info, &self_loop_states);
 
         match print_op {
             PrintOptions::FullPrint => print_results_full(&graph, &result, curr_comp_start, true),
@@ -152,7 +177,7 @@ pub fn model_check_multiple_formulae(
 
         // check that given extended symbolic graph supports enough stated variables
         let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
-        if num_vars_formula > stg.symbolic_context().num_hctl_var_sets() as usize {
+        if !check_hctl_var_support(stg, num_vars_formula) {
             return Err("Graph does not support enough HCTL state variables".to_string());
         }
 
@@ -162,14 +187,12 @@ pub fn model_check_multiple_formulae(
     // find duplicate sub-formulae throughout all formulae + initiate caching structures
     let mut eval_info = EvalInfo::from_multiple_trees(&parsed_trees);
     // compute states with self-loops which will be needed, and add them to graph object
-    let steady_states = compute_steady_states(stg);
-    let graph =
-        SymbolicAsyncGraph::new_add_steady_states_to_existing(stg.clone(), steady_states);
+    let self_loop_states = compute_steady_states(stg);
 
     // evaluate the formulae (perform the actual model checking) and collect results
     let mut results: Vec<GraphColoredVertices> = Vec::new();
     for parse_tree in parsed_trees {
-        results.push(eval_node(parse_tree, &graph, &mut eval_info));
+        results.push(eval_node(parse_tree, &stg, &mut eval_info, &self_loop_states));
     }
     Ok(results)
 }
@@ -198,7 +221,7 @@ pub fn model_check_formula_unsafe_ex(
     let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
     // check that given extended symbolic graph supports enough stated variables
     let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
-    if num_vars_formula > stg.symbolic_context().num_hctl_var_sets() as usize {
+    if !check_hctl_var_support(stg, num_vars_formula) {
         return Err("Graph does not support enough HCTL state variables".to_string());
     }
 
@@ -209,11 +232,10 @@ pub fn model_check_formula_unsafe_ex(
 
 #[cfg(test)]
 mod tests {
-    use crate::analysis::{collect_unique_hctl_vars, model_check_formula};
+    use crate::analysis::{collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_formula};
     use crate::formula_preprocessing::parser::parse_hctl_formula;
     use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use crate::formula_preprocessing::tokenizer::tokenize_formula;
-    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::{HashMap, HashSet};
 
@@ -270,7 +292,7 @@ DivK -?? PleC
         bn: BooleanNetwork,
     ) {
         // test formulae use 3 HCTL vars at most
-        let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 3);
 
         for (formula, num_total, num_colors, num_states) in test_tuples {
             let result = model_check_formula(formula.to_string(), &stg).unwrap();
@@ -356,7 +378,7 @@ DivK -?? PleC
     /// Compare whether the results are the same
     fn test_model_check_equivalences(bn: BooleanNetwork) {
         // test formulae use 3 HCTL vars at most
-        let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 3);
 
         let equivalent_formulae_pairs = vec![
             ("!{x}: AG EF {x}", "!{x}: AG EF ({x} & {x})"), // one is evaluated using attr pattern
@@ -403,7 +425,7 @@ DivK -?? PleC
     fn test_model_check_error_1() {
         // create symbolic graph supporting only one variable
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let stg = SymbolicAsyncGraph::new(bn, 1).unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 1);
 
         // define formula with two variables
         let formula = "!{x}: !{y}: (AX {x} & AX {y})".to_string();
@@ -415,7 +437,7 @@ DivK -?? PleC
     fn test_model_check_error_2() {
         // create placeholder symbolic graph
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let stg = SymbolicAsyncGraph::new(bn, 2).unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 2);
 
         // define formula that contains free variable
         let formula = "AX {x}".to_string();
@@ -427,7 +449,7 @@ DivK -?? PleC
     fn test_model_check_error_3() {
         // create placeholder symbolic graph
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let stg = SymbolicAsyncGraph::new(bn, 2).unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 2);
 
         // define formula with several times quantified var
         let formula = "!{x}: !{x}: AX {x}".to_string();
@@ -439,7 +461,7 @@ DivK -?? PleC
     fn test_model_check_error_4() {
         // create placeholder symbolic graph
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let stg = SymbolicAsyncGraph::new(bn, 2).unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 2);
 
         // define formula with invalid proposition
         let formula = "AX invalid_proposition".to_string();

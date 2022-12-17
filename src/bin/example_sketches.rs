@@ -1,6 +1,5 @@
-use biodivine_hctl_model_checker::analysis::model_check_formula;
+use biodivine_hctl_model_checker::analysis::{get_extended_symbolic_graph, model_check_formula};
 
-use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::fs::read_to_string;
@@ -11,7 +10,7 @@ fn main() {
 
     let aeon_string = read_to_string(model_name).unwrap();
     let bn = BooleanNetwork::try_from(aeon_string.as_str()).unwrap();
-    let stg = SymbolicAsyncGraph::new(bn, 3).unwrap();
+    let stg = get_extended_symbolic_graph(&bn, 3);
 
     let result = model_check_formula(formula.to_string(), &stg).unwrap();
 
