@@ -28,7 +28,6 @@ pub fn get_extended_symbolic_graph(bn: &BooleanNetwork, num_hctl_vars: u16) -> S
     SymbolicAsyncGraph::with_custom_context(bn.clone(), context, unit).unwrap()
 }
 
-
 /// Check that symbolic graph supports enough HCTL vars
 /// There must be `num_hctl_vars` extra symbolic BDD vars for each BN variable
 fn check_hctl_var_support(stg: &SymbolicAsyncGraph, num_hctl_vars: usize) -> bool {
@@ -39,8 +38,6 @@ fn check_hctl_var_support(stg: &SymbolicAsyncGraph, num_hctl_vars: usize) -> boo
     }
     true
 }
-
-
 
 /// Returns the set of all uniquely named HCTL variables in the formula tree
 /// Variable names are collected from quantifiers (bind, exists, forall)

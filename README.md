@@ -15,18 +15,15 @@ cargo build --release
 ```
 and then run the binary:
 ```
-.\target\release\model-check <MODEL_PATH> <FORMULA> [-m <MODEL_FORMAT>] [-p <PRINT_OPTION>]
+.\target\release\model-check <MODEL_PATH> <FORMULAE_PATH> [-m <MODEL_FORMAT>] [-p <PRINT_OPTION>] [-h]
 ```
 
 - `MODEL_PATH` is a path to a file with BN model in aeon format
-- `FORMULA` is a valid HCTL formula without free variables in correct format
-- `PRINT_OPTION` is one of none/short/full and defines the output mode (short is default)
+- `FORMULAE_PATH` is path to a file with a set of valid HCTL formulae (one per line)
+- `PRINT_OPTION` is one of none/short/medium/full and defines the amount of information on the output (short is default)
 - `MODEL_FORMAT` is one of aeon/bnet/smbl and defines the input format (aeon is default)
 
-For more help, run:
-```
-.\target\release\model-check --help
-```
+For more help, use option `-h` or `--help`.
 
 ## Models
 
@@ -35,6 +32,9 @@ You can also use `sbml` and `bnet` models by specifying the format as a CLI opti
 
 
 ## HCTL formulae
+
+All formulae used must not contain free variables.
+In the input file, there has to be one formula in a correct format per line.
 
 Several interesting formulae are listed in the ```benchmark_formulae.txt``` file.
 

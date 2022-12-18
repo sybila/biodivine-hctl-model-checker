@@ -23,10 +23,10 @@ use std::path::Path;
     about = "Symbolic HCTL model checker for Boolean network models"
 )]
 struct Arguments {
-    /// Path to the file with BN model file in one of readable formats
+    /// Path to a file with BN model file in one of supported formats
     model_path: String,
 
-    /// Path to the file with formulae to check
+    /// Path to a file with formulae to check
     formulae_path: String,
 
     /// Model format
