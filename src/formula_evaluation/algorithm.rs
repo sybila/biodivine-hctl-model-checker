@@ -105,61 +105,97 @@ pub fn eval_node(
         },
         NodeType::UnaryNode(op, child) => match op {
             UnaryOp::Not => eval_neg(graph, &eval_node(*child, graph, eval_info, steady_states)),
-            UnaryOp::Ex => eval_ex(graph, &eval_node(*child, graph, eval_info, steady_states), steady_states),
-            UnaryOp::Ax => eval_ax(graph, &eval_node(*child, graph, eval_info, steady_states), steady_states),
-            UnaryOp::Ef => eval_ef_saturated(graph, &eval_node(*child, graph, eval_info, steady_states)),
-            UnaryOp::Af => eval_af(graph, &eval_node(*child, graph, eval_info, steady_states), steady_states),
-            UnaryOp::Eg => eval_eg(graph, &eval_node(*child, graph, eval_info, steady_states), steady_states),
+            UnaryOp::Ex => eval_ex(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                steady_states,
+            ),
+            UnaryOp::Ax => eval_ax(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                steady_states,
+            ),
+            UnaryOp::Ef => {
+                eval_ef_saturated(graph, &eval_node(*child, graph, eval_info, steady_states))
+            }
+            UnaryOp::Af => eval_af(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                steady_states,
+            ),
+            UnaryOp::Eg => eval_eg(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                steady_states,
+            ),
             UnaryOp::Ag => eval_ag(graph, &eval_node(*child, graph, eval_info, steady_states)),
         },
-        NodeType::BinaryNode(op, left, right) => match op {
-            BinaryOp::And => eval_node(*left, graph, eval_info, steady_states)
-                .intersect(&eval_node(*right, graph, eval_info, steady_states)),
-            BinaryOp::Or => eval_node(*left, graph, eval_info, steady_states)
-                .union(&eval_node(*right, graph, eval_info, steady_states)),
-            BinaryOp::Xor => eval_xor(
-                graph,
-                &eval_node(*left, graph, eval_info, steady_states),
-                &eval_node(*right, graph, eval_info, steady_states),
-            ),
-            BinaryOp::Imp => eval_imp(
-                graph,
-                &eval_node(*left, graph, eval_info, steady_states),
-                &eval_node(*right, graph, eval_info, steady_states),
-            ),
-            BinaryOp::Iff => eval_equiv(
-                graph,
-                &eval_node(*left, graph, eval_info, steady_states),
-                &eval_node(*right, graph, eval_info, steady_states),
-            ),
-            BinaryOp::Eu => eval_eu_saturated(
-                graph,
-                &eval_node(*left, graph, eval_info, steady_states),
-                &eval_node(*right, graph, eval_info, steady_states),
-            ),
-            BinaryOp::Au => eval_au(
-                graph,
-                &eval_node(*left, graph, eval_info, steady_states),
-                &eval_node(*right, graph, eval_info, steady_states),
-                steady_states
-            ),
-            BinaryOp::Ew => eval_ew(
-                graph,
-                &eval_node(*left, graph, eval_info, steady_states),
-                &eval_node(*right, graph, eval_info, steady_states),
-                steady_states
-            ),
-            BinaryOp::Aw => eval_aw(
-                graph,
-                &eval_node(*left, graph, eval_info, steady_states),
-                &eval_node(*right, graph, eval_info, steady_states),
-            ),
-        },
+        NodeType::BinaryNode(op, left, right) => {
+            match op {
+                BinaryOp::And => eval_node(*left, graph, eval_info, steady_states)
+                    .intersect(&eval_node(*right, graph, eval_info, steady_states)),
+                BinaryOp::Or => eval_node(*left, graph, eval_info, steady_states)
+                    .union(&eval_node(*right, graph, eval_info, steady_states)),
+                BinaryOp::Xor => eval_xor(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+                BinaryOp::Imp => eval_imp(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+                BinaryOp::Iff => eval_equiv(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+                BinaryOp::Eu => eval_eu_saturated(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+                BinaryOp::Au => eval_au(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                    steady_states,
+                ),
+                BinaryOp::Ew => eval_ew(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                    steady_states,
+                ),
+                BinaryOp::Aw => eval_aw(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+            }
+        }
         NodeType::HybridNode(op, var, child) => match op {
-            HybridOp::Bind => eval_bind(graph, &eval_node(*child, graph, eval_info, steady_states), var.as_str()),
-            HybridOp::Jump => eval_jump(graph, &eval_node(*child, graph, eval_info, steady_states), var.as_str()),
-            HybridOp::Exists => eval_exists(graph, &eval_node(*child, graph, eval_info, steady_states), var.as_str()),
-            HybridOp::Forall => eval_forall(graph, &eval_node(*child, graph, eval_info, steady_states), var.as_str()),
+            HybridOp::Bind => eval_bind(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                var.as_str(),
+            ),
+            HybridOp::Jump => eval_jump(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                var.as_str(),
+            ),
+            HybridOp::Exists => eval_exists(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                var.as_str(),
+            ),
+            HybridOp::Forall => eval_forall(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                var.as_str(),
+            ),
         },
     };
 

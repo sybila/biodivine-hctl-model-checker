@@ -15,8 +15,8 @@ pub fn reachability_step<F>(
     variables: &[VariableId],
     step: F,
 ) -> bool
-    where
-        F: Fn(VariableId, &GraphColoredVertices) -> GraphColoredVertices,
+where
+    F: Fn(VariableId, &GraphColoredVertices) -> GraphColoredVertices,
 {
     if variables.is_empty() {
         return true;

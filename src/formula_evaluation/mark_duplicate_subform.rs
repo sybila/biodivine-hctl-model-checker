@@ -46,7 +46,7 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<Node>) -> HashMap<Str
                     if duplicates.contains_key(&current_subform_canonical) {
                         duplicates.insert(
                             current_subform_canonical.clone(),
-                            duplicates[&current_subform_canonical] + 1
+                            duplicates[&current_subform_canonical] + 1,
                         );
                     } else {
                         duplicates.insert(current_subform_canonical.clone(), 1);
@@ -166,10 +166,12 @@ pub fn mark_duplicates_deprecated(root_node: &Node) -> HashMap<String, i32> {
 
 #[cfg(test)]
 mod tests {
-    use crate::formula_evaluation::mark_duplicate_subform::{mark_duplicates_canonized_multiple, mark_duplicates_canonized_single};
+    use crate::formula_evaluation::mark_duplicate_subform::{
+        mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
+    };
     use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use crate::formula_preprocessing::tokenizer::tokenize_formula;
+    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
@@ -184,7 +186,8 @@ mod tests {
 
         let tokens = tokenize_formula(formula).unwrap();
         let tree = parse_hctl_formula(&tokens).unwrap();
-        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
+        let modified_tree =
+            check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
         let duplicates = mark_duplicates_canonized_single(&modified_tree);
 
         assert_eq!(duplicates, expected_duplicates);
@@ -193,7 +196,8 @@ mod tests {
     #[test]
     /// Compare automatically detected duplicate sub-formulae to expected ones
     fn test_duplicates_single_complex() {
-        let formula = "(!{x}: 3{y}: ((AG EF {x} & AG EF {y}) & (EF {y}))) & (!{z}: EF {z})".to_string();
+        let formula =
+            "(!{x}: 3{y}: ((AG EF {x} & AG EF {y}) & (EF {y}))) & (!{z}: EF {z})".to_string();
         let expected_duplicates = HashMap::from([
             ("(Ag (Ef {var0}))".to_string(), 1),
             ("(Ef {var0})".to_string(), 2),
@@ -204,7 +208,8 @@ mod tests {
 
         let tokens = tokenize_formula(formula).unwrap();
         let tree = parse_hctl_formula(&tokens).unwrap();
-        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
+        let modified_tree =
+            check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
         let duplicates = mark_duplicates_canonized_single(&modified_tree);
 
         assert_eq!(duplicates, expected_duplicates);
@@ -221,7 +226,7 @@ mod tests {
         ];
         let expected_duplicates = HashMap::from([
             ("(Ax {var0})".to_string(), 2),
-            ("(Bind {var0}: (Ax {var0}))".to_string(), 1)
+            ("(Bind {var0}: (Ax {var0}))".to_string(), 1),
         ]);
 
         // define any placeholder bn
@@ -231,7 +236,8 @@ mod tests {
         for formula in formulae {
             let tokens = tokenize_formula(formula).unwrap();
             let tree = parse_hctl_formula(&tokens).unwrap();
-            let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
+            let modified_tree =
+                check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
             trees.push(modified_tree);
         }
         let duplicates = mark_duplicates_canonized_multiple(&trees);

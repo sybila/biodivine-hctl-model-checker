@@ -1,15 +1,17 @@
 use crate::formula_evaluation::algorithm::{
-    compute_steady_states, eval_minimized_tree_unsafe_ex, eval_node
+    compute_steady_states, eval_minimized_tree_unsafe_ex, eval_node,
 };
 use crate::formula_evaluation::eval_info::EvalInfo;
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::*;
-use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
 #[allow(unused_imports)]
 use crate::formula_preprocessing::tokenizer::{print_tokens, tokenize_formula};
+use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
 use crate::result_print::*;
 
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph, SymbolicContext};
+use biodivine_lib_param_bn::symbolic_async_graph::{
+    GraphColoredVertices, SymbolicAsyncGraph, SymbolicContext,
+};
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
@@ -90,7 +92,10 @@ pub fn analyse_formulae(
 
         let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), bn)?;
         let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
-        print_if_allowed(format!("Modified formula: {}", modified_tree.subform_str), print_op);
+        print_if_allowed(
+            format!("Modified formula: {}", modified_tree.subform_str),
+            print_op,
+        );
         print_if_allowed("-----".to_string(), print_op);
 
         parsed_trees.push(modified_tree);
@@ -107,18 +112,24 @@ pub fn analyse_formulae(
             graph.as_network().num_vars(),
             graph.symbolic_context().num_parameter_variables()
         ),
-        print_op
+        print_op,
     );
     print_if_allowed(
-        format!("Time to parse all formulae + build STG: {}ms\n", start.elapsed().unwrap().as_millis()),
-        print_op
+        format!(
+            "Time to parse all formulae + build STG: {}ms\n",
+            start.elapsed().unwrap().as_millis()
+        ),
+        print_op,
     );
 
     // find duplicate sub-formulae throughout all formulae + initiate caching structures
     let mut eval_info = EvalInfo::from_multiple_trees(&parsed_trees);
     print_if_allowed(
-        format!("Duplicate sub-formulae (canonized): {:?}", eval_info.get_duplicates()),
-        print_op
+        format!(
+            "Duplicate sub-formulae (canonized): {:?}",
+            eval_info.get_duplicates()
+        ),
+        print_op,
     );
     // compute states with self-loops which will be needed, and add them to graph object
     let self_loop_states = compute_steady_states(&graph);
@@ -140,8 +151,11 @@ pub fn analyse_formulae(
     }
 
     print_if_allowed(
-        format!("Total computation time: {}ms", start.elapsed().unwrap().as_millis()),
-        print_op
+        format!(
+            "Total computation time: {}ms",
+            start.elapsed().unwrap().as_millis()
+        ),
+        print_op,
     );
     Ok(())
 }
@@ -170,10 +184,12 @@ pub fn model_check_multiple_formulae(
     for formula in formulae {
         let tokens = tokenize_formula(formula)?;
         let tree = parse_hctl_formula(&tokens)?;
-        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
+        let modified_tree =
+            check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
 
         // check that given extended symbolic graph supports enough stated variables
-        let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
+        let num_vars_formula =
+            collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
         if !check_hctl_var_support(stg, num_vars_formula) {
             return Err("Graph does not support enough HCTL state variables".to_string());
         }
@@ -189,7 +205,12 @@ pub fn model_check_multiple_formulae(
     // evaluate the formulae (perform the actual model checking) and collect results
     let mut results: Vec<GraphColoredVertices> = Vec::new();
     for parse_tree in parsed_trees {
-        results.push(eval_node(parse_tree, &stg, &mut eval_info, &self_loop_states));
+        results.push(eval_node(
+            parse_tree,
+            &stg,
+            &mut eval_info,
+            &self_loop_states,
+        ));
     }
     Ok(results)
 }
@@ -215,7 +236,8 @@ pub fn model_check_formula_unsafe_ex(
 ) -> Result<GraphColoredVertices, String> {
     let tokens = tokenize_formula(formula).unwrap();
     let tree = parse_hctl_formula(&tokens).unwrap();
-    let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
+    let modified_tree =
+        check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
     // check that given extended symbolic graph supports enough stated variables
     let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
     if !check_hctl_var_support(stg, num_vars_formula) {
@@ -224,15 +246,21 @@ pub fn model_check_formula_unsafe_ex(
 
     // do not consider self-loops during EX computation (UNSAFE optimisation)
     let self_loop_states = stg.mk_empty_vertices();
-    Ok(eval_minimized_tree_unsafe_ex(modified_tree, stg, self_loop_states))
+    Ok(eval_minimized_tree_unsafe_ex(
+        modified_tree,
+        stg,
+        self_loop_states,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::analysis::{collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_formula};
+    use crate::analysis::{
+        collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_formula,
+    };
     use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use crate::formula_preprocessing::tokenizer::tokenize_formula;
+    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::{HashMap, HashSet};
 
@@ -383,10 +411,16 @@ DivK -?? PleC
             ("!{x}: AX {x}", "!{x}: ~EX ~{x}"),
             ("!{x}: ((AG EF {x}) & (AG EF {x}))", "!{x}: AG EF {x}"), // one involves basic caching
             ("!{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: AG EF {x}"), // one involves advanced caching
-            ("3{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: 3{y}: ((AG EF {y}) & (AG EF {x}))"), // one involves advanced caching
+            (
+                "3{x}: !{y}: ((AG EF {x}) & (AG EF {y}))",
+                "!{x}: 3{y}: ((AG EF {y}) & (AG EF {x}))",
+            ), // one involves advanced caching
             ("!{x}: AX {x}", "!{y}: AX {y}"),
             ("!{x}: AX AF {x}", "!{x}: AX ~EG ~{x}"),
-            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))"),
+            (
+                "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})",
+                "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))",
+            ),
         ];
 
         for (formula1, formula2) in equivalent_formulae_pairs {
@@ -480,7 +514,7 @@ DivK -?? PleC
             "z".to_string(),
             "x1".to_string(),
             "y1".to_string(),
-            "z1".to_string()
+            "z1".to_string(),
         ];
         assert_eq!(
             collect_unique_hctl_vars(*tree.clone(), HashSet::new()),
@@ -491,7 +525,8 @@ DivK -?? PleC
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
         // and for tree with minimized number of renamed state vars
-        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
+        let modified_tree =
+            check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
         let expected_vars = vec!["x".to_string(), "xx".to_string(), "xxx".to_string()];
         assert_eq!(
             collect_unique_hctl_vars(modified_tree, HashSet::new()),

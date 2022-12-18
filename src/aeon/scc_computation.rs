@@ -4,9 +4,9 @@ use crate::aeon::itgr::interleaved_transition_guided_reduction;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
 /**
- Modified version of algorithms from AEON.
- These can be used to compute attractor states and optimize some procedures.
- */
+Modified version of algorithms from AEON.
+These can be used to compute attractor states and optimize some procedures.
+*/
 
 /// Computes the set of colored states contained in terminal SCCs
 /// Initial universe can be used to e.g. restrict considered colors

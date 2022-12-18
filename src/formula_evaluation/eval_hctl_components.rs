@@ -109,9 +109,7 @@ pub fn eval_ex(
     phi: &GraphColoredVertices,
     self_loop_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    graph
-        .pre(&phi)
-        .union(&phi.intersect(self_loop_states))
+    graph.pre(&phi).union(&phi.intersect(self_loop_states))
 }
 
 /*
@@ -201,7 +199,10 @@ pub fn eval_ax(
     phi: &GraphColoredVertices,
     self_loop_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    eval_neg(graph, &eval_ex(graph, &eval_neg(graph, &phi), self_loop_states))
+    eval_neg(
+        graph,
+        &eval_ex(graph, &eval_neg(graph, &phi), self_loop_states),
+    )
 }
 
 /// Evaluates AF operator using the EG computation
@@ -210,7 +211,10 @@ pub fn eval_af(
     phi: &GraphColoredVertices,
     self_loop_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    eval_neg(graph, &eval_eg(graph, &eval_neg(graph, &phi), self_loop_states))
+    eval_neg(
+        graph,
+        &eval_eg(graph, &eval_neg(graph, &phi), self_loop_states),
+    )
 }
 
 /// Evaluates AG operator using the EF computation
@@ -230,9 +234,7 @@ pub fn eval_au(
 
     while old_set != new_set {
         new_set = old_set.clone();
-        old_set = old_set.union(
-            &phi1.intersect(&eval_ax(graph, &old_set, self_loop_states))
-        );
+        old_set = old_set.union(&phi1.intersect(&eval_ax(graph, &old_set, self_loop_states)));
     }
     old_set
 }
@@ -247,7 +249,10 @@ pub fn eval_ew(
     eval_neg(
         graph,
         &eval_au(
-            graph, &eval_neg(graph, &phi1), &eval_neg(graph, &phi2), self_loop_states,
+            graph,
+            &eval_neg(graph, &phi1),
+            &eval_neg(graph, &phi2),
+            self_loop_states,
         ),
     )
 }

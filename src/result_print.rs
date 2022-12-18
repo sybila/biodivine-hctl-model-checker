@@ -11,7 +11,7 @@ pub enum PrintOptions {
     NoPrint,
     ShortPrint,
     MediumPrint,
-    FullPrint
+    FullPrint,
 }
 
 /// Prints given text only if the correct print options are selected (long or full)
@@ -24,7 +24,10 @@ pub fn print_if_allowed(text: String, print_options: PrintOptions) -> () {
 
 /// Prints general info about result set - cardinality of the set and color/vertex projections
 pub fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime) -> () {
-    println!("Time to eval formula: {}ms", start_time.elapsed().unwrap().as_millis());
+    println!(
+        "Time to eval formula: {}ms",
+        start_time.elapsed().unwrap().as_millis()
+    );
     println!("{} results in total", results.approx_cardinality());
     println!("{} unique colors", results.colors().approx_cardinality());
     println!("{} unique states", results.vertices().approx_cardinality());

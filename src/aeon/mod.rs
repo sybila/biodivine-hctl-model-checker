@@ -1,7 +1,7 @@
 /**
- Modified versions of algorithms adapted from AEON.
- These can be used to compute attractor states and optimize some procedures.
- */
+Modified versions of algorithms adapted from AEON.
+These can be used to compute attractor states and optimize some procedures.
+*/
 
 /// Xie-Beerel TSCC algorithm
 mod algo_xie_beerel;

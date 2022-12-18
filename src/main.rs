@@ -8,12 +8,10 @@ use clap::Parser;
 use std::fs::read_to_string;
 use std::path::Path;
 
-
 /* TODOs */
 // TODO: optimisations for evaluator (modifying tree, etc.), maybe few more special cases
 // TODO: check generating predecessors in EU_saturated (check including self-loops)
 // TODO: more efficient fixed-point computation
-
 
 /// Structure to collect CLI arguments
 #[derive(Parser)]
@@ -46,7 +44,9 @@ fn load_bn_model(format: &str, model_path: String) -> Result<BooleanNetwork, Str
     let model_string = read_to_string(model_path).unwrap();
     return match format {
         "aeon" => BooleanNetwork::try_from(model_string.as_str()),
-        "sbml" => Ok(BooleanNetwork::try_from_sbml(model_string.as_str()).unwrap().0),
+        "sbml" => Ok(BooleanNetwork::try_from_sbml(model_string.as_str())
+            .unwrap()
+            .0),
         "bnet" => BooleanNetwork::try_from_bnet(model_string.as_str()),
         // this cant really happen, just here to be exhaustive
         _ => Err("Invalid model format".to_string()),
@@ -93,7 +93,10 @@ fn main() {
         "medium" => analyse_formulae(&bn, formulae, PrintOptions::MediumPrint),
         "full" => analyse_formulae(&bn, formulae, PrintOptions::FullPrint),
         // this cant really happen, just here to be exhaustive
-        _ => Err(format!("Wrong print option \"{}\".", args.print_option.as_str())),
+        _ => Err(format!(
+            "Wrong print option \"{}\".",
+            args.print_option.as_str()
+        )),
     };
 
     if res.is_err() {

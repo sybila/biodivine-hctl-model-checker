@@ -28,7 +28,8 @@ pub fn create_comparator(
 
             // extra BDD vars are called "{network_variable}_extra_{i}"
             let hctl_var1_component_name = format!("{}_extra_{}", network_var_name, hctl_var_id);
-            let hctl_var2_component_name = format!("{}_extra_{}", network_var_name, other_hctl_var_id);
+            let hctl_var2_component_name =
+                format!("{}_extra_{}", network_var_name, other_hctl_var_id);
 
             let bdd_hctl_var1_component = graph
                 .symbolic_context()
@@ -40,7 +41,8 @@ pub fn create_comparator(
                 .mk_var_by_name(hctl_var2_component_name.as_str());
             comparator = comparator.and(&bdd_hctl_var1_component.iff(&bdd_hctl_var2_component));
         }
-    } else {  // do comparator between network vars and a HCTL variable
+    } else {
+        // do comparator between network vars and a HCTL variable
 
         for network_var_id in reg_graph.variables() {
             let network_var_name = reg_graph.get_variable_name(network_var_id);
@@ -120,4 +122,3 @@ pub fn substitute_hctl_var(
     // get rid of the old var
     project_out_hctl_var(graph, &colored_states_new, hctl_var_before)
 }
-
