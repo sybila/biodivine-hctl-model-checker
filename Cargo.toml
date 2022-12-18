@@ -1,7 +1,7 @@
 [package]
 name = "biodivine-hctl-model-checker"
 version = "0.1.0"
-authors = ["Ondrej Huvar <ohuvar@gmail.com>", "Samuel Pastva <daemontus@gmail.com>"]
+authors = ["Ondřej Huvar <xhuvar@fi.muni.cz>", "Samuel Pastva <sam.pastva@gmail.com>"]
 edition = "2021"
 description = "Library for symbolic HCTL model checking on partially defined BN models."
 homepage = "https://github.com/sybila/biodivine-hctl-model-checker"
@@ -10,6 +10,8 @@ readme = "README.md"
 keywords = ["hctl", "model-checking", "boolean-network", "symbolic", "systems-biology"]
 categories = ["science", "simulation"]
 license = "MIT"
+exclude = ["benchmark_models"]
+
 
 #[profile.release]
 #lto = true
