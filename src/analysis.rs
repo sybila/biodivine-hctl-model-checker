@@ -17,7 +17,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 use std::collections::{HashMap, HashSet};
 use std::time::SystemTime;
 
-/// Create extended symbolic graph that supports all HCTL variables
+/// Create an extended symbolic graph that supports all the HCTL variables
 pub fn get_extended_symbolic_graph(bn: &BooleanNetwork, num_hctl_vars: u16) -> SymbolicAsyncGraph {
     // for each BN var, `num_hctl_vars` new BDD vars must be created
     let mut map_num_vars = HashMap::new();
@@ -408,6 +408,7 @@ DivK -?? PleC
         let equivalent_formulae_pairs = vec![
             ("!{x}: AG EF {x}", "!{x}: AG EF ({x} & {x})"), // one is evaluated using attr pattern
             ("!{x}: AX {x}", "!{x}: AX ({x} & {x})"), // one is evaluated using fixed-point pattern
+            ("!{x}: AX {x}", "(!{x}: AX {x}) & (!{x}: AX {x})"),
             ("!{x}: AX {x}", "!{x}: ~EX ~{x}"),
             ("!{x}: ((AG EF {x}) & (AG EF {x}))", "!{x}: AG EF {x}"), // one involves basic caching
             ("!{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: AG EF {x}"), // one involves advanced caching

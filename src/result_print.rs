@@ -22,7 +22,8 @@ pub fn print_if_allowed(text: String, print_options: PrintOptions) -> () {
     println!("{}", text)
 }
 
-/// Prints general info about result set - cardinality of the set and color/vertex projections
+/// Prints general info about the resulting set of colored vertices - the cardinality of the whole
+/// set and its projections to colors and vertices (and the computation time)
 pub fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime) -> () {
     println!(
         "Time to eval formula: {}ms",
@@ -34,7 +35,8 @@ pub fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime)
     println!("-----");
 }
 
-/// Prints the general info about the resulting set and also all the contained items
+/// Prints the general info about the resulting set and then valuations for all contained
+/// color-vertex pairs
 /// If param `show_names` is true, full proposition names are displayed (otherwise 0/1 only)
 pub fn print_results_full(
     graph: &SymbolicAsyncGraph,
@@ -86,7 +88,7 @@ pub fn print_results_full(
     println!("-----");
 }
 
-/// Prints 0/1 vectors for all states from the given set to the given file
+/// Prints 0/1 vectors for all states from the given set to the given `file`
 #[allow(dead_code)]
 pub fn write_states_to_file(mut file: &File, set_of_states: &GraphColoredVertices) -> () {
     write!(file, "{}\n", set_of_states.vertices().approx_cardinality()).unwrap();

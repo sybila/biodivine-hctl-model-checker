@@ -8,11 +8,6 @@ use clap::Parser;
 use std::fs::read_to_string;
 use std::path::Path;
 
-/* TODOs */
-// TODO: optimisations for evaluator (modifying tree, etc.), maybe few more special cases
-// TODO: check generating predecessors in EU_saturated (check including self-loops)
-// TODO: more efficient fixed-point computation
-
 /// Structure to collect CLI arguments
 #[derive(Parser)]
 #[clap(

@@ -6,9 +6,8 @@ use crate::formula_evaluation::eval_utils::substitute_hctl_var;
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::{Node, NodeType};
 
-use biodivine_lib_bdd::{bdd, Bdd};
-
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
+use biodivine_lib_param_bn::fixed_points::FixedPoints;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
 use std::collections::HashMap;
@@ -241,11 +240,12 @@ fn is_fixed_point_pattern(node: Node) -> bool {
     };
 }
 
-/// Computes steady states using "(V1 <=> f_V1) & ... & (Vn <=> f_Vn)" computation
-/// Steady states are used for adding self-loops in the EX computation
+/// Wrapper for steady state computation
+/// Steady states are used for explicitly adding self-loops during the EX computation
 /// Can also be used as optimised procedure for formula "!{x}: AX {x}"
 pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
-    // TODO: make nicer
+    FixedPoints::symbolic(graph, &graph.mk_unit_colored_vertices())
+    /*
     let context = graph.symbolic_context();
     let network = graph.as_network();
     let update_functions: Vec<Bdd> = network
@@ -269,4 +269,5 @@ pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices
             .fold(graph.mk_unit_colored_vertices().into_bdd(), |r, v| r.and(v)),
         context,
     )
+     */
 }
