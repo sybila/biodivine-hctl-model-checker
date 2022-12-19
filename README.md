@@ -9,6 +9,8 @@ For a given (partially defined) Boolean network and a HCTL formula (representing
 Currently, there is only a command-line interface, with a GUI soon to be implemented. 
 Depending on the mode, the program can either print the numbers of satisfying states and colours, or print all the satisfying assignments. 
 
+### Model-checking tool
+
 To directly invoke the model checker, compile the code using
 ```
 cargo build --release
@@ -24,6 +26,11 @@ and then run the binary:
 - `MODEL_FORMAT` is one of aeon/bnet/smbl and defines the input format (aeon is default)
 
 For more help, use option `-h` or `--help`.
+
+### Library
+
+This package also offers an API for utilizing the model-checking functionality in your own programmes. 
+
 
 ## Models
 
