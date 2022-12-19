@@ -141,9 +141,9 @@ mod tests {
         let renaming1 = HashMap::from([("x".to_string(), "var0".to_string())]);
         let renaming2 = HashMap::from([("xx".to_string(), "var0".to_string())]);
 
-        assert_eq!(get_canonical_and_mapping(
-            sub_formula1.to_string()),
-                   (sub_formula_canonized.to_string(), renaming1)
+        assert_eq!(
+            get_canonical_and_mapping(sub_formula1.to_string()),
+            (sub_formula_canonized.to_string(), renaming1)
         );
         assert_eq!(
             get_canonical_and_mapping(sub_formula2.to_string()),
@@ -178,9 +178,9 @@ mod tests {
             ("xxx".to_string(), "var1".to_string()),
         ]);
 
-        assert_eq!(get_canonical_and_mapping(
-            sub_formula1.to_string()),
-                   (sub_formula_canonized.to_string(), renaming1)
+        assert_eq!(
+            get_canonical_and_mapping(sub_formula1.to_string()),
+            (sub_formula_canonized.to_string(), renaming1)
         );
         assert_eq!(
             get_canonical_and_mapping(sub_formula2.to_string()),
@@ -216,9 +216,9 @@ mod tests {
             ("x".to_string(), "var1".to_string()),
         ]);
 
-        assert_eq!(get_canonical_and_mapping(
-            sub_formula1.to_string()),
-                   (sub_formula_canonized.to_string(), renaming1)
+        assert_eq!(
+            get_canonical_and_mapping(sub_formula1.to_string()),
+            (sub_formula_canonized.to_string(), renaming1)
         );
         assert_eq!(
             get_canonical_and_mapping(sub_formula2.to_string()),

@@ -164,8 +164,8 @@ fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<Node>, String> {
             if !matches!(&tokens[i - 1], Token::Hybrid(_, _)) {
                 return Err(format!(
                     "Hybrid operator can't be directly preceded by {}.",
-                    &tokens[i - 1])
-                );
+                    &tokens[i - 1]
+                ));
             }
         }
         match &tokens[i] {

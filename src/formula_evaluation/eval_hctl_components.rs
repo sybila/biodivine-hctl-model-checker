@@ -104,10 +104,12 @@ pub fn eval_jump(
 
 /// Evaluates EX operator by computing predecessors, but adds self-loops to steady states
 /// (EX phi) == PRE(phi) | (phi & steady_states)
-pub fn eval_ex(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
-    graph
-        .pre(&phi)
-        .union(&phi.intersect(&graph.steady_states().unwrap()))
+pub fn eval_ex(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+    self_loop_states: &GraphColoredVertices,
+) -> GraphColoredVertices {
+    graph.pre(&phi).union(&phi.intersect(self_loop_states))
 }
 
 /*
@@ -176,25 +178,43 @@ pub fn eval_ef_saturated(
 }
 
 /// Evaluates EG operator using fixpoint algorithm
-pub fn eval_eg(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
+pub fn eval_eg(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+    self_loop_states: &GraphColoredVertices,
+) -> GraphColoredVertices {
     let mut old_set = phi.clone();
     let mut new_set = graph.mk_empty_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();
-        old_set = old_set.intersect(&eval_ex(graph, &old_set));
+        old_set = old_set.intersect(&eval_ex(graph, &old_set, self_loop_states));
     }
     old_set
 }
 
 /// Evaluates AX operator through the EX computation
-pub fn eval_ax(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
-    eval_neg(graph, &eval_ex(graph, &eval_neg(graph, &phi)))
+pub fn eval_ax(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+    self_loop_states: &GraphColoredVertices,
+) -> GraphColoredVertices {
+    eval_neg(
+        graph,
+        &eval_ex(graph, &eval_neg(graph, &phi), self_loop_states),
+    )
 }
 
 /// Evaluates AF operator using the EG computation
-pub fn eval_af(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
-    eval_neg(graph, &eval_eg(graph, &eval_neg(graph, &phi)))
+pub fn eval_af(
+    graph: &SymbolicAsyncGraph,
+    phi: &GraphColoredVertices,
+    self_loop_states: &GraphColoredVertices,
+) -> GraphColoredVertices {
+    eval_neg(
+        graph,
+        &eval_eg(graph, &eval_neg(graph, &phi), self_loop_states),
+    )
 }
 
 /// Evaluates AG operator using the EF computation
@@ -207,13 +227,14 @@ pub fn eval_au(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
     phi2: &GraphColoredVertices,
+    self_loop_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     let mut old_set = phi2.clone();
     let mut new_set = graph.mk_empty_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();
-        old_set = old_set.union(&phi1.intersect(&eval_ax(graph, &old_set)));
+        old_set = old_set.union(&phi1.intersect(&eval_ax(graph, &old_set, self_loop_states)));
     }
     old_set
 }
@@ -223,10 +244,16 @@ pub fn eval_ew(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
     phi2: &GraphColoredVertices,
+    self_loop_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     eval_neg(
         graph,
-        &eval_au(graph, &eval_neg(graph, &phi1), &eval_neg(graph, &phi2)),
+        &eval_au(
+            graph,
+            &eval_neg(graph, &phi1),
+            &eval_neg(graph, &phi2),
+            self_loop_states,
+        ),
     )
 }
 

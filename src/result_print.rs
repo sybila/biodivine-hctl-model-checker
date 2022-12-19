@@ -3,26 +3,50 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, Symboli
 
 use std::fs::File;
 use std::io::Write;
+use std::time::SystemTime;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-/// Prints general info about result set - cardinality of the set and color/vertex projections
-pub fn print_results_fast(results: &GraphColoredVertices) -> () {
-    println!("{} results in total", results.approx_cardinality());
-    println!("{} colors", results.colors().approx_cardinality());
-    println!("{} states", results.vertices().approx_cardinality());
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PrintOptions {
+    NoPrint,
+    ShortPrint,
+    MediumPrint,
+    FullPrint,
 }
 
-/// Prints the general info about the resulting set and also all the contained items
+/// Prints given text only if the correct print options are selected (long or full)
+pub fn print_if_allowed(text: String, print_options: PrintOptions) -> () {
+    if print_options == PrintOptions::NoPrint || print_options == PrintOptions::ShortPrint {
+        return;
+    }
+    println!("{}", text)
+}
+
+/// Prints general info about the resulting set of colored vertices - the cardinality of the whole
+/// set and its projections to colors and vertices (and the computation time)
+pub fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime) -> () {
+    println!(
+        "Time to eval formula: {}ms",
+        start_time.elapsed().unwrap().as_millis()
+    );
+    println!("{} results in total", results.approx_cardinality());
+    println!("{} unique colors", results.colors().approx_cardinality());
+    println!("{} unique states", results.vertices().approx_cardinality());
+    println!("-----");
+}
+
+/// Prints the general info about the resulting set and then valuations for all contained
+/// color-vertex pairs
 /// If param `show_names` is true, full proposition names are displayed (otherwise 0/1 only)
-pub fn print_results(
+pub fn print_results_full(
     graph: &SymbolicAsyncGraph,
     results: &GraphColoredVertices,
+    start_time: SystemTime,
     show_names: bool,
 ) -> () {
     // first print general info
-    print_results_fast(results);
+    summarize_results(results, start_time);
 
-    let mut counter = 0;
     let network = graph.as_network();
     for valuation in results.vertices().materialize().iter() {
         // colored var names version
@@ -60,12 +84,11 @@ pub fn print_results(
             }
             println!("{}", valuation_str.as_str());
         }
-        counter += 1;
     }
-    println!("{} result states found in total.", counter)
+    println!("-----");
 }
 
-/// Prints 0/1 vectors for all states from the given set to the given file
+/// Prints 0/1 vectors for all states from the given set to the given `file`
 #[allow(dead_code)]
 pub fn write_states_to_file(mut file: &File, set_of_states: &GraphColoredVertices) -> () {
     write!(file, "{}\n", set_of_states.vertices().approx_cardinality()).unwrap();

@@ -1,49 +1,16 @@
 use crate::aeon::scc_computation::compute_attractor_states;
 use crate::formula_evaluation::canonization::get_canonical_and_mapping;
 use crate::formula_evaluation::eval_hctl_components::*;
+use crate::formula_evaluation::eval_info::EvalInfo;
 use crate::formula_evaluation::eval_utils::substitute_hctl_var;
-use crate::formula_evaluation::mark_duplicate_subform::*;
 use crate::formula_preprocessing::operation_enums::*;
 use crate::formula_preprocessing::parser::{Node, NodeType};
 
-use biodivine_lib_bdd::{bdd, Bdd};
-
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
+use biodivine_lib_param_bn::fixed_points::FixedPoints;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
 use std::collections::HashMap;
-
-pub struct EvalInfo {
-    duplicates: HashMap<String, i32>,
-    cache: HashMap<String, (GraphColoredVertices, HashMap<String, String>)>,
-}
-
-/// Preprocess and evaluate formula on the given transition graph
-pub fn eval_minimized_tree(
-    tree: Node,
-    graph: &SymbolicAsyncGraph,
-    print_progress: bool,
-) -> GraphColoredVertices {
-    // prepare the list of duplicates & cache
-    let mut eval_info: EvalInfo = EvalInfo {
-        duplicates: mark_duplicates_canonized(&tree),
-        cache: HashMap::new(),
-    };
-
-    if print_progress {
-        println!("Duplicate sub-formulae (canonized): {:?}", eval_info.duplicates.clone());
-    }
-
-    // compute states with self-loops which will be needed
-    let steady_states = compute_steady_states(graph);
-    if print_progress {
-        println!("Self-loops computed");
-    }
-    let graph_with_steady_states =
-        SymbolicAsyncGraph::new_add_steady_states_to_existing(graph.clone(), steady_states);
-
-    eval_node(tree, &graph_with_steady_states, &mut eval_info)
-}
 
 /// Same as previous fn, but UNSAFE
 /// It does not explicitly compute states with self-loops, but instead allows caller to provide them
@@ -55,21 +22,18 @@ pub fn eval_minimized_tree_unsafe_ex(
     graph: &SymbolicAsyncGraph,
     self_loop_states: GraphColoredVertices,
 ) -> GraphColoredVertices {
-    let mut eval_info: EvalInfo = EvalInfo {
-        duplicates: mark_duplicates_canonized(&tree),
-        cache: HashMap::new(),
-    };
-    let graph_with_steady_states =
-        SymbolicAsyncGraph::new_add_steady_states_to_existing(graph.clone(), self_loop_states);
-    eval_node(tree, &graph_with_steady_states, &mut eval_info)
+    let mut eval_info = EvalInfo::from_single_tree(&tree);
+    eval_node(tree, graph, &mut eval_info, &self_loop_states)
 }
 
 /// Recursively evaluates the formula sub-tree `node` on the given `graph`
 /// Uses pre-computed set of `duplicate` sub-formulae to allow for caching
+/// `steady_states` are needed to include self-loops in computing predecessors
 pub fn eval_node(
     node: Node,
     graph: &SymbolicAsyncGraph,
     eval_info: &mut EvalInfo,
+    steady_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
     let mut save_to_cache = false;
@@ -128,7 +92,7 @@ pub fn eval_node(
     }
     // 2) fixed-points
     if is_fixed_point_pattern(node.clone()) {
-        return graph.steady_states().unwrap();
+        return steady_states.clone();
     }
 
     let result = match node.node_type {
@@ -139,60 +103,98 @@ pub fn eval_node(
             Atomic::Prop(name) => eval_prop(graph, &name),
         },
         NodeType::UnaryNode(op, child) => match op {
-            UnaryOp::Not => eval_neg(graph, &eval_node(*child, graph, eval_info)),
-            UnaryOp::Ex => eval_ex(graph, &eval_node(*child, graph, eval_info)),
-            UnaryOp::Ax => eval_ax(graph, &eval_node(*child, graph, eval_info)),
-            UnaryOp::Ef => eval_ef_saturated(graph, &eval_node(*child, graph, eval_info)),
-            UnaryOp::Af => eval_af(graph, &eval_node(*child, graph, eval_info)),
-            UnaryOp::Eg => eval_eg(graph, &eval_node(*child, graph, eval_info)),
-            UnaryOp::Ag => eval_ag(graph, &eval_node(*child, graph, eval_info)),
+            UnaryOp::Not => eval_neg(graph, &eval_node(*child, graph, eval_info, steady_states)),
+            UnaryOp::Ex => eval_ex(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                steady_states,
+            ),
+            UnaryOp::Ax => eval_ax(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                steady_states,
+            ),
+            UnaryOp::Ef => {
+                eval_ef_saturated(graph, &eval_node(*child, graph, eval_info, steady_states))
+            }
+            UnaryOp::Af => eval_af(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                steady_states,
+            ),
+            UnaryOp::Eg => eval_eg(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                steady_states,
+            ),
+            UnaryOp::Ag => eval_ag(graph, &eval_node(*child, graph, eval_info, steady_states)),
         },
-        NodeType::BinaryNode(op, left, right) => match op {
-            BinaryOp::And => eval_node(*left, graph, eval_info)
-                .intersect(&eval_node(*right, graph, eval_info)),
-            BinaryOp::Or => eval_node(*left, graph, eval_info)
-                .union(&eval_node(*right, graph, eval_info)),
-            BinaryOp::Xor => eval_xor(
-                graph,
-                &eval_node(*left, graph, eval_info),
-                &eval_node(*right, graph, eval_info),
-            ),
-            BinaryOp::Imp => eval_imp(
-                graph,
-                &eval_node(*left, graph, eval_info),
-                &eval_node(*right, graph, eval_info),
-            ),
-            BinaryOp::Iff => eval_equiv(
-                graph,
-                &eval_node(*left, graph, eval_info),
-                &eval_node(*right, graph, eval_info),
-            ),
-            BinaryOp::Eu => eval_eu_saturated(
-                graph,
-                &eval_node(*left, graph, eval_info),
-                &eval_node(*right, graph, eval_info),
-            ),
-            BinaryOp::Au => eval_au(
-                graph,
-                &eval_node(*left, graph, eval_info),
-                &eval_node(*right, graph, eval_info),
-            ),
-            BinaryOp::Ew => eval_ew(
-                graph,
-                &eval_node(*left, graph, eval_info),
-                &eval_node(*right, graph, eval_info),
-            ),
-            BinaryOp::Aw => eval_aw(
-                graph,
-                &eval_node(*left, graph, eval_info),
-                &eval_node(*right, graph, eval_info),
-            ),
-        },
+        NodeType::BinaryNode(op, left, right) => {
+            match op {
+                BinaryOp::And => eval_node(*left, graph, eval_info, steady_states)
+                    .intersect(&eval_node(*right, graph, eval_info, steady_states)),
+                BinaryOp::Or => eval_node(*left, graph, eval_info, steady_states)
+                    .union(&eval_node(*right, graph, eval_info, steady_states)),
+                BinaryOp::Xor => eval_xor(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+                BinaryOp::Imp => eval_imp(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+                BinaryOp::Iff => eval_equiv(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+                BinaryOp::Eu => eval_eu_saturated(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+                BinaryOp::Au => eval_au(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                    steady_states,
+                ),
+                BinaryOp::Ew => eval_ew(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                    steady_states,
+                ),
+                BinaryOp::Aw => eval_aw(
+                    graph,
+                    &eval_node(*left, graph, eval_info, steady_states),
+                    &eval_node(*right, graph, eval_info, steady_states),
+                ),
+            }
+        }
         NodeType::HybridNode(op, var, child) => match op {
-            HybridOp::Bind => eval_bind(graph, &eval_node(*child, graph, eval_info), var.as_str()),
-            HybridOp::Jump => eval_jump(graph, &eval_node(*child, graph, eval_info), var.as_str()),
-            HybridOp::Exists => eval_exists(graph, &eval_node(*child, graph, eval_info), var.as_str()),
-            HybridOp::Forall => eval_forall(graph, &eval_node(*child, graph, eval_info), var.as_str()),
+            HybridOp::Bind => eval_bind(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                var.as_str(),
+            ),
+            HybridOp::Jump => eval_jump(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                var.as_str(),
+            ),
+            HybridOp::Exists => eval_exists(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                var.as_str(),
+            ),
+            HybridOp::Forall => eval_forall(
+                graph,
+                &eval_node(*child, graph, eval_info, steady_states),
+                var.as_str(),
+            ),
         },
     };
 
@@ -238,11 +240,12 @@ fn is_fixed_point_pattern(node: Node) -> bool {
     };
 }
 
-/// Computes steady states using "(V1 <=> f_V1) & ... & (Vn <=> f_Vn)" computation
-/// Steady states are used for adding self-loops in the EX computation
+/// Wrapper for steady state computation
+/// Steady states are used for explicitly adding self-loops during the EX computation
 /// Can also be used as optimised procedure for formula "!{x}: AX {x}"
 pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
-    // TODO: make nicer
+    FixedPoints::symbolic(graph, &graph.mk_unit_colored_vertices())
+    /*
     let context = graph.symbolic_context();
     let network = graph.as_network();
     let update_functions: Vec<Bdd> = network
@@ -266,4 +269,5 @@ pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices
             .fold(graph.mk_unit_colored_vertices().into_bdd(), |r, v| r.and(v)),
         context,
     )
+     */
 }

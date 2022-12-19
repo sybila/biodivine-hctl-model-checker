@@ -10,17 +10,27 @@ pub fn create_comparator(
     hctl_var_name: &str,
     other_hctl_var_name_opt: Option<&str>,
 ) -> GraphColoredVertices {
-    // TODO: 1) merge both branches 2)use eval_expression_string() method ?
+    // TODO: merge both branches to not repeat code
     let reg_graph = graph.as_network().as_graph();
     let mut comparator = graph.mk_unit_colored_vertices().as_bdd().clone();
+
+    // HCTL variables are named x, xx, xxx, ...
+    let hctl_var_id = hctl_var_name.len() - 1; // len of var codes its index
 
     if let Some(other_hctl_var_name) = other_hctl_var_name_opt {
         // do comparator between the two HCTL variables
 
+        // HCTL variables are named x, xx, xxx, ...
+        let other_hctl_var_id = other_hctl_var_name.len() - 1; // len of var codes its index
+
         for network_var_id in reg_graph.variables() {
             let network_var_name = reg_graph.get_variable_name(network_var_id);
-            let hctl_var1_component_name = format!("{}__{}", hctl_var_name, network_var_name);
-            let hctl_var2_component_name = format!("{}__{}", other_hctl_var_name, network_var_name);
+
+            // extra BDD vars are called "{network_variable}_extra_{i}"
+            let hctl_var1_component_name = format!("{}_extra_{}", network_var_name, hctl_var_id);
+            let hctl_var2_component_name =
+                format!("{}_extra_{}", network_var_name, other_hctl_var_id);
+
             let bdd_hctl_var1_component = graph
                 .symbolic_context()
                 .bdd_variable_set()
@@ -36,7 +46,7 @@ pub fn create_comparator(
 
         for network_var_id in reg_graph.variables() {
             let network_var_name = reg_graph.get_variable_name(network_var_id);
-            let hctl_component_name = format!("{}__{}", hctl_var_name, network_var_name);
+            let hctl_component_name = format!("{}_extra_{}", network_var_name, hctl_var_id);
             let bdd_network_var = graph
                 .symbolic_context()
                 .bdd_variable_set()
@@ -55,26 +65,35 @@ pub fn create_comparator(
 }
 
 /// Projects out (existentially quantifies) the given HCTL variable
-/// This is used to evaluate hybrid operators or for HCTL var renaming
+/// This is used during hybrid operators evaluation or during renaming of HCTL vars
 pub fn project_out_hctl_var(
     graph: &SymbolicAsyncGraph,
     colored_state_set: &GraphColoredVertices,
-    var_name: &str,
+    hctl_var_name: &str,
 ) -> GraphColoredVertices {
-    let var_idx = var_name.len() - 1; // len of var codes its index
-    let vars_total = graph.symbolic_context().num_hctl_var_sets() as usize;
+    let hctl_var_id = hctl_var_name.len() - 1; // len of var codes its index
 
     // collect all BDD vars that encode the HCTL var
+    let mut bdd_vars_to_project: Vec<BddVariable> = Vec::new();
+    for network_var in graph.as_network().as_graph().variables() {
+        let extra_vars = graph.symbolic_context().extra_state_variables(network_var);
+        bdd_vars_to_project.push(extra_vars.get(hctl_var_id).unwrap().clone());
+    }
+
+    /*
+    // DEPRECATED version of collecting all BDD vars that encode the HCTL var
+    let vars_total = graph.symbolic_context().num_hctl_var_sets() as usize;
     let bdd_vars_to_project: Vec<BddVariable> = graph
         .symbolic_context()
-        .hctl_variables()
+        .all_extra_state_variables()
         .iter()
-        .skip(var_idx)
+        .skip(hctl_var_id)
         .step_by(vars_total)
         .copied()
         .collect();
+     */
 
-    // project them out
+    // project these bdd vars out
     let result_bdd = colored_state_set.as_bdd().project(&bdd_vars_to_project);
 
     // after projection we do not need to intersect with unit bdd
@@ -103,4 +122,3 @@ pub fn substitute_hctl_var(
     // get rid of the old var
     project_out_hctl_var(graph, &colored_states_new, hctl_var_before)
 }
-

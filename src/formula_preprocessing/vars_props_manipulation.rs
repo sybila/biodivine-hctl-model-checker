@@ -12,7 +12,7 @@ pub fn check_props_and_rename_vars(
     orig_node: Node,
     mut mapping_dict: HashMap<String, String>,
     mut last_used_name: String,
-    bn: &BooleanNetwork
+    bn: &BooleanNetwork,
 ) -> Result<Node, String> {
     // If we find hybrid node with binder or exist, we add new var-name to rename_dict and stack (x, xx, xxx...)
     // After we leave this binder/exist, we remove its var from rename_dict
@@ -45,13 +45,18 @@ pub fn check_props_and_rename_vars(
         },
         // just dive one level deeper for unary nodes, and rename string
         NodeType::UnaryNode(op, child) => {
-            let node = check_props_and_rename_vars(*child, mapping_dict, last_used_name.clone(), bn)?;
+            let node =
+                check_props_and_rename_vars(*child, mapping_dict, last_used_name.clone(), bn)?;
             Ok(create_unary(Box::new(node), op))
         }
         // just dive deeper for binary nodes, and rename string
         NodeType::BinaryNode(op, left, right) => {
-            let node1 =
-                check_props_and_rename_vars(*left, mapping_dict.clone(), last_used_name.clone(), bn);
+            let node1 = check_props_and_rename_vars(
+                *left,
+                mapping_dict.clone(),
+                last_used_name.clone(),
+                bn,
+            );
             let node2 = check_props_and_rename_vars(*right, mapping_dict, last_used_name, bn);
             Ok(create_binary(Box::new(node1?), Box::new(node2?), op))
         }
@@ -63,7 +68,10 @@ pub fn check_props_and_rename_vars(
                 HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
                     // check that var is not already quantified
                     if mapping_dict.contains_key(var.as_str()) {
-                        return Err(format!("Variable {} is quantified several times in one sub-formula", var));
+                        return Err(format!(
+                            "Variable {} is quantified several times in one sub-formula",
+                            var
+                        ));
                     }
                     last_used_name.push('x'); // this represents adding to stack
                     mapping_dict.insert(var.clone(), last_used_name.clone());
@@ -72,8 +80,12 @@ pub fn check_props_and_rename_vars(
             }
 
             // dive deeper
-            let node =
-                check_props_and_rename_vars(*child, mapping_dict.clone(), last_used_name.clone(), bn)?;
+            let node = check_props_and_rename_vars(
+                *child,
+                mapping_dict.clone(),
+                last_used_name.clone(),
+                bn,
+            )?;
 
             // rename the variable in the node
             let renamed_var = mapping_dict.get(var.as_str()).unwrap();
@@ -85,8 +97,8 @@ pub fn check_props_and_rename_vars(
 #[cfg(test)]
 mod tests {
     use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use crate::formula_preprocessing::tokenizer::tokenize_formula;
+    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
@@ -100,7 +112,8 @@ mod tests {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
-        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
+        let modified_tree =
+            check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
 
         // get expected tree using the same formula with already minimized vars
         let tokens_minimized = tokenize_formula(formula_minimized).unwrap();

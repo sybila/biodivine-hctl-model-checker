@@ -33,7 +33,8 @@ impl Process for ExtendedComponentProcess {
                     &bottom,
                     scheduler.get_universe(),
                     scheduler.get_active_variables(),
-                ).minus(&bottom);
+                )
+                .minus(&bottom);
 
                 if !basin_only.is_empty() {
                     scheduler.discard_vertices(&basin_only);
