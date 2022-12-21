@@ -77,7 +77,7 @@ pub fn project_out_hctl_var(
     let mut bdd_vars_to_project: Vec<BddVariable> = Vec::new();
     for network_var in graph.as_network().as_graph().variables() {
         let extra_vars = graph.symbolic_context().extra_state_variables(network_var);
-        bdd_vars_to_project.push(extra_vars.get(hctl_var_id).unwrap().clone());
+        bdd_vars_to_project.push(*extra_vars.get(hctl_var_id).unwrap());
     }
 
     /*

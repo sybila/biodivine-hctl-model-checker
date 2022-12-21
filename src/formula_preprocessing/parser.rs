@@ -48,6 +48,12 @@ impl Ord for Node {
     }
 }
 
+impl Default for Node {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Node {
     /// Create default node - True terminal node
     pub fn new() -> Self {
@@ -70,7 +76,7 @@ pub fn create_hybrid(child: Box<Node>, var: String, op: HybridOp) -> Node {
     Node {
         subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
         height: child.height + 1,
-        node_type: NodeType::HybridNode(op.clone(), var.clone(), child),
+        node_type: NodeType::HybridNode(op, var, child),
     }
 }
 
@@ -79,7 +85,7 @@ pub fn create_unary(child: Box<Node>, op: UnaryOp) -> Node {
     Node {
         subform_str: format!("({} {})", op, child.subform_str),
         height: child.height + 1,
-        node_type: NodeType::UnaryNode(op.clone(), child),
+        node_type: NodeType::UnaryNode(op, child),
     }
 }
 
@@ -88,35 +94,29 @@ pub fn create_binary(left: Box<Node>, right: Box<Node>, op: BinaryOp) -> Node {
     Node {
         subform_str: format!("({} {} {})", left.subform_str, op, right.subform_str),
         height: cmp::max(left.height, right.height) + 1,
-        node_type: NodeType::BinaryNode(op.clone(), left, right),
+        node_type: NodeType::BinaryNode(op, left, right),
     }
 }
 
 /// Predicate whether given token represents hybrid operator
 fn is_hybrid(token: &Token) -> bool {
-    match token {
-        Token::Hybrid(_, _) => true,
-        _ => false,
-    }
+    matches!(token, Token::Hybrid(_, _))
 }
 
 /// Predicate whether given token represents temporal binary operator
 fn is_binary_temporal(token: &Token) -> bool {
-    match token {
-        Token::Binary(BinaryOp::Eu) => true,
-        Token::Binary(BinaryOp::Au) => true,
-        Token::Binary(BinaryOp::Ew) => true,
-        Token::Binary(BinaryOp::Aw) => true,
-        _ => false,
-    }
+    matches!(
+        token,
+        Token::Binary(BinaryOp::Eu)
+            | Token::Binary(BinaryOp::Au)
+            | Token::Binary(BinaryOp::Ew)
+            | Token::Binary(BinaryOp::Aw)
+    )
 }
 
 /// Predicate whether given token represents unary operator
 fn is_unary(token: &Token) -> bool {
-    match token {
-        Token::Unary(_) => true,
-        _ => false,
-    }
+    matches!(token, Token::Unary(_))
 }
 
 /// Utility method to find first occurrence of a specific token in the token tree.
@@ -126,17 +126,17 @@ fn index_of_first(tokens: &[Token], token: Token) -> Option<usize> {
 
 /// Utility method to find first occurrence of hybrid operator in the token tree.
 fn index_of_first_hybrid(tokens: &[Token]) -> Option<usize> {
-    return tokens.iter().position(|token| is_hybrid(token));
+    return tokens.iter().position(is_hybrid);
 }
 
 /// Utility method to find first occurrence of binary temporal operator in the token tree.
 fn index_of_first_binary_temp(tokens: &[Token]) -> Option<usize> {
-    return tokens.iter().position(|token| is_binary_temporal(token));
+    return tokens.iter().position(is_binary_temporal);
 }
 
 /// Utility method to find first occurrence of unary operator in the token tree.
 fn index_of_first_unary(tokens: &[Token]) -> Option<usize> {
-    return tokens.iter().position(|token| is_unary(token));
+    return tokens.iter().position(is_unary);
 }
 
 /**
@@ -160,13 +160,11 @@ fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<Node>, String> {
     let hybrid_token = index_of_first_hybrid(tokens);
     Ok(if let Some(i) = hybrid_token {
         // perform check that hybrid operator is not preceded by other type of operators
-        if i > 0 {
-            if !matches!(&tokens[i - 1], Token::Hybrid(_, _)) {
-                return Err(format!(
-                    "Hybrid operator can't be directly preceded by {}.",
-                    &tokens[i - 1]
-                ));
-            }
+        if i > 0 && !matches!(&tokens[i - 1], Token::Hybrid(_, _)) {
+            return Err(format!(
+                "Hybrid operator can't be directly preceded by {}.",
+                &tokens[i - 1]
+            ));
         }
         match &tokens[i] {
             Token::Hybrid(op, var) => Box::new(create_hybrid(

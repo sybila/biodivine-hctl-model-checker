@@ -17,11 +17,11 @@ pub fn compute_attractor_states(
 ) -> GraphColoredVertices {
     // First, perform ITGR reduction.
     let (universe, active_variables) =
-        interleaved_transition_guided_reduction(&graph, initial_universe);
+        interleaved_transition_guided_reduction(graph, initial_universe);
 
     // Then run Xie-Beerel to actually collect all the components
     xie_beerel_attractor_set(
-        &graph,
+        graph,
         &universe,
         &active_variables,
         graph.mk_empty_vertices(),

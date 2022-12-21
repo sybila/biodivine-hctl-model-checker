@@ -27,7 +27,7 @@ pub fn check_props_and_rename_vars(
                 }
                 let renamed_var = mapping_dict.get(name.as_str()).unwrap();
                 Ok(Node {
-                    subform_str: format!("{{{}}}", renamed_var.to_string()),
+                    subform_str: format!("{{{}}}", renamed_var),
                     height: 0,
                     node_type: NodeType::TerminalNode(Atomic::Var(renamed_var.to_string())),
                 })

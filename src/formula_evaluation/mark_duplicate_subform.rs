@@ -19,7 +19,7 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<Node>) -> HashMap<Str
     // find the maximal root height, and push each root node to the queue
     let mut last_height = 0;
     for root_node in root_nodes {
-        let height = root_node.height.clone();
+        let height = root_node.height;
         if height > last_height {
             last_height = height;
         }

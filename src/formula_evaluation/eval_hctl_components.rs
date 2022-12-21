@@ -82,7 +82,7 @@ pub fn eval_forall(
     phi: &GraphColoredVertices,
     var_name: &str,
 ) -> GraphColoredVertices {
-    eval_neg(graph, &eval_exists(graph, &eval_neg(graph, &phi), var_name))
+    eval_neg(graph, &eval_exists(graph, &eval_neg(graph, phi), var_name))
 }
 
 /// Evaluates jump operator - does intersection with comparator and projects out BN variables
@@ -109,7 +109,7 @@ pub fn eval_ex(
     phi: &GraphColoredVertices,
     self_loop_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    graph.pre(&phi).union(&phi.intersect(self_loop_states))
+    graph.pre(phi).union(&phi.intersect(self_loop_states))
 }
 
 /*
@@ -201,7 +201,7 @@ pub fn eval_ax(
 ) -> GraphColoredVertices {
     eval_neg(
         graph,
-        &eval_ex(graph, &eval_neg(graph, &phi), self_loop_states),
+        &eval_ex(graph, &eval_neg(graph, phi), self_loop_states),
     )
 }
 
@@ -213,13 +213,13 @@ pub fn eval_af(
 ) -> GraphColoredVertices {
     eval_neg(
         graph,
-        &eval_eg(graph, &eval_neg(graph, &phi), self_loop_states),
+        &eval_eg(graph, &eval_neg(graph, phi), self_loop_states),
     )
 }
 
 /// Evaluates AG operator using the EF computation
 pub fn eval_ag(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
-    eval_neg(graph, &eval_ef_saturated(graph, &eval_neg(graph, &phi)))
+    eval_neg(graph, &eval_ef_saturated(graph, &eval_neg(graph, phi)))
 }
 
 /// Evaluates AU operator using the fixpoint algorithm
@@ -250,8 +250,8 @@ pub fn eval_ew(
         graph,
         &eval_au(
             graph,
-            &eval_neg(graph, &phi1),
-            &eval_neg(graph, &phi2),
+            &eval_neg(graph, phi1),
+            &eval_neg(graph, phi2),
             self_loop_states,
         ),
     )
@@ -265,6 +265,6 @@ pub fn eval_aw(
 ) -> GraphColoredVertices {
     eval_neg(
         graph,
-        &eval_eu_saturated(graph, &eval_neg(graph, &phi1), &eval_neg(graph, &phi2)),
+        &eval_eu_saturated(graph, &eval_neg(graph, phi1), &eval_neg(graph, phi2)),
     )
 }

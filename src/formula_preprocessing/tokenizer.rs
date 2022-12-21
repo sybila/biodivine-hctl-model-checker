@@ -180,7 +180,7 @@ fn is_valid_in_name(c: char) -> bool {
 /// Check if given char can appear in a name.
 fn is_valid_in_name_optional(option_char: Option<&char>) -> bool {
     if let Some(c) = option_char {
-        return is_valid_in_name(c.clone());
+        return is_valid_in_name(*c);
     }
     false
 }
@@ -188,10 +188,7 @@ fn is_valid_in_name_optional(option_char: Option<&char>) -> bool {
 /// Check if given optional char represents valid temporal operator
 fn is_valid_temp_op(option_char: Option<&char>) -> bool {
     if let Some(c) = option_char {
-        return match c {
-            'X' | 'F' | 'G' | 'U' | 'W' => true,
-            _ => false,
-        };
+        return matches!(c, 'X' | 'F' | 'G' | 'U' | 'W');
     }
     false
 }
@@ -243,14 +240,14 @@ impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Token::Unary(UnaryOp::Not) => write!(f, "~"),
-            Token::Unary(c) => write!(f, "{}", format!("{:?}", c)), // unary temporal
+            Token::Unary(c) => write!(f, "{:?}", c), // unary temporal
             Token::Binary(BinaryOp::And) => write!(f, "&"),
             Token::Binary(BinaryOp::Or) => write!(f, "|"),
             Token::Binary(BinaryOp::Xor) => write!(f, "^"),
             Token::Binary(BinaryOp::Imp) => write!(f, "=>"),
             Token::Binary(BinaryOp::Iff) => write!(f, "<=>"),
-            Token::Binary(c) => write!(f, "{}", format!("{:?}", c)), // binary temporal
-            Token::Hybrid(op, var) => write!(f, "{}", format!("{:?} {{{}}}:", op, var)),
+            Token::Binary(c) => write!(f, "{:?}", c), // binary temporal
+            Token::Hybrid(op, var) => write!(f, "{:?} {{{}}}:", op, var),
             Token::Atom(Atomic::Prop(name)) => write!(f, "{}", name),
             Token::Atom(Atomic::Var(name)) => write!(f, "{{{}}}", name),
             Token::Atom(constant) => write!(f, "{:?}", constant),
@@ -260,7 +257,7 @@ impl fmt::Display for Token {
 }
 
 #[allow(dead_code)]
-fn print_tokens_recursively(tokens: &Vec<Token>) -> () {
+fn print_tokens_recursively(tokens: &Vec<Token>) {
     for token in tokens {
         match token {
             Token::Tokens(token_vec) => print_tokens_recursively(token_vec),
@@ -270,7 +267,7 @@ fn print_tokens_recursively(tokens: &Vec<Token>) -> () {
 }
 
 #[allow(dead_code)]
-pub fn print_tokens(tokens: &Vec<Token>) -> () {
+pub fn print_tokens(tokens: &Vec<Token>) {
     print_tokens_recursively(tokens);
     println!();
 }

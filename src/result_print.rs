@@ -15,7 +15,7 @@ pub enum PrintOptions {
 }
 
 /// Prints given text only if the correct print options are selected (long or full)
-pub fn print_if_allowed(text: String, print_options: PrintOptions) -> () {
+pub fn print_if_allowed(text: String, print_options: PrintOptions) {
     if print_options == PrintOptions::NoPrint || print_options == PrintOptions::ShortPrint {
         return;
     }
@@ -24,7 +24,7 @@ pub fn print_if_allowed(text: String, print_options: PrintOptions) -> () {
 
 /// Prints general info about the resulting set of colored vertices - the cardinality of the whole
 /// set and its projections to colors and vertices (and the computation time)
-pub fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime) -> () {
+pub fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime) {
     println!(
         "Time to eval formula: {}ms",
         start_time.elapsed().unwrap().as_millis()
@@ -43,7 +43,7 @@ pub fn print_results_full(
     results: &GraphColoredVertices,
     start_time: SystemTime,
     show_names: bool,
-) -> () {
+) {
     // first print general info
     summarize_results(results, start_time);
 
@@ -51,13 +51,12 @@ pub fn print_results_full(
     for valuation in results.vertices().materialize().iter() {
         // colored var names version
         if show_names {
-            let mut i = 0;
             let variable_name_strings = network
                 .variables()
-                .map(|id| format!("{}", network.get_variable_name(id)));
+                .map(|id| network.get_variable_name(id).to_string());
 
             let mut stdout = StandardStream::stdout(ColorChoice::Always);
-            for var in variable_name_strings {
+            for (i, var) in variable_name_strings.enumerate() {
                 if valuation.get(i) {
                     stdout
                         .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
@@ -69,7 +68,6 @@ pub fn print_results_full(
                         .unwrap();
                     write!(&mut stdout, "~{} & ", var).unwrap();
                 }
-                i += 1;
             }
             stdout
                 .set_color(ColorSpec::new().set_fg(Some(Color::White)))
@@ -90,8 +88,8 @@ pub fn print_results_full(
 
 /// Prints 0/1 vectors for all states from the given set to the given `file`
 #[allow(dead_code)]
-pub fn write_states_to_file(mut file: &File, set_of_states: &GraphColoredVertices) -> () {
-    write!(file, "{}\n", set_of_states.vertices().approx_cardinality()).unwrap();
+pub fn write_states_to_file(mut file: &File, set_of_states: &GraphColoredVertices) {
+    writeln!(file, "{}", set_of_states.vertices().approx_cardinality()).unwrap();
     for valuation in set_of_states.vertices().materialize().iter() {
         let mut valuation_str = String::new();
         for j in 0..valuation.len() {

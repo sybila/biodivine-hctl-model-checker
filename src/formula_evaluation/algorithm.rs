@@ -210,10 +210,10 @@ pub fn eval_node(
 /// Checks whether node represents formula for attractors !{x}: AG EF {x}
 /// This recognition step is used to later optimize the attractor pattern
 fn is_attractor_pattern(node: Node) -> bool {
-    return match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match (*child1).node_type {
-            NodeType::UnaryNode(UnaryOp::Ag, child2) => match (*child2).node_type {
-                NodeType::UnaryNode(UnaryOp::Ef, child3) => match (*child3).node_type {
+    match node.node_type {
+        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match child1.node_type {
+            NodeType::UnaryNode(UnaryOp::Ag, child2) => match child2.node_type {
+                NodeType::UnaryNode(UnaryOp::Ef, child3) => match child3.node_type {
                     NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
                     _ => false,
                 },
@@ -222,22 +222,22 @@ fn is_attractor_pattern(node: Node) -> bool {
             _ => false,
         },
         _ => false,
-    };
+    }
 }
 
 /// Checks whether node represents formula for fixed-points !{x}: AX {x}
 /// This recognition step is used to later optimize the fixed-point pattern
 fn is_fixed_point_pattern(node: Node) -> bool {
-    return match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match (*child1).node_type {
-            NodeType::UnaryNode(UnaryOp::Ax, child2) => match (*child2).node_type {
+    match node.node_type {
+        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match child1.node_type {
+            NodeType::UnaryNode(UnaryOp::Ax, child2) => match child2.node_type {
                 NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
                 _ => false,
             },
             _ => false,
         },
         _ => false,
-    };
+    }
 }
 
 /// Wrapper for steady state computation

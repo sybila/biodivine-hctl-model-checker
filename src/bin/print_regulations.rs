@@ -10,22 +10,20 @@ fn print_steady_states(data_path: String) {
     let reader = BufReader::new(&data_file);
     let data: Vec<String> = reader.lines().collect::<Result<_, _>>().unwrap();
 
-    let mut i = 0;
     println!("data = {{");
-    for item in data {
+    for (i, item) in data.into_iter().enumerate() {
         print!("    \"state{}\": {{", i);
-        i += 1;
-        for var in item.split(" ") {
+        for var in item.split(' ') {
             if var == "&" {
                 continue;
             }
-            if var.chars().next().unwrap() == '~' {
-                print!("\"{}\": 0, ", var[1..].to_string())
+            if let Some(var_stripped) = var.strip_prefix('~') {
+                print!("\"{}\": 0, ", var_stripped)
             } else {
-                print!("\"{}\": 1, ", var.to_string())
+                print!("\"{}\": 1, ", var)
             }
         }
-        print!("}},\n")
+        println!("}},")
     }
     println!("}}");
 }

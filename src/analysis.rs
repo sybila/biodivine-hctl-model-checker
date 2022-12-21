@@ -207,7 +207,7 @@ pub fn model_check_multiple_formulae(
     for parse_tree in parsed_trees {
         results.push(eval_node(
             parse_tree,
-            &stg,
+            stg,
             &mut eval_info,
             &self_loop_states,
         ));

@@ -36,7 +36,7 @@ pub fn canonize_subform(
                 // move to the beginning of the var name (skip '{')
                 subform_chars.next();
                 let mut var_name = String::new();
-                while let Some(name_char) = subform_chars.next() {
+                for name_char in subform_chars.by_ref() {
                     if name_char == '}' {
                         break;
                     }
@@ -46,14 +46,14 @@ pub fn canonize_subform(
                 subform_chars.next();
                 // insert new mapping to dict and push it all to canonical string
                 mapping_dict.insert(var_name.clone(), format!("var{}", stack_len));
-                canonical.push_str(format!("{}{{{}}}:", ch, format!("var{}", stack_len)).as_str());
+                canonical.push_str(format!("{}{{var{}}}:", ch, stack_len).as_str());
                 stack_len += 1;
             }
             // rename existing var to canonical form, or handle free variables
             // this includes variable names which are part of the "jump operator"
             '{' => {
                 let mut var_name = String::new();
-                while let Some(name_char) = subform_chars.next() {
+                for name_char in subform_chars.by_ref() {
                     if name_char == '}' {
                         break;
                     }
@@ -71,10 +71,7 @@ pub fn canonize_subform(
                     canonical.push_str(format!("{{{}}}", canonical_name).as_str());
                 } else {
                     // This branch should never happen
-                    println!(
-                        "{}",
-                        format!("Canonical name was not found for {}", var_name)
-                    );
+                    println!("Canonical name was not found for {}", var_name);
                 }
             }
             // all the other character, including boolean+temporal operators, '@', prop names
