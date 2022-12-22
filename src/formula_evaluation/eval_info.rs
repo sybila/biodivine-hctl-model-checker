@@ -1,20 +1,24 @@
-use crate::formula_evaluation::mark_duplicate_subform::*;
-use crate::formula_preprocessing::parser::Node;
+//! Contains the structure to hold useful data to speed-up the computation.
+
+use crate::formula_evaluation::mark_duplicate_subform::{
+    mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
+};
+use crate::formula_preprocessing::node::HctlTreeNode;
 
 use biodivine_lib_param_bn::symbolic_async_graph::GraphColoredVertices;
 
 use std::collections::HashMap;
 
-/// Struct holding information for efficient caching during the main computation
+/// Struct holding information for efficient caching during the main computation.
 pub struct EvalInfo {
-    // duplicate sub-formulae and their counter
+    /// Duplicate sub-formulae and their counter
     pub duplicates: HashMap<String, i32>,
-    // cached sub-formulae and their result + variable renaming mapping
+    /// Cached sub-formulae and their result + variable renaming mapping
     pub cache: HashMap<String, (GraphColoredVertices, HashMap<String, String>)>,
 }
 
 impl EvalInfo {
-    /// instantiate the struct with precomputed duplicates and empty cache
+    /// Instantiate the struct with precomputed duplicates and empty cache.
     pub fn new(duplicates: HashMap<String, i32>) -> EvalInfo {
         EvalInfo {
             duplicates,
@@ -22,16 +26,16 @@ impl EvalInfo {
         }
     }
 
-    /// instantiate the struct with precomputed duplicates and empty cache
-    pub fn from_single_tree(tree: &Node) -> EvalInfo {
+    /// Instantiate the struct with precomputed duplicates and empty cache.
+    pub fn from_single_tree(tree: &HctlTreeNode) -> EvalInfo {
         EvalInfo {
             duplicates: mark_duplicates_canonized_single(tree),
             cache: HashMap::new(),
         }
     }
 
-    /// instantiate the struct with precomputed duplicates and empty cache
-    pub fn from_multiple_trees(trees: &Vec<Node>) -> EvalInfo {
+    /// Instantiate the struct with precomputed duplicates and empty cache.
+    pub fn from_multiple_trees(trees: &Vec<HctlTreeNode>) -> EvalInfo {
         EvalInfo {
             duplicates: mark_duplicates_canonized_multiple(trees),
             cache: HashMap::new(),

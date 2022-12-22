@@ -17,20 +17,20 @@ cargo build --release
 ```
 and then run the binary:
 ```
-.\target\release\model-check <MODEL_PATH> <FORMULAE_PATH> [-m <MODEL_FORMAT>] [-p <PRINT_OPTION>] [-h]
+.\target\release\hctl-model-checker <MODEL_PATH> <FORMULAE_PATH> [-m <MODEL_FORMAT>] [-p <PRINT_OPTION>] [-h]
 ```
 
 - `MODEL_PATH` is a path to a file with BN model in aeon format
 - `FORMULAE_PATH` is path to a file with a set of valid HCTL formulae (one per line)
-- `PRINT_OPTION` is one of none/short/medium/full and defines the amount of information on the output (short is default)
-- `MODEL_FORMAT` is one of aeon/bnet/smbl and defines the input format (aeon is default)
+- `PRINT_OPTION` is one of `none`/`short`/`medium`/`full` and defines the amount of information on the output (short is default)
+- `MODEL_FORMAT` is one of `aeon`/`bnet`/`smbl` and defines the input format (aeon is default)
 
 For more help, use option `-h` or `--help`.
 
 ### Library
 
-This package also offers an API for utilizing the model-checking functionality in your own programmes. 
-
+This package also offers an API for utilizing the model-checking functionality in your own programmes.
+The most relevant high-level functionality can be found in modules `analysis` and `model_checking`.
 
 ## Models
 

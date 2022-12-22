@@ -1,12 +1,14 @@
+//! Contains the functionality for canonizing variable names in sub-formulae.
+
 use std::collections::HashMap;
 use std::iter::Peekable;
 use std::str::Chars;
 
-/// Returns string representing the same subformula, but with canonized var names (var0, var1...)
-/// `subform_chars` must represent valid formula processed by check_props_and_rename_vars function
-/// `subform_chars` MUST include all PARENTHESES and MUST NOT include excess spaces
-/// For example "(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))" is valid input
-/// Any node.subform_string field should be OK to use
+/// Return a string representing the same subformula, but with canonized var names (var0, var1...).
+/// Param `subform_chars` must represent valid formula processed by `check_props_and_rename_vars`.
+/// Param `subform_chars` must include all PARENTHESES and must NOT contain excess spaces.
+/// For example, `(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))` is a valid input.
+/// Generally, any `node.subform_string` field should be OK to use.
 pub fn canonize_subform(
     mut subform_chars: Peekable<Chars>,
     mut mapping_dict: HashMap<String, String>,
@@ -87,8 +89,8 @@ pub fn canonize_subform(
 }
 
 #[allow(dead_code)]
-/// Returns string of the semantically same sub-formula, but with "canonized" var names
-/// It is used in the process of marking duplicate sub-formulae and caching
+/// Returns string of the semantically same sub-formula, but with "canonized" var names.
+/// It is used in the process of marking duplicate sub-formulae and caching.
 pub fn get_canonical(subform_string: String) -> String {
     let canonized_tuple = canonize_subform(
         subform_string.chars().peekable(),
@@ -99,9 +101,9 @@ pub fn get_canonical(subform_string: String) -> String {
     canonized_tuple.1
 }
 
-#[allow(dead_code)]
-/// Returns tuple with the canonized sub-formula string, and mapping of var names to canonized form
-/// It is used in the process of marking duplicate sub-formulae and caching
+/// Return a tuple with the canonized sub-formula string, and mapping of var names to their new
+/// canonized form.
+/// It is used in the process of marking duplicate sub-formulae and caching.
 pub fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<String, String>) {
     let canonized_tuple = canonize_subform(
         subform_string.chars().peekable(),
@@ -118,7 +120,7 @@ mod tests {
     use std::collections::HashMap;
 
     #[test]
-    /// Compare automatically canonized formula to the expected result
+    /// Compare automatically canonized formula to the expected result.
     fn test_canonization_simple() {
         // two formulae that should have same canonization
         let sub_formula1 = "(AX{x})";
@@ -149,7 +151,7 @@ mod tests {
     }
 
     #[test]
-    /// Compare automatically canonized formula to the expected result
+    /// Compare automatically canonized formula to the expected result.
     fn test_canonization_mediate() {
         // two formulae that should have same canonization
         let sub_formula1 = "(AX{x})&(AG(EF{xx}))";
@@ -186,7 +188,7 @@ mod tests {
     }
 
     #[test]
-    /// Compare automatically canonized formula to the expected result
+    /// Compare automatically canonized formula to the expected result.
     fn test_canonization_complex() {
         // two formulae that should have same canonization
         let sub_formula1 = "(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))";

@@ -1,11 +1,14 @@
+//! Contains the low-level operations needed to implement HCTL operators symbolically.
+
 use biodivine_lib_bdd::BddVariable;
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-/// Creates comparator between either
-/// 1) network vars and given HCTL var' components: "(s__1 <=> var__1) & (s__2 <=> var__2) ... "
-/// 2) two given HCTL vars' components: "(varA__1 <=> varB__1) & (varA__2 <=> varB__2) ... "
-pub fn create_comparator(
+/// Create a comparator between the components of either:
+///  - system states and a given HCTL variable: `(s__1 <=> var__1) & (s__2 <=> var__2) ... `
+///  - two given HCTL variables: `(varA__1 <=> varB__1) & (varA__2 <=> varB__2) ... `
+/// The variant is specified by the argument `other_hctl_var_name_opt` (`None` -> v1, `Some` -> v2).
+fn create_comparator(
     graph: &SymbolicAsyncGraph,
     hctl_var_name: &str,
     other_hctl_var_name_opt: Option<&str>,
@@ -64,8 +67,28 @@ pub fn create_comparator(
         .intersect(graph.unit_colored_vertices())
 }
 
-/// Projects out (existentially quantifies) the given HCTL variable
-/// This is used during hybrid operators evaluation or during renaming of HCTL vars
+/// Wrapper for creating a comparator between the components of the state (network vars) and
+/// a given HCTL variable.
+/// It is computed as `(s__1 <=> var__1) & (s__2 <=> var__2) ... `
+pub fn create_comparator_var_state(
+    graph: &SymbolicAsyncGraph,
+    hctl_var_name: &str,
+) -> GraphColoredVertices {
+    create_comparator(graph, hctl_var_name, None)
+}
+
+/// Wrapper for creating a comparator between the components of two HCTL variables.
+/// It is computed as `(varA__1 <=> varB__1) & (varA__2 <=> varB__2) ...`
+pub fn create_comparator_two_vars(
+    graph: &SymbolicAsyncGraph,
+    hctl_var_name: &str,
+    other_hctl_var_name: &str,
+) -> GraphColoredVertices {
+    create_comparator(graph, hctl_var_name, Some(other_hctl_var_name))
+}
+
+/// Project out (existentially quantify) the given HCTL variable.
+/// This is used during hybrid operators evaluation or during renaming of HCTL vars.
 pub fn project_out_hctl_var(
     graph: &SymbolicAsyncGraph,
     colored_state_set: &GraphColoredVertices,
@@ -102,7 +125,7 @@ pub fn project_out_hctl_var(
 
 /// Substitute (rename) HCTL variable by another (valid) HCTL variable.
 /// BDD of the set must not depend on the HCTL to be substituted.
-/// Can be used for more efficient caching
+/// Can be used for more efficient caching between sub-formulae with differently named vars.
 pub fn substitute_hctl_var(
     graph: &SymbolicAsyncGraph,
     colored_states: &GraphColoredVertices,
@@ -116,7 +139,7 @@ pub fn substitute_hctl_var(
     // TODO: check that BDD for `set` does not depend on hctl_var_after
 
     // set new HCTL var to the same values as the current one
-    let comparator = create_comparator(graph, hctl_var_before, Some(hctl_var_after));
+    let comparator = create_comparator_two_vars(graph, hctl_var_before, hctl_var_after);
     let colored_states_new = colored_states.intersect(&comparator);
 
     // get rid of the old var

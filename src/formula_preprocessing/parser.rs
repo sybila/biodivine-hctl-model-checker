@@ -1,109 +1,22 @@
-use crate::formula_preprocessing::operation_enums::*;
+//! Contains functionality regarding parsing formula tokens into a syntax tree.
+//!
+//! The operator precedence is following (the lower, the stronger):
+//!  - unary operators (negation + temporal): 1
+//!  - binary temporal operators: 2
+//!  - boolean binary operators: and=3, xor=4, or=5, imp=6, equiv=7
+//!  - hybrid operators: 8
+//!
+
+use crate::formula_preprocessing::node::*;
+use crate::formula_preprocessing::operator_enums::*;
 use crate::formula_preprocessing::tokenizer::Token;
 
-use std::cmp;
-use std::cmp::Ordering;
-use std::fmt;
-
-/// Enum of possible node types in a HCTL formula tree
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
-pub enum NodeType {
-    TerminalNode(Atomic),
-    UnaryNode(UnaryOp, Box<Node>),
-    BinaryNode(BinaryOp, Box<Node>, Box<Node>),
-    HybridNode(HybridOp, String, Box<Node>),
-}
-
-/// Node structure for HCTL formula parse tree
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Node {
-    pub subform_str: String,
-    pub height: i32,
-    pub node_type: NodeType,
-}
-
-/// Nodes are ordered by their height
-impl PartialOrd for Node {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.height.cmp(&other.height))
-    }
-    fn lt(&self, other: &Self) -> bool {
-        self.height.lt(&other.height)
-    }
-    fn le(&self, other: &Self) -> bool {
-        self.height.le(&other.height)
-    }
-    fn gt(&self, other: &Self) -> bool {
-        self.height.gt(&other.height)
-    }
-    fn ge(&self, other: &Self) -> bool {
-        self.height.ge(&other.height)
-    }
-}
-
-/// Nodes are ordered by their height
-impl Ord for Node {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.height.cmp(&other.height)
-    }
-}
-
-impl Default for Node {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Node {
-    /// Create default node - True terminal node
-    pub fn new() -> Self {
-        Self {
-            subform_str: "True".to_string(),
-            height: 0,
-            node_type: NodeType::TerminalNode(Atomic::True),
-        }
-    }
-}
-
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.subform_str)
-    }
-}
-
-/// Create hybrid node from given arguments
-pub fn create_hybrid(child: Box<Node>, var: String, op: HybridOp) -> Node {
-    Node {
-        subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
-        height: child.height + 1,
-        node_type: NodeType::HybridNode(op, var, child),
-    }
-}
-
-/// Create unary node from given arguments
-pub fn create_unary(child: Box<Node>, op: UnaryOp) -> Node {
-    Node {
-        subform_str: format!("({} {})", op, child.subform_str),
-        height: child.height + 1,
-        node_type: NodeType::UnaryNode(op, child),
-    }
-}
-
-/// Create binary node from given arguments
-pub fn create_binary(left: Box<Node>, right: Box<Node>, op: BinaryOp) -> Node {
-    Node {
-        subform_str: format!("({} {} {})", left.subform_str, op, right.subform_str),
-        height: cmp::max(left.height, right.height) + 1,
-        node_type: NodeType::BinaryNode(op, left, right),
-    }
-}
-
-/// Predicate whether given token represents hybrid operator
+/// Predicate for whether given token represents hybrid operator.
 fn is_hybrid(token: &Token) -> bool {
     matches!(token, Token::Hybrid(_, _))
 }
 
-/// Predicate whether given token represents temporal binary operator
+/// Predicate for whether given token represents temporal binary operator.
 fn is_binary_temporal(token: &Token) -> bool {
     matches!(
         token,
@@ -114,41 +27,33 @@ fn is_binary_temporal(token: &Token) -> bool {
     )
 }
 
-/// Predicate whether given token represents unary operator
+/// Predicate for whether given token represents unary operator.
 fn is_unary(token: &Token) -> bool {
     matches!(token, Token::Unary(_))
 }
 
-/// Utility method to find first occurrence of a specific token in the token tree.
+/// Utility method to find the first occurrence of a specific token in the token tree.
 fn index_of_first(tokens: &[Token], token: Token) -> Option<usize> {
     return tokens.iter().position(|t| *t == token);
 }
 
-/// Utility method to find first occurrence of hybrid operator in the token tree.
+/// Utility method to find the first occurrence of a hybrid operator in the token tree.
 fn index_of_first_hybrid(tokens: &[Token]) -> Option<usize> {
     return tokens.iter().position(is_hybrid);
 }
 
-/// Utility method to find first occurrence of binary temporal operator in the token tree.
+/// Utility method to find the first occurrence of a binary temporal operator in the token tree.
 fn index_of_first_binary_temp(tokens: &[Token]) -> Option<usize> {
     return tokens.iter().position(is_binary_temporal);
 }
 
-/// Utility method to find first occurrence of unary operator in the token tree.
+/// Utility method to find the first occurrence of an unary operator in the token tree.
 fn index_of_first_unary(tokens: &[Token]) -> Option<usize> {
     return tokens.iter().position(is_unary);
 }
 
-/**
- * PRIORITY OF OPERATORS
- * unary operators (negation + temporal): 1
- * temporal binary operators: 2
- * boolean binary operators: and=3, xor=4, or=5, imp=6, equiv=7
- * hybrid operators: 8
- */
-
-/// Parse a `Node` using the recursive steps.
-pub fn parse_hctl_formula(tokens: &[Token]) -> Result<Box<Node>, String> {
+/// Parse `tokens` in to a syntax tree using recursive steps.
+pub fn parse_hctl_formula(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     parse_1_hybrid(tokens)
 }
 
@@ -156,7 +61,7 @@ pub fn parse_hctl_formula(tokens: &[Token]) -> Result<Box<Node>, String> {
 /// Hybrid operator must not be immediately preceded by any other kind of operator.
 /// We only allow it to be preceded by another hybrid operator, or parentheses must be used.
 /// (things like "AF !{x}: ..." are forbidden, must be written in brackets as "AF (!{x}: ...)"
-fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<Node>, String> {
+fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     let hybrid_token = index_of_first_hybrid(tokens);
     Ok(if let Some(i) = hybrid_token {
         // perform check that hybrid operator is not preceded by other type of operators
@@ -172,7 +77,7 @@ fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<Node>, String> {
                 var.clone(),
                 op.clone(),
             )),
-            _ => Box::new(Node::new()), // This branch cant happen, but must result in same type
+            _ => Box::new(HctlTreeNode::new()), // This branch cant happen, but must result in same type
         }
     } else {
         parse_2_iff(tokens)?
@@ -180,7 +85,7 @@ fn parse_1_hybrid(tokens: &[Token]) -> Result<Box<Node>, String> {
 }
 
 /// Recursive parsing step 2: extract `<=>` operators.
-fn parse_2_iff(tokens: &[Token]) -> Result<Box<Node>, String> {
+fn parse_2_iff(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     let iff_token = index_of_first(tokens, Token::Binary(BinaryOp::Iff));
     Ok(if let Some(i) = iff_token {
         Box::new(create_binary(
@@ -194,7 +99,7 @@ fn parse_2_iff(tokens: &[Token]) -> Result<Box<Node>, String> {
 }
 
 /// Recursive parsing step 3: extract `=>` operators.
-fn parse_3_imp(tokens: &[Token]) -> Result<Box<Node>, String> {
+fn parse_3_imp(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     let imp_token = index_of_first(tokens, Token::Binary(BinaryOp::Imp));
     Ok(if let Some(i) = imp_token {
         Box::new(create_binary(
@@ -208,7 +113,7 @@ fn parse_3_imp(tokens: &[Token]) -> Result<Box<Node>, String> {
 }
 
 /// Recursive parsing step 4: extract `|` operators.
-fn parse_4_or(tokens: &[Token]) -> Result<Box<Node>, String> {
+fn parse_4_or(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     let or_token = index_of_first(tokens, Token::Binary(BinaryOp::Or));
     Ok(if let Some(i) = or_token {
         Box::new(create_binary(
@@ -222,7 +127,7 @@ fn parse_4_or(tokens: &[Token]) -> Result<Box<Node>, String> {
 }
 
 /// Recursive parsing step 5: extract `^` operators.
-fn parse_5_xor(tokens: &[Token]) -> Result<Box<Node>, String> {
+fn parse_5_xor(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     let xor_token = index_of_first(tokens, Token::Binary(BinaryOp::Xor));
     Ok(if let Some(i) = xor_token {
         Box::new(create_binary(
@@ -236,7 +141,7 @@ fn parse_5_xor(tokens: &[Token]) -> Result<Box<Node>, String> {
 }
 
 /// Recursive parsing step 6: extract `&` operators.
-fn parse_6_and(tokens: &[Token]) -> Result<Box<Node>, String> {
+fn parse_6_and(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     let and_token = index_of_first(tokens, Token::Binary(BinaryOp::And));
     Ok(if let Some(i) = and_token {
         Box::new(create_binary(
@@ -250,7 +155,7 @@ fn parse_6_and(tokens: &[Token]) -> Result<Box<Node>, String> {
 }
 
 /// Recursive parsing step 7: extract binary temporal operators.
-fn parse_7_binary_temp(tokens: &[Token]) -> Result<Box<Node>, String> {
+fn parse_7_binary_temp(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     let binary_token = index_of_first_binary_temp(tokens);
     Ok(if let Some(i) = binary_token {
         match &tokens[i] {
@@ -259,7 +164,7 @@ fn parse_7_binary_temp(tokens: &[Token]) -> Result<Box<Node>, String> {
                 parse_7_binary_temp(&tokens[(i + 1)..])?,
                 op.clone(),
             )),
-            _ => Box::new(Node::new()), // This branch cant happen, but must result in same type
+            _ => Box::new(HctlTreeNode::new()), // This branch cant happen, but must result in same type
         }
     } else {
         parse_8_unary(tokens)?
@@ -267,23 +172,22 @@ fn parse_7_binary_temp(tokens: &[Token]) -> Result<Box<Node>, String> {
 }
 
 /// Recursive parsing step 8: extract unary temporal operators and negations.
-fn parse_8_unary(tokens: &[Token]) -> Result<Box<Node>, String> {
+fn parse_8_unary(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     let unary_token = index_of_first_unary(tokens);
     Ok(if let Some(i) = unary_token {
         match &tokens[i] {
             Token::Unary(op) => {
                 Box::new(create_unary(parse_8_unary(&tokens[(i + 1)..])?, op.clone()))
             }
-            _ => Box::new(Node::new()), // This branch cant happen, but must result in same type
+            _ => Box::new(HctlTreeNode::new()), // This branch cant happen, but must result in same type
         }
     } else {
         parse_9_terminal_and_parentheses(tokens)?
     })
 }
 
-/// Recursive parsing step 9: extract terminals and recursively solve
-/// sub-formulae in parentheses.
-fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<Node>, String> {
+/// Recursive parsing step 9: extract terminals and recursively solve sub-formulae in parentheses.
+fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<HctlTreeNode>, String> {
     if tokens.is_empty() {
         Err("Expected formula, found nothing.".to_string())
     } else {
@@ -292,19 +196,19 @@ fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<Node>, Strin
             match &tokens[0] {
                 Token::Atom(Atomic::Prop(name)) => {
                     return if name == "true" {
-                        Ok(Box::new(Node {
+                        Ok(Box::new(HctlTreeNode {
                             subform_str: "True".to_string(),
                             height: 0,
                             node_type: NodeType::TerminalNode(Atomic::True),
                         }))
                     } else if name == "false" {
-                        Ok(Box::new(Node {
+                        Ok(Box::new(HctlTreeNode {
                             subform_str: "False".to_string(),
                             height: 0,
                             node_type: NodeType::TerminalNode(Atomic::False),
                         }))
                     } else {
-                        Ok(Box::new(Node {
+                        Ok(Box::new(HctlTreeNode {
                             subform_str: name.clone(),
                             height: 0,
                             node_type: NodeType::TerminalNode(Atomic::Prop(name.clone())),
@@ -312,7 +216,7 @@ fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<Node>, Strin
                     }
                 }
                 Token::Atom(Atomic::Var(name)) => {
-                    return Ok(Box::new(Node {
+                    return Ok(Box::new(HctlTreeNode {
                         subform_str: format!("{{{}}}", name),
                         height: 0,
                         node_type: NodeType::TerminalNode(Atomic::Var(name.clone())),
@@ -330,26 +234,26 @@ fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<Node>, Strin
 #[cfg(test)]
 mod tests {
     use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::tokenizer::tokenize_formula;
+    use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
 
     #[test]
-    /// Test parsing of several valid HCTL formulae
+    /// Test parsing of several valid HCTL formulae.
     fn test_parse_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}".to_string();
-        let tokens1 = tokenize_formula(valid1).unwrap();
+        let tokens1 = try_tokenize_formula(valid1).unwrap();
         assert!(parse_hctl_formula(&tokens1).is_ok());
 
         let valid2 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string();
-        let tokens2 = tokenize_formula(valid2).unwrap();
+        let tokens2 = try_tokenize_formula(valid2).unwrap();
         assert!(parse_hctl_formula(&tokens2).is_ok());
 
         let valid3 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))".to_string();
-        let tokens3 = tokenize_formula(valid3).unwrap();
+        let tokens3 = try_tokenize_formula(valid3).unwrap();
         assert!(parse_hctl_formula(&tokens3).is_ok());
     }
 
     #[test]
-    /// Test parsing of several invalid HCTL formulae
+    /// Test parsing of several invalid HCTL formulae.
     fn test_parse_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EK {x}",
@@ -364,7 +268,7 @@ mod tests {
         ];
 
         for formula in invalid_formulae {
-            let tokens = tokenize_formula(formula.to_string()).unwrap();
+            let tokens = try_tokenize_formula(formula.to_string()).unwrap();
             assert!(parse_hctl_formula(&tokens).is_err())
         }
     }

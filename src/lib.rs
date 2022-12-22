@@ -1,11 +1,15 @@
+//! A small library regarding analysis of dynamic properties of Boolean networks through HCTL model checking.
+//! As of now, the library supports:
+//!  - Overall symbolic model-checking analysis of multiple HCTL formulae on a given model at once.
+//!  - Manipulation with HCTL formulae, such as tokenizing, parsing, or canonization.
+//!  - Searching for common sub-formulae across multiple formulae.
+//!  - Optimised evaluation for several patterns, such as various attractor types or reachability.
+//!
+
 pub mod analysis;
+pub mod formula_evaluation;
+pub mod formula_preprocessing;
+pub mod model_checking;
 pub mod result_print;
 
-/// HCTL formula preprocessing (parsing, tokenizing)
-pub mod formula_preprocessing;
-
-/// HCTL formula evaluation (main recursive algorithm, cache)
-pub mod formula_evaluation;
-
-/// modified SCC computation algorithms adapted from Aeon
-pub mod aeon;
+mod aeon;

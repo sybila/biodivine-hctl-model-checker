@@ -1,10 +1,12 @@
-use crate::formula_preprocessing::operation_enums::*;
+//! Contains functionality regarding the tokenizing of HCTL formula string.
+
+use crate::formula_preprocessing::operator_enums::*;
 
 use std::fmt;
 use std::iter::Peekable;
 use std::str::Chars;
 
-/// Enum of all possible tokens occurring in a HCTL formula string
+/// Enum of all possible tokens occurring in a HCTL formula string.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Token {
     Unary(UnaryOp),           // Unary operators: '~','EX','AX','EF','AF','EG','AG'
@@ -14,15 +16,14 @@ pub enum Token {
     Tokens(Vec<Token>),       // A block of tokens inside parentheses
 }
 
-/// Tries to tokenize_formula HCTL formula
-/// Wrapper for the recursive tokenize_formula function
-pub fn tokenize_formula(formula: String) -> Result<Vec<Token>, String> {
-    tokenize_recursive(&mut formula.chars().peekable(), true)
+/// Try to tokenize given HCTL formula string.
+/// Wrapper for the recursive `try_tokenize_formula` function.
+pub fn try_tokenize_formula(formula: String) -> Result<Vec<Token>, String> {
+    try_tokenize_recursive(&mut formula.chars().peekable(), true)
 }
 
 /// Process a peekable iterator of characters into a vector of `Token`s.
-/// Tries to tokenize_formula HCTL formula
-fn tokenize_recursive(
+fn try_tokenize_recursive(
     input_chars: &mut Peekable<Chars>,
     top_level: bool,
 ) -> Result<Vec<Token>, String> {
@@ -142,7 +143,7 @@ fn tokenize_recursive(
             }
             '(' => {
                 // start a nested token group
-                let token_group = tokenize_recursive(input_chars, false)?;
+                let token_group = try_tokenize_recursive(input_chars, false)?;
                 output.push(Token::Tokens(token_group));
             }
             // variable name
@@ -185,7 +186,7 @@ fn is_valid_in_name_optional(option_char: Option<&char>) -> bool {
     false
 }
 
-/// Check if given optional char represents valid temporal operator
+/// Check if given optional char represents valid temporal operator.
 fn is_valid_temp_op(option_char: Option<&char>) -> bool {
     if let Some(c) = option_char {
         return matches!(c, 'X' | 'F' | 'G' | 'U' | 'W');
@@ -193,8 +194,8 @@ fn is_valid_temp_op(option_char: Option<&char>) -> bool {
     false
 }
 
-/// Retrieves the proposition (or variable) name from the input
-/// The first character of the name might or might not be already consumed by the caller
+/// Retrieve the proposition (or variable) name from the input.
+/// The first character of the name may or may not be already consumed by the caller.
 fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     let mut name = Vec::new();
     while let Some(c) = input_chars.peek() {
@@ -208,8 +209,8 @@ fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     Ok(name.into_iter().collect())
 }
 
-/// Retrieves the name of variable bound by a hybrid operator
-/// Operator character is consumed by caller and is given as input for error msg purposes
+/// Retrieve the name of the variable bound by a hybrid operator.
+/// Operator character is consumed by caller and is given as input for error msg purposes.
 fn collect_var_from_operator(
     input_chars: &mut Peekable<Chars>,
     operator: char,
@@ -237,6 +238,7 @@ fn collect_var_from_operator(
 }
 
 impl fmt::Display for Token {
+    /// Display tokens for debug purposes.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Token::Unary(UnaryOp::Not) => write!(f, "~"),
@@ -257,6 +259,7 @@ impl fmt::Display for Token {
 }
 
 #[allow(dead_code)]
+/// Recursively print tokens.
 fn print_tokens_recursively(tokens: &Vec<Token>) {
     for token in tokens {
         match token {
@@ -267,6 +270,7 @@ fn print_tokens_recursively(tokens: &Vec<Token>) {
 }
 
 #[allow(dead_code)]
+/// Print the vector of tokens (for debug purposes).
 pub fn print_tokens(tokens: &Vec<Token>) {
     print_tokens_recursively(tokens);
     println!();
@@ -274,14 +278,14 @@ pub fn print_tokens(tokens: &Vec<Token>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::formula_preprocessing::operation_enums::*;
-    use crate::formula_preprocessing::tokenizer::{tokenize_formula, Token};
+    use crate::formula_preprocessing::operator_enums::*;
+    use crate::formula_preprocessing::tokenizer::{try_tokenize_formula, Token};
 
     #[test]
-    /// Test tokenization process on several valid HCTL formulae
+    /// Test tokenization process on several valid HCTL formulae.
     fn test_tokenize_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}".to_string();
-        let tokens1_result = tokenize_formula(valid1);
+        let tokens1_result = try_tokenize_formula(valid1);
         assert_eq!(
             tokens1_result.unwrap(),
             vec![
@@ -293,7 +297,7 @@ mod tests {
         );
 
         let valid2 = "AF (!{x}: (AX (~{x} & AF {x})))".to_string();
-        let tokens2_result = tokenize_formula(valid2);
+        let tokens2_result = try_tokenize_formula(valid2);
         assert_eq!(
             tokens2_result.unwrap(),
             vec![
@@ -315,7 +319,7 @@ mod tests {
         );
 
         let valid3 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string();
-        let tokens3_result = tokenize_formula(valid3);
+        let tokens3_result = try_tokenize_formula(valid3);
         assert_eq!(
             tokens3_result.unwrap(),
             vec![
@@ -340,7 +344,7 @@ mod tests {
     }
 
     #[test]
-    /// Test tokenization process on several invalid HCTL formulae
+    /// Test tokenization process on several invalid HCTL formulae.
     fn test_tokenize_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EF {x<&}",
@@ -350,7 +354,7 @@ mod tests {
         ];
 
         for formula in invalid_formulae {
-            assert!(tokenize_formula(formula.to_string()).is_err())
+            assert!(try_tokenize_formula(formula.to_string()).is_err())
         }
     }
 }

@@ -3,7 +3,8 @@ name = "biodivine-hctl-model-checker"
 version = "0.1.0"
 authors = ["Ondřej Huvar <xhuvar@fi.muni.cz>", "Samuel Pastva <sam.pastva@gmail.com>"]
 edition = "2021"
-description = "Library for symbolic HCTL model checking on partially defined BN models."
+description = "Library for symbolic HCTL model checking on partially defined Boolean networks."
+documentation = "https://docs.rs/biodivine-hctl-model-checker/latest/"
 homepage = "https://github.com/sybila/biodivine-hctl-model-checker"
 repository = "https://github.com/sybila/biodivine-hctl-model-checker"
 readme = "README.md"
@@ -17,15 +18,11 @@ exclude = ["benchmark_models"]
 #lto = true
 
 [profile.test]
-opt-level = 3
+opt-level = 3 # to be able to run non-trivial tests
 
 [[bin]]
-name = "model-check"
+name = "hctl-model-checker"
 path = "src/main.rs"
-
-[[bin]]
-name = "print-regulations"
-path = "src/bin/print_regulations.rs"
 
 [[bin]]
 name = "convert-aeon-to-bnet"

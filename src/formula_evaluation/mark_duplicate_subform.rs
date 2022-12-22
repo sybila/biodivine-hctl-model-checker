@@ -1,18 +1,23 @@
-use crate::formula_evaluation::canonization::*;
-use crate::formula_preprocessing::parser::{Node, NodeType};
+//! Contains the functionality to search for duplicate sub-formulae in several formulae.
 
-use std::collections::BinaryHeap;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use crate::formula_evaluation::canonization::{get_canonical, get_canonical_and_mapping};
+use crate::formula_preprocessing::node::{HctlTreeNode, NodeType};
 
-pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<Node>) -> HashMap<String, i32> {
+use std::collections::{BinaryHeap, HashMap, HashSet};
+
+/// Check if there are some duplicate subtrees in a given formula syntax tree.
+/// This function uses canonization and thus recognizes duplicates with differently named
+/// variables (e.g., `AX {y}` and `AX {z}`).
+/// Return the CANONICAL versions of duplicate sub-formulae + the number of their appearances.
+/// Note that terminal nodes (props, vars, constants) are not considered.
+pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> HashMap<String, i32> {
     // go through each tree from top, use height to compare only the nodes with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
 
     // duplicates and their counters
     let mut duplicates: HashMap<String, i32> = HashMap::new();
     // queue of the nodes to yet traverse
-    let mut heap_queue: BinaryHeap<&Node> = BinaryHeap::new();
+    let mut heap_queue: BinaryHeap<&HctlTreeNode> = BinaryHeap::new();
     // set of strings of the nodes (with the same height) to compare
     let mut same_height_canonical_strings: HashSet<String> = HashSet::new();
 
@@ -86,22 +91,22 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<Node>) -> HashMap<Str
     duplicates
 }
 
-/// Wrapper for duplicate marking (previous function) for a single formula
-pub fn mark_duplicates_canonized_single(root_node: &Node) -> HashMap<String, i32> {
+/// Wrapper for duplicate marking (`mark_duplicates_canonized_multiple`) for a single formula.
+pub fn mark_duplicates_canonized_single(root_node: &HctlTreeNode) -> HashMap<String, i32> {
     mark_duplicates_canonized_multiple(&vec![root_node.clone()])
 }
 
 /*
 /// DEPRECATED VERSION THAT DOES NOT UTILIZE CANONIZATION, USE THE VERSION ABOVE
-/// Checks if there are some duplicate subtrees in the given syntax tree
-/// Marks (raw) duplicate sub-formulae + the number of their appearances
-/// This version does not consider canonical forms! - only recognizes identical duplicates
-/// Note that terminal nodes (props, vars, constants) are not considered - not worth
-pub fn mark_duplicates_deprecated(root_node: &Node) -> HashMap<String, i32> {
+/// Check if there are some duplicate subtrees in the given syntax tree
+/// Save the (raw) duplicate sub-formulae + the number of their appearances
+/// This version does not consider canonical forms! - only recognizes fully identical duplicates
+/// Note that terminal nodes (props, vars, constants) are not considered
+pub fn mark_duplicates_deprecated(root_node: &HctlTreeNode) -> HashMap<String, i32> {
     // go through the nodes from top, use height to compare only those with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
     let mut duplicates: HashMap<String, i32> = HashMap::new();
-    let mut heap_queue: BinaryHeap<&Node> = BinaryHeap::new();
+    let mut heap_queue: BinaryHeap<&HctlTreeNode> = BinaryHeap::new();
 
     let mut last_height = root_node.height.clone();
     let mut same_height_node_strings: HashSet<String> = HashSet::new();
@@ -170,13 +175,13 @@ mod tests {
         mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
     };
     use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::tokenizer::tokenize_formula;
+    use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
     use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
     #[test]
-    /// Compare automatically detected duplicate sub-formulae to expected ones
+    /// Compare automatically detected duplicate sub-formulae to expected ones.
     fn test_duplicates_single_simple() {
         let formula = "!{x}: 3{y}: (AX {x} & AX {y})".to_string();
         let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
@@ -184,7 +189,7 @@ mod tests {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
-        let tokens = tokenize_formula(formula).unwrap();
+        let tokens = try_tokenize_formula(formula).unwrap();
         let tree = parse_hctl_formula(&tokens).unwrap();
         let modified_tree =
             check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
@@ -194,7 +199,7 @@ mod tests {
     }
 
     #[test]
-    /// Compare automatically detected duplicate sub-formulae to expected ones
+    /// Compare automatically detected duplicate sub-formulae to expected ones.
     fn test_duplicates_single_complex() {
         let formula =
             "(!{x}: 3{y}: ((AG EF {x} & AG EF {y}) & (EF {y}))) & (!{z}: EF {z})".to_string();
@@ -206,7 +211,7 @@ mod tests {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
-        let tokens = tokenize_formula(formula).unwrap();
+        let tokens = try_tokenize_formula(formula).unwrap();
         let tree = parse_hctl_formula(&tokens).unwrap();
         let modified_tree =
             check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
@@ -216,8 +221,8 @@ mod tests {
     }
 
     #[test]
-    /// Compare automatically detected duplicate sub-formulae to expected ones
-    /// Use multiple input formulae
+    /// Compare automatically detected duplicate sub-formulae to expected ones.
+    /// Use multiple input formulae.
     fn test_duplicates_multiple() {
         let formulae = vec![
             "!{x}: 3{y}: (AX {x} & AX {y})".to_string(),
@@ -234,7 +239,7 @@ mod tests {
 
         let mut trees = Vec::new();
         for formula in formulae {
-            let tokens = tokenize_formula(formula).unwrap();
+            let tokens = try_tokenize_formula(formula).unwrap();
             let tree = parse_hctl_formula(&tokens).unwrap();
             let modified_tree =
                 check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();

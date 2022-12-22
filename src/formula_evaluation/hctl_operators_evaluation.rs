@@ -1,15 +1,17 @@
+//! Contains the implementation of symbolic evaluation of HCTL operators for Boolean network models.
+
+use crate::formula_evaluation::low_level_operations::*;
+
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-use crate::formula_evaluation::eval_utils::*;
-
-/// Shortcut for negation which respects the allowed universe
+/// Shortcut for negation which respects the allowed universe.
 pub fn eval_neg(graph: &SymbolicAsyncGraph, set: &GraphColoredVertices) -> GraphColoredVertices {
     let unit_set = graph.mk_unit_colored_vertices();
     unit_set.minus(set)
 }
 
-/// Evaluates the implication operation
+/// Evaluate the implication operation.
 pub fn eval_imp(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
@@ -18,7 +20,7 @@ pub fn eval_imp(
     eval_neg(graph, left).union(right)
 }
 
-/// Evaluates the equivalence operation
+/// Evaluate the equivalence operation.
 pub fn eval_equiv(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
@@ -28,7 +30,7 @@ pub fn eval_equiv(
         .union(&eval_neg(graph, left).intersect(&eval_neg(graph, right)))
 }
 
-/// Evaluates the non-equivalence operation (xor)
+/// Evaluate the non-equivalence operation (xor).
 pub fn eval_xor(
     graph: &SymbolicAsyncGraph,
     left: &GraphColoredVertices,
@@ -37,8 +39,8 @@ pub fn eval_xor(
     eval_neg(graph, &eval_equiv(graph, left, right))
 }
 
-/// Returns set where network var (proposition in HCTL formula) given by name is true
-/// If var is invalid, panics
+/// Return a set where the network var (proposition in HCTL formula) given by `name` is true.
+/// Note that validity of formula's propositions are checked beforehand.
 pub fn eval_prop(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertices {
     // propositions are checked during preproc, and must be valid network variables
     let network_variable = graph.as_network().as_graph().find_variable(name).unwrap();
@@ -51,24 +53,25 @@ pub fn eval_prop(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertices
     )
 }
 
+/// Evaluate atomic sub-formula with only a HCTL variable.
 pub fn eval_hctl_var(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> GraphColoredVertices {
-    create_comparator(graph, hctl_var_name, None)
+    create_comparator_var_state(graph, hctl_var_name)
 }
 
-/// Evaluates binder operator - does intersection with comparator and projects out hctl var
+/// Evaluate binder operator - does intersection with comparator and projects out hctl var.
 pub fn eval_bind(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
     var_name: &str,
 ) -> GraphColoredVertices {
-    let comparator = create_comparator(graph, var_name, None);
+    let comparator = create_comparator_var_state(graph, var_name);
     let intersection = comparator.intersect(phi);
 
     // now lets project out the bdd vars coding the hctl var we want to get rid of
     project_out_hctl_var(graph, &intersection, var_name)
 }
 
-/// Evaluates existential operator - projects out given hctl var from bdd
+/// Evaluate existential quantifier - projects out given hctl var from bdd.
 pub fn eval_exists(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -77,6 +80,7 @@ pub fn eval_exists(
     project_out_hctl_var(graph, phi, var_name)
 }
 
+/// Evaluate universal quantifier.
 pub fn eval_forall(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -85,13 +89,13 @@ pub fn eval_forall(
     eval_neg(graph, &eval_exists(graph, &eval_neg(graph, phi), var_name))
 }
 
-/// Evaluates jump operator - does intersection with comparator and projects out BN variables
+/// Evaluate jump operator - does intersection with comparator and projects out BN variables.
 pub fn eval_jump(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
     var_name: &str,
 ) -> GraphColoredVertices {
-    let comparator = create_comparator(graph, var_name, None);
+    let comparator = create_comparator_var_state(graph, var_name);
     let intersection = comparator.intersect(phi);
 
     // now lets project out the bdd vars coding variables from the Boolean network
@@ -102,8 +106,8 @@ pub fn eval_jump(
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
-/// Evaluates EX operator by computing predecessors, but adds self-loops to steady states
-/// (EX phi) == PRE(phi) | (phi & steady_states)
+/// Evaluate EX operator by computing predecessors, but adds self-loops to steady states.
+/// Computation is done like `EX phi == PRE(phi) | (phi & steady_states)`
 pub fn eval_ex(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -113,7 +117,7 @@ pub fn eval_ex(
 }
 
 /*
-/// Evaluates EU operator using fixpoint algorithm
+/// Evaluate EU operator using fixpoint algorithm
 /// deprecated version, use eval_eu_saturated
 pub fn eu(
     graph: &SymbolicAsyncGraph,
@@ -130,7 +134,7 @@ pub fn eu(
     old_set
 }
 
-/// Evaluates EF operator using fixpoint algorithm
+/// Evaluate EF operator using fixpoint algorithm
 /// deprecated version, use eval_ef_saturated
 pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     let mut old_set = phi.clone();
@@ -144,13 +148,13 @@ pub fn ef(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColore
 }
  */
 
-/// Evaluates EU operator using algorithm with saturation
-/// TODO: check generating predecessors (check if including self-loops is needed)
+/// Evaluate EU operator using algorithm with saturation.
 pub fn eval_eu_saturated(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
     phi2: &GraphColoredVertices,
 ) -> GraphColoredVertices {
+    // TODO: check generating predecessors (check if including self-loops really is not needed)
     let mut result = phi2.clone();
     let mut done = false;
     while !done {
@@ -167,8 +171,8 @@ pub fn eval_eu_saturated(
     result
 }
 
-/// Evaluates EF operator via the algorithm for EU with saturation
-/// This is possible because EF(phi) = EU(true,phi)
+/// Evaluate EF operator via the algorithm for EU with saturation.
+/// This is possible because `EF(phi) = EU(true,phi)`.
 pub fn eval_ef_saturated(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -177,7 +181,7 @@ pub fn eval_ef_saturated(
     eval_eu_saturated(graph, &unit_set, phi)
 }
 
-/// Evaluates EG operator using fixpoint algorithm
+/// Evaluate EG operator using fixpoint algorithm.
 pub fn eval_eg(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -193,7 +197,7 @@ pub fn eval_eg(
     old_set
 }
 
-/// Evaluates AX operator through the EX computation
+/// Evaluate AX operator through the EX computation.
 pub fn eval_ax(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -205,7 +209,7 @@ pub fn eval_ax(
     )
 }
 
-/// Evaluates AF operator using the EG computation
+/// Evaluate AF operator using the EG computation.
 pub fn eval_af(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
@@ -217,12 +221,12 @@ pub fn eval_af(
     )
 }
 
-/// Evaluates AG operator using the EF computation
+/// Evaluate AG operator using the EF computation.
 pub fn eval_ag(graph: &SymbolicAsyncGraph, phi: &GraphColoredVertices) -> GraphColoredVertices {
     eval_neg(graph, &eval_ef_saturated(graph, &eval_neg(graph, phi)))
 }
 
-/// Evaluates AU operator using the fixpoint algorithm
+/// Evaluate AU operator using the fixpoint algorithm.
 pub fn eval_au(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
@@ -239,7 +243,7 @@ pub fn eval_au(
     old_set
 }
 
-/// Evaluates EW operator using the AU computation
+/// Evaluate EW operator using the AU computation.
 pub fn eval_ew(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
@@ -257,7 +261,7 @@ pub fn eval_ew(
     )
 }
 
-/// Evaluates AW using the EU computation
+/// Evaluate AW using the EU computation.
 pub fn eval_aw(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,

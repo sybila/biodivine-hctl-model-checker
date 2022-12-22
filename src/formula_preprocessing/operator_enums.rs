@@ -1,6 +1,8 @@
+//! Contains enum structures for different kinds of HCTL operators and formula components.
+
 use std::fmt;
 
-/// Enum for all possible unary operators occurring in a HCTL formula string
+/// Enum for all possible unary operators occurring in a HCTL formula string.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum UnaryOp {
     Not, // '~'
@@ -12,7 +14,7 @@ pub enum UnaryOp {
     Ag,  // 'AG'
 }
 
-/// Enum for all possible binary operators occurring in a HCTL formula string
+/// Enum for all possible binary operators occurring in a HCTL formula string.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum BinaryOp {
     And, // '&'
@@ -26,7 +28,7 @@ pub enum BinaryOp {
     Aw,  // 'AW'
 }
 
-/// Enum for all possible hybrid operators occurring in a HCTL formula string
+/// Enum for all possible hybrid operators occurring in a HCTL formula string.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum HybridOp {
     Bind,   // '!'
@@ -35,7 +37,7 @@ pub enum HybridOp {
     Forall, // 'V'
 }
 
-/// Enum for atomic formulas - propositions, variables, constants
+/// Enum for atomic sub-formulae - propositions, variables, and constants.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum Atomic {
     Prop(String), // A proposition name

@@ -1,7 +1,8 @@
+//! Print results of the computation, either aggregated version only, or a full set of satisfying states.
+
 use biodivine_lib_param_bn::biodivine_std::bitvector::BitVector;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-use std::fs::File;
 use std::io::Write;
 use std::time::SystemTime;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -14,17 +15,18 @@ pub enum PrintOptions {
     FullPrint,
 }
 
-/// Prints given text only if the correct print options are selected (long or full)
-pub fn print_if_allowed(text: String, print_options: PrintOptions) {
+/// Print the given text, but only if the correct print options are selected (long or full).
+/// This simplifies the code regarding printing (no redundant if statements).
+pub(crate) fn print_if_allowed(text: String, print_options: PrintOptions) {
     if print_options == PrintOptions::NoPrint || print_options == PrintOptions::ShortPrint {
         return;
     }
     println!("{}", text)
 }
 
-/// Prints general info about the resulting set of colored vertices - the cardinality of the whole
-/// set and its projections to colors and vertices (and the computation time)
-pub fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime) {
+/// Print general info about the resulting set of colored vertices - the cardinality of the whole
+/// set and its projections to colors and vertices (and the computation time).
+pub(crate) fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime) {
     println!(
         "Time to eval formula: {}ms",
         start_time.elapsed().unwrap().as_millis()
@@ -35,21 +37,22 @@ pub fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime)
     println!("-----");
 }
 
-/// Prints the general info about the resulting set and then valuations for all contained
-/// color-vertex pairs
-/// If param `show_names` is true, full proposition names are displayed (otherwise 0/1 only)
-pub fn print_results_full(
+/// Print the general info about the resulting set and then prints all states which are included
+/// in the resulting set for at least one color.
+/// If param `show_names` is false, the states are displayed as a vector of 0/1; otherwise the full
+/// proposition names are displayed.
+pub(crate) fn print_results_full(
     graph: &SymbolicAsyncGraph,
     results: &GraphColoredVertices,
     start_time: SystemTime,
     show_names: bool,
 ) {
-    // first print general info
+    // first print general summarizing information
     summarize_results(results, start_time);
 
     let network = graph.as_network();
     for valuation in results.vertices().materialize().iter() {
-        // colored var names version
+        // print either colored (green/red) variable literals in conjunction
         if show_names {
             let variable_name_strings = network
                 .variables()
@@ -74,7 +77,7 @@ pub fn print_results_full(
                 .unwrap();
             println!();
         }
-        // just 0/1 valuation vector version
+        // print just Boolean valuation vector of 0/1
         else {
             let mut valuation_str = String::new();
             for j in 0..valuation.len() {
@@ -84,19 +87,4 @@ pub fn print_results_full(
         }
     }
     println!("-----");
-}
-
-/// Prints 0/1 vectors for all states from the given set to the given `file`
-#[allow(dead_code)]
-pub fn write_states_to_file(mut file: &File, set_of_states: &GraphColoredVertices) {
-    writeln!(file, "{}", set_of_states.vertices().approx_cardinality()).unwrap();
-    for valuation in set_of_states.vertices().materialize().iter() {
-        let mut valuation_str = String::new();
-        for j in 0..valuation.len() {
-            valuation_str.push(if valuation.get(j) { '1' } else { '0' });
-        }
-        valuation_str.push('\n');
-        file.write_all(valuation_str.as_bytes()).unwrap();
-    }
-    file.write_all("--------------\n".as_bytes()).unwrap();
 }

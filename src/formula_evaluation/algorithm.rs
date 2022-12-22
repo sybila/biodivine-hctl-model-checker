@@ -1,10 +1,12 @@
+//! Contains the high-level model-checking algorithm and few optimisations.
+
 use crate::aeon::scc_computation::compute_attractor_states;
 use crate::formula_evaluation::canonization::get_canonical_and_mapping;
-use crate::formula_evaluation::eval_hctl_components::*;
 use crate::formula_evaluation::eval_info::EvalInfo;
-use crate::formula_evaluation::eval_utils::substitute_hctl_var;
-use crate::formula_preprocessing::operation_enums::*;
-use crate::formula_preprocessing::parser::{Node, NodeType};
+use crate::formula_evaluation::hctl_operators_evaluation::*;
+use crate::formula_evaluation::low_level_operations::substitute_hctl_var;
+use crate::formula_preprocessing::node::{HctlTreeNode, NodeType};
+use crate::formula_preprocessing::operator_enums::*;
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::fixed_points::FixedPoints;
@@ -12,25 +14,11 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, Symboli
 
 use std::collections::HashMap;
 
-/// Same as previous fn, but UNSAFE
-/// It does not explicitly compute states with self-loops, but instead allows caller to provide them
-/// which is useful 1) when computing several properties on the same model
-/// or 2) if we want to ignore self-loops (optimisation that may be valid sometimes)
-/// Do not use if you are not sure that it does not affect the result
-pub fn eval_minimized_tree_unsafe_ex(
-    tree: Node,
-    graph: &SymbolicAsyncGraph,
-    self_loop_states: GraphColoredVertices,
-) -> GraphColoredVertices {
-    let mut eval_info = EvalInfo::from_single_tree(&tree);
-    eval_node(tree, graph, &mut eval_info, &self_loop_states)
-}
-
-/// Recursively evaluates the formula sub-tree `node` on the given `graph`
-/// Uses pre-computed set of `duplicate` sub-formulae to allow for caching
-/// `steady_states` are needed to include self-loops in computing predecessors
+/// Recursively evaluate the formula represented by a sub-tree `node` on the given `graph`.
+/// Uses pre-computed set of `duplicate` sub-formulae to allow for caching.
+/// The `steady_states` are needed to include self-loops in computing predecessors.
 pub fn eval_node(
-    node: Node,
+    node: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
     eval_info: &mut EvalInfo,
     steady_states: &GraphColoredVertices,
@@ -207,9 +195,9 @@ pub fn eval_node(
     result
 }
 
-/// Checks whether node represents formula for attractors !{x}: AG EF {x}
-/// This recognition step is used to later optimize the attractor pattern
-fn is_attractor_pattern(node: Node) -> bool {
+/// Check whether a node represents the formula pattern for attractors `!{x}: AG EF {x}`.
+/// This recognition step is used to later optimize the attractor pattern.
+fn is_attractor_pattern(node: HctlTreeNode) -> bool {
     match node.node_type {
         NodeType::HybridNode(HybridOp::Bind, var1, child1) => match child1.node_type {
             NodeType::UnaryNode(UnaryOp::Ag, child2) => match child2.node_type {
@@ -225,9 +213,9 @@ fn is_attractor_pattern(node: Node) -> bool {
     }
 }
 
-/// Checks whether node represents formula for fixed-points !{x}: AX {x}
-/// This recognition step is used to later optimize the fixed-point pattern
-fn is_fixed_point_pattern(node: Node) -> bool {
+/// Check whether a node represents the formula pattern for fixed-points `!{x}: AX {x}`.
+/// This recognition step is used to later optimize the fixed-point pattern.
+fn is_fixed_point_pattern(node: HctlTreeNode) -> bool {
     match node.node_type {
         NodeType::HybridNode(HybridOp::Bind, var1, child1) => match child1.node_type {
             NodeType::UnaryNode(UnaryOp::Ax, child2) => match child2.node_type {
@@ -240,9 +228,9 @@ fn is_fixed_point_pattern(node: Node) -> bool {
     }
 }
 
-/// Wrapper for steady state computation
+/// Wrapper for the computation of steady states.
 /// Steady states are used for explicitly adding self-loops during the EX computation
-/// Can also be used as optimised procedure for formula "!{x}: AX {x}"
+/// Can also be used as optimised procedure for formula `!{x}: AX {x}`.
 pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     FixedPoints::symbolic(graph, &graph.mk_unit_colored_vertices())
     /*

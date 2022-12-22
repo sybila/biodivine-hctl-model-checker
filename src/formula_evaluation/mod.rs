@@ -1,7 +1,9 @@
+//! Components regarding the evaluation of formulae, including the main model-checking algorithm.
+
 pub mod algorithm;
-pub mod eval_hctl_components;
 pub mod eval_info;
+pub mod mark_duplicate_subform;
 
 mod canonization;
-mod eval_utils;
-mod mark_duplicate_subform;
+mod hctl_operators_evaluation;
+mod low_level_operations;
