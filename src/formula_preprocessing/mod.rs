@@ -4,5 +4,6 @@
 pub mod node;
 pub mod operator_enums;
 pub mod parser;
+pub mod read_inputs;
 pub mod tokenizer;
 pub mod vars_props_manipulation;

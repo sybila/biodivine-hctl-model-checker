@@ -28,6 +28,10 @@ path = "src/main.rs"
 name = "convert-aeon-to-bnet"
 path = "src/bin/convert_aeon_to_bnet.rs"
 
+[[bin]]
+name = "classification"
+path = "src/bin/classification.rs"
+
 [dependencies]
 biodivine-lib-bdd = ">=0.4.2, <1.0.0"
 biodivine-lib-param-bn = "0.4.2"

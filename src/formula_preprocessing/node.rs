@@ -102,3 +102,5 @@ pub fn create_binary(
         node_type: NodeType::BinaryNode(op, left, right),
     }
 }
+
+// TODO: make "create_var", "create_prop", and "create_constant" functions similar to previous

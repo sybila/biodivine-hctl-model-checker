@@ -69,6 +69,31 @@ fn check_hctl_var_support(stg: &SymbolicAsyncGraph, num_hctl_vars: usize) -> boo
     true
 }
 
+/// Perform the model checking for the list of HCTL syntax trees on GIVEN graph.
+/// Return the list of resulting sets of colored vertices (in the same order as input formulae).
+/// There MUST be enough symbolic variables to represent HCTL vars.
+pub fn model_check_trees(
+    formula_trees: Vec<HctlTreeNode>,
+    stg: &SymbolicAsyncGraph,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    // find duplicate sub-formulae throughout all formulae + initiate caching structures
+    let mut eval_info = EvalInfo::from_multiple_trees(&formula_trees);
+    // compute states with self-loops which will be needed, and add them to graph object
+    let self_loop_states = compute_steady_states(stg);
+
+    // evaluate the formulae (perform the actual model checking) and collect results
+    let mut results: Vec<GraphColoredVertices> = Vec::new();
+    for parse_tree in formula_trees {
+        results.push(eval_node(
+            parse_tree,
+            stg,
+            &mut eval_info,
+            &self_loop_states,
+        ));
+    }
+    Ok(results)
+}
+
 /// Perform the model checking for the list of formulae on GIVEN graph and return the list
 /// of resulting sets of colored vertices (in the same order as input formulae).
 /// Return Error if the given extended symbolic graph does not support enough extra BDD variables to
@@ -95,22 +120,8 @@ pub fn model_check_multiple_formulae(
         parsed_trees.push(modified_tree);
     }
 
-    // find duplicate sub-formulae throughout all formulae + initiate caching structures
-    let mut eval_info = EvalInfo::from_multiple_trees(&parsed_trees);
-    // compute states with self-loops which will be needed, and add them to graph object
-    let self_loop_states = compute_steady_states(stg);
-
-    // evaluate the formulae (perform the actual model checking) and collect results
-    let mut results: Vec<GraphColoredVertices> = Vec::new();
-    for parse_tree in parsed_trees {
-        results.push(eval_node(
-            parse_tree,
-            stg,
-            &mut eval_info,
-            &self_loop_states,
-        ));
-    }
-    Ok(results)
+    // run the main model-checking procedure on formulae trees
+    model_check_trees(parsed_trees, stg)
 }
 
 /// Perform the model checking for given formula on GIVEN graph and return the resulting
@@ -285,6 +296,8 @@ DivK -?? PleC
     /// Test evaluation of several important formulae on model ASYMMETRIC-CELL-DIVISION-B.
     /// Compare numbers of results with the numbers acquired by Python model checker or AEON.
     fn test_model_check_basic_formulae_cell_division() {
+        // TODO replace or divide, because takes too much time
+
         // tuples consisting of <formula, num_total, num_colors, num_states>
         // num_x are numbers of expected results
         let test_tuples = vec![
