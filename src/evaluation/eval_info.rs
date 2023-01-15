@@ -1,9 +1,9 @@
 //! Contains the structure to hold useful data to speed-up the computation.
 
-use crate::formula_evaluation::mark_duplicate_subform::{
+use crate::evaluation::mark_duplicate_subform::{
     mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
 };
-use crate::formula_preprocessing::node::HctlTreeNode;
+use crate::preprocessing::node::HctlTreeNode;
 
 use biodivine_lib_param_bn::symbolic_async_graph::GraphColoredVertices;
 

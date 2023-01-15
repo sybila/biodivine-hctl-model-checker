@@ -7,9 +7,9 @@
 //!  - hybrid operators: 8
 //!
 
-use crate::formula_preprocessing::node::*;
-use crate::formula_preprocessing::operator_enums::*;
-use crate::formula_preprocessing::tokenizer::Token;
+use crate::preprocessing::node::*;
+use crate::preprocessing::operator_enums::*;
+use crate::preprocessing::tokenizer::Token;
 
 /// Predicate for whether given token represents hybrid operator.
 fn is_hybrid(token: &Token) -> bool {
@@ -233,10 +233,10 @@ fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<HctlTreeNode
 
 #[cfg(test)]
 mod tests {
-    use crate::formula_preprocessing::node::*;
-    use crate::formula_preprocessing::operator_enums::*;
-    use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
+    use crate::preprocessing::node::*;
+    use crate::preprocessing::operator_enums::*;
+    use crate::preprocessing::parser::parse_hctl_formula;
+    use crate::preprocessing::tokenizer::try_tokenize_formula;
 
     #[test]
     /// Test whether several valid HCTL formulae are parsed without causing errors.

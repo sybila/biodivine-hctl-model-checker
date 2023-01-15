@@ -1,6 +1,6 @@
 //! Contains a syntax tree struct for HCTL formulae and functionality regarding the manipulation with it.
 
-use crate::formula_preprocessing::operator_enums::*;
+use crate::preprocessing::operator_enums::*;
 
 use std::cmp;
 use std::cmp::Ordering;

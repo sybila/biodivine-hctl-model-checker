@@ -3,14 +3,14 @@
 pub mod generate_output;
 
 use crate::bn_classification::generate_output::write_class_report_and_dump_bdds;
-use crate::formula_preprocessing::node::HctlTreeNode;
-use crate::formula_preprocessing::parser::parse_hctl_formula;
-use crate::formula_preprocessing::read_inputs::load_formulae;
-use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
-use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
 use crate::model_checking::{
     collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_trees,
 };
+use crate::preprocessing::node::HctlTreeNode;
+use crate::preprocessing::parser::parse_hctl_formula;
+use crate::preprocessing::read_inputs::load_formulae;
+use crate::preprocessing::tokenizer::try_tokenize_formula;
+use crate::preprocessing::utils::check_props_and_rename_vars;
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;

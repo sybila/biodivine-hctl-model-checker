@@ -1,3 +1,9 @@
+[![Crates.io](https://img.shields.io/crates/v/biodivine-hctl-model-checker?style=flat-square)](https://crates.io/crates/biodivine-hctl-model-checker)
+[![Api Docs](https://img.shields.io/badge/docs-api-yellowgreen?style=flat-square)](https://docs.rs/biodivine-hctl-model-checker/)
+[![GitHub last commit](https://img.shields.io/github/last-commit/sybila/biodivine-hctl-model-checker?style=flat-square)](https://github.com/sybila/biodivine-hctl-model-checker/commits/master)
+[![Crates.io](https://img.shields.io/crates/l/biodivine-hctl-model-checker?style=flat-square)](https://github.com/sybila/biodivine-hctl-model-checker/blob/master/LICENSE)
+
+
 # Symbolic model checker for logic HCTL written in RUST
 
 This repository contains the Rust implementation of the symbolic model checker for hybrid logic HCTL. 

@@ -1,6 +1,6 @@
 //! Contains functionality regarding the tokenizing of HCTL formula string.
 
-use crate::formula_preprocessing::operator_enums::*;
+use crate::preprocessing::operator_enums::*;
 
 use std::fmt;
 use std::iter::Peekable;
@@ -278,8 +278,8 @@ pub fn print_tokens(tokens: &Vec<Token>) {
 
 #[cfg(test)]
 mod tests {
-    use crate::formula_preprocessing::operator_enums::*;
-    use crate::formula_preprocessing::tokenizer::{try_tokenize_formula, Token};
+    use crate::preprocessing::operator_enums::*;
+    use crate::preprocessing::tokenizer::{try_tokenize_formula, Token};
 
     #[test]
     /// Test tokenization process on several valid HCTL formulae.

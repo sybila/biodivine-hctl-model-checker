@@ -11,7 +11,7 @@ readme = "README.md"
 keywords = ["hctl", "model-checking", "boolean-network", "symbolic", "systems-biology"]
 categories = ["science", "simulation"]
 license = "MIT"
-exclude = ["benchmark_models"]
+exclude = ["benchmark_models", ".github", ".githooks"]
 
 
 #[profile.release]
@@ -29,12 +29,12 @@ name = "convert-aeon-to-bnet"
 path = "src/bin/convert_aeon_to_bnet.rs"
 
 [[bin]]
-name = "classification"
-path = "src/bin/classification.rs"
+name = "classifier"
+path = "src/bin/classifier.rs"
 
 [[bin]]
-name = "load-classification"
-path = "src/bin/load_classification.rs"
+name = "load-classifier-output"
+path = "src/bin/load_classifier_output.rs"
 
 [dependencies]
 biodivine-lib-bdd = ">=0.4.2, <1.0.0"

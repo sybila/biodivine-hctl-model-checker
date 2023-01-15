@@ -7,7 +7,7 @@
 //!
 
 use biodivine_hctl_model_checker::analysis::analyse_formulae;
-use biodivine_hctl_model_checker::formula_preprocessing::read_inputs::{
+use biodivine_hctl_model_checker::preprocessing::read_inputs::{
     load_and_parse_bn_model, load_formulae,
 };
 use biodivine_hctl_model_checker::result_print::PrintOptions;
