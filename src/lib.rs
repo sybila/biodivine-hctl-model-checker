@@ -7,6 +7,7 @@
 //!
 
 pub mod analysis;
+pub mod bn_classification;
 pub mod formula_evaluation;
 pub mod formula_preprocessing;
 pub mod model_checking;

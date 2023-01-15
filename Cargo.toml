@@ -32,6 +32,10 @@ path = "src/bin/convert_aeon_to_bnet.rs"
 name = "classification"
 path = "src/bin/classification.rs"
 
+[[bin]]
+name = "load-classification"
+path = "src/bin/load_classification.rs"
+
 [dependencies]
 biodivine-lib-bdd = ">=0.4.2, <1.0.0"
 biodivine-lib-param-bn = "0.4.2"

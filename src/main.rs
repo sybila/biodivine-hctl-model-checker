@@ -55,8 +55,8 @@ fn main() {
     }
 
     // read the model and formulae
-    let formulae = load_formulae(args.formulae_path);
-    let maybe_bn = load_and_parse_bn_model(args.model_format.as_str(), args.model_path);
+    let formulae = load_formulae(args.formulae_path.as_str());
+    let maybe_bn = load_and_parse_bn_model(args.model_format.as_str(), args.model_path.as_str());
     if maybe_bn.is_err() {
         println!("Model does not have correct format");
         return;

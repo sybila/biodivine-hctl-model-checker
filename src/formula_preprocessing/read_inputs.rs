@@ -5,7 +5,7 @@ use std::fs::read_to_string;
 
 /// Load and parse the BN model in a given format from the specified file.
 /// Return error if model is invalid.
-pub fn load_and_parse_bn_model(format: &str, model_path: String) -> Result<BooleanNetwork, String> {
+pub fn load_and_parse_bn_model(format: &str, model_path: &str) -> Result<BooleanNetwork, String> {
     let model_string = read_to_string(model_path).unwrap();
     return match format {
         "aeon" => BooleanNetwork::try_from(model_string.as_str()),
@@ -20,7 +20,7 @@ pub fn load_and_parse_bn_model(format: &str, model_path: String) -> Result<Boole
 
 /// Read the formulae from the specified file.
 /// The syntax of these formulae is checked later during parsing.
-pub fn load_formulae(formulae_path: String) -> Vec<String> {
+pub fn load_formulae(formulae_path: &str) -> Vec<String> {
     let formulae_string = read_to_string(formulae_path).unwrap();
     let mut formulae: Vec<String> = Vec::new();
     for line in formulae_string.lines() {
