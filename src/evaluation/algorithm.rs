@@ -1,12 +1,12 @@
 //! Contains the high-level model-checking algorithm and few optimisations.
 
 use crate::aeon::scc_computation::compute_attractor_states;
-use crate::formula_evaluation::canonization::get_canonical_and_mapping;
-use crate::formula_evaluation::eval_info::EvalInfo;
-use crate::formula_evaluation::hctl_operators_evaluation::*;
-use crate::formula_evaluation::low_level_operations::substitute_hctl_var;
-use crate::formula_preprocessing::node::{HctlTreeNode, NodeType};
-use crate::formula_preprocessing::operator_enums::*;
+use crate::evaluation::canonization::get_canonical_and_mapping;
+use crate::evaluation::eval_info::EvalInfo;
+use crate::evaluation::hctl_operators_evaluation::*;
+use crate::evaluation::low_level_operations::substitute_hctl_var;
+use crate::preprocessing::node::{HctlTreeNode, NodeType};
+use crate::preprocessing::operator_enums::*;
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::fixed_points::FixedPoints;
@@ -258,4 +258,50 @@ pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices
         context,
     )
      */
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::evaluation::algorithm::{is_attractor_pattern, is_fixed_point_pattern};
+    use crate::preprocessing::node::*;
+    use crate::preprocessing::operator_enums::*;
+
+    #[test]
+    /// Test recognition of fixed-point pattern.
+    fn test_fixed_point_pattern() {
+        let tree = create_hybrid(
+            Box::new(create_unary(
+                Box::new(HctlTreeNode {
+                    subform_str: "{x}".to_string(),
+                    height: 0,
+                    node_type: NodeType::TerminalNode(Atomic::Var("x".to_string())),
+                }),
+                UnaryOp::Ax,
+            )),
+            "x".to_string(),
+            HybridOp::Bind,
+        );
+        assert!(is_fixed_point_pattern(tree));
+    }
+
+    #[test]
+    /// Test recognition of attractor pattern.
+    fn test_attractor_pattern() {
+        let tree = create_hybrid(
+            Box::new(create_unary(
+                Box::new(create_unary(
+                    Box::new(HctlTreeNode {
+                        subform_str: "{x}".to_string(),
+                        height: 0,
+                        node_type: NodeType::TerminalNode(Atomic::Var("x".to_string())),
+                    }),
+                    UnaryOp::Ef,
+                )),
+                UnaryOp::Ag,
+            )),
+            "x".to_string(),
+            HybridOp::Bind,
+        );
+        assert!(is_attractor_pattern(tree));
+    }
 }

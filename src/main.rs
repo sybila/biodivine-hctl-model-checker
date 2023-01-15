@@ -7,13 +7,14 @@
 //!
 
 use biodivine_hctl_model_checker::analysis::analyse_formulae;
+use biodivine_hctl_model_checker::preprocessing::read_inputs::{
+    load_and_parse_bn_model, load_formulae,
+};
 use biodivine_hctl_model_checker::result_print::PrintOptions;
-use biodivine_lib_param_bn::BooleanNetwork;
 
 use clap::builder::PossibleValuesParser;
 use clap::Parser;
 
-use std::fs::read_to_string;
 use std::path::Path;
 
 /// Structure to collect CLI arguments
@@ -39,34 +40,6 @@ struct Arguments {
     print_option: String,
 }
 
-/// Load and parse the BN model in a given format from the specified file.
-/// Return error if model is invalid.
-fn load_and_parse_bn_model(format: &str, model_path: String) -> Result<BooleanNetwork, String> {
-    let model_string = read_to_string(model_path).unwrap();
-    return match format {
-        "aeon" => BooleanNetwork::try_from(model_string.as_str()),
-        "sbml" => Ok(BooleanNetwork::try_from_sbml(model_string.as_str())
-            .unwrap()
-            .0),
-        "bnet" => BooleanNetwork::try_from_bnet(model_string.as_str()),
-        // this cant really happen, just here to be exhaustive
-        _ => Err("Invalid model format".to_string()),
-    };
-}
-
-/// Read the formulae from the specified file.
-/// The syntax of these formulae is checked later during parsing.
-fn load_formulae(formulae_path: String) -> Vec<String> {
-    let formulae_string = read_to_string(formulae_path).unwrap();
-    let mut formulae: Vec<String> = Vec::new();
-    for line in formulae_string.lines() {
-        if !line.trim().is_empty() {
-            formulae.push(line.trim().to_string());
-        }
-    }
-    formulae
-}
-
 /// Wrapper function to invoke the model checker, works with CLI arguments.
 fn main() {
     let args = Arguments::parse();
@@ -77,13 +50,13 @@ fn main() {
         return;
     }
     if !Path::new(args.model_path.as_str()).is_file() {
-        println!("{} is not valid file", args.formulae_path);
+        println!("{} is not valid file", args.model_path);
         return;
     }
 
     // read the model and formulae
-    let formulae = load_formulae(args.formulae_path);
-    let maybe_bn = load_and_parse_bn_model(args.model_format.as_str(), args.model_path);
+    let formulae = load_formulae(args.formulae_path.as_str());
+    let maybe_bn = load_and_parse_bn_model(args.model_format.as_str(), args.model_path.as_str());
     if maybe_bn.is_err() {
         println!("Model does not have correct format");
         return;

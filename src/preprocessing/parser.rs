@@ -7,9 +7,9 @@
 //!  - hybrid operators: 8
 //!
 
-use crate::formula_preprocessing::node::*;
-use crate::formula_preprocessing::operator_enums::*;
-use crate::formula_preprocessing::tokenizer::Token;
+use crate::preprocessing::node::*;
+use crate::preprocessing::operator_enums::*;
+use crate::preprocessing::tokenizer::Token;
 
 /// Predicate for whether given token represents hybrid operator.
 fn is_hybrid(token: &Token) -> bool {
@@ -233,11 +233,13 @@ fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<HctlTreeNode
 
 #[cfg(test)]
 mod tests {
-    use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
+    use crate::preprocessing::node::*;
+    use crate::preprocessing::operator_enums::*;
+    use crate::preprocessing::parser::parse_hctl_formula;
+    use crate::preprocessing::tokenizer::try_tokenize_formula;
 
     #[test]
-    /// Test parsing of several valid HCTL formulae.
+    /// Test whether several valid HCTL formulae are parsed without causing errors.
     fn test_parse_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}".to_string();
         let tokens1 = try_tokenize_formula(valid1).unwrap();
@@ -250,6 +252,43 @@ mod tests {
         let valid3 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))".to_string();
         let tokens3 = try_tokenize_formula(valid3).unwrap();
         assert!(parse_hctl_formula(&tokens3).is_ok());
+    }
+
+    #[test]
+    /// Test parsing of several valid HCTL formulae against expected results.
+    fn compare_parser_with_expected() {
+        let formula = "(false & p1)".to_string();
+        let tokens = try_tokenize_formula(formula).unwrap();
+        let expected_tree = create_binary(
+            Box::new(HctlTreeNode {
+                subform_str: "False".to_string(),
+                height: 0,
+                node_type: NodeType::TerminalNode(Atomic::False),
+            }),
+            Box::new(HctlTreeNode {
+                subform_str: "p1".to_string(),
+                height: 0,
+                node_type: NodeType::TerminalNode(Atomic::Prop("p1".to_string())),
+            }),
+            BinaryOp::And,
+        );
+        assert_eq!(*parse_hctl_formula(&tokens).unwrap(), expected_tree);
+
+        let formula = "!{x}: (AX {x})".to_string();
+        let tokens = try_tokenize_formula(formula).unwrap();
+        let expected_tree = create_hybrid(
+            Box::new(create_unary(
+                Box::new(HctlTreeNode {
+                    subform_str: "{x}".to_string(),
+                    height: 0,
+                    node_type: NodeType::TerminalNode(Atomic::Var("x".to_string())),
+                }),
+                UnaryOp::Ax,
+            )),
+            "x".to_string(),
+            HybridOp::Bind,
+        );
+        assert_eq!(*parse_hctl_formula(&tokens).unwrap(), expected_tree);
     }
 
     #[test]

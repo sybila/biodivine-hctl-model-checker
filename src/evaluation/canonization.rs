@@ -116,7 +116,7 @@ pub fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<Str
 
 #[cfg(test)]
 mod tests {
-    use crate::formula_evaluation::canonization::{get_canonical, get_canonical_and_mapping};
+    use crate::evaluation::canonization::{get_canonical, get_canonical_and_mapping};
     use std::collections::HashMap;
 
     #[test]

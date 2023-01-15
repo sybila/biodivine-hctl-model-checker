@@ -1,6 +1,6 @@
 //! Contains a syntax tree struct for HCTL formulae and functionality regarding the manipulation with it.
 
-use crate::formula_preprocessing::operator_enums::*;
+use crate::preprocessing::operator_enums::*;
 
 use std::cmp;
 use std::cmp::Ordering;
@@ -102,3 +102,5 @@ pub fn create_binary(
         node_type: NodeType::BinaryNode(op, left, right),
     }
 }
+
+// TODO: make "create_var", "create_prop", and "create_constant" functions similar to previous

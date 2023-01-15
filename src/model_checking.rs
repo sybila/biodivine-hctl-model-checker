@@ -1,12 +1,12 @@
 //! High-level functionality regarding the whole model-checking process.
 
-use crate::formula_evaluation::algorithm::{compute_steady_states, eval_node};
-use crate::formula_evaluation::eval_info::EvalInfo;
-use crate::formula_preprocessing::node::{HctlTreeNode, NodeType};
-use crate::formula_preprocessing::operator_enums::HybridOp;
-use crate::formula_preprocessing::parser::parse_hctl_formula;
-use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
-use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
+use crate::evaluation::algorithm::{compute_steady_states, eval_node};
+use crate::evaluation::eval_info::EvalInfo;
+use crate::preprocessing::node::{HctlTreeNode, NodeType};
+use crate::preprocessing::operator_enums::HybridOp;
+use crate::preprocessing::parser::parse_hctl_formula;
+use crate::preprocessing::tokenizer::try_tokenize_formula;
+use crate::preprocessing::utils::check_props_and_rename_vars;
 
 use biodivine_lib_param_bn::symbolic_async_graph::{
     GraphColoredVertices, SymbolicAsyncGraph, SymbolicContext,
@@ -69,6 +69,31 @@ fn check_hctl_var_support(stg: &SymbolicAsyncGraph, num_hctl_vars: usize) -> boo
     true
 }
 
+/// Perform the model checking for the list of HCTL syntax trees on GIVEN graph.
+/// Return the list of resulting sets of colored vertices (in the same order as input formulae).
+/// There MUST be enough symbolic variables to represent HCTL vars.
+pub fn model_check_trees(
+    formula_trees: Vec<HctlTreeNode>,
+    stg: &SymbolicAsyncGraph,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    // find duplicate sub-formulae throughout all formulae + initiate caching structures
+    let mut eval_info = EvalInfo::from_multiple_trees(&formula_trees);
+    // compute states with self-loops which will be needed, and add them to graph object
+    let self_loop_states = compute_steady_states(stg);
+
+    // evaluate the formulae (perform the actual model checking) and collect results
+    let mut results: Vec<GraphColoredVertices> = Vec::new();
+    for parse_tree in formula_trees {
+        results.push(eval_node(
+            parse_tree,
+            stg,
+            &mut eval_info,
+            &self_loop_states,
+        ));
+    }
+    Ok(results)
+}
+
 /// Perform the model checking for the list of formulae on GIVEN graph and return the list
 /// of resulting sets of colored vertices (in the same order as input formulae).
 /// Return Error if the given extended symbolic graph does not support enough extra BDD variables to
@@ -95,22 +120,8 @@ pub fn model_check_multiple_formulae(
         parsed_trees.push(modified_tree);
     }
 
-    // find duplicate sub-formulae throughout all formulae + initiate caching structures
-    let mut eval_info = EvalInfo::from_multiple_trees(&parsed_trees);
-    // compute states with self-loops which will be needed, and add them to graph object
-    let self_loop_states = compute_steady_states(stg);
-
-    // evaluate the formulae (perform the actual model checking) and collect results
-    let mut results: Vec<GraphColoredVertices> = Vec::new();
-    for parse_tree in parsed_trees {
-        results.push(eval_node(
-            parse_tree,
-            stg,
-            &mut eval_info,
-            &self_loop_states,
-        ));
-    }
-    Ok(results)
+    // run the main model-checking procedure on formulae trees
+    model_check_trees(parsed_trees, stg)
 }
 
 /// Perform the model checking for given formula on GIVEN graph and return the resulting
@@ -160,14 +171,15 @@ pub fn model_check_formula_unsafe_ex(
 
 #[cfg(test)]
 mod tests {
-    use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
-    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
     use crate::model_checking::{
         collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_formula,
     };
+    use crate::preprocessing::parser::parse_hctl_formula;
+    use crate::preprocessing::tokenizer::try_tokenize_formula;
+    use crate::preprocessing::utils::check_props_and_rename_vars;
 
     use biodivine_lib_param_bn::BooleanNetwork;
+
     use std::collections::{HashMap, HashSet};
 
     // model FISSION-YEAST-2008
@@ -199,7 +211,7 @@ v_UbcH10, (((((v_UbcH10 & ((v_Cdh1 & ((v_CycB | v_Cdc20) | v_CycA)) | !v_Cdh1)) 
 v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27) | v_CycB) | v_CycD) | v_CycA))
 ";
 
-    // fully parametrized version of the model ASYMMETRIC-CELL-DIVISION-B
+    // largely parametrized version of the model ASYMMETRIC-CELL-DIVISION-B
     const MODEL_ASYMMETRIC_CELL_DIVISION: &str = r"
 DivJ -?? DivK
 PleC -?? DivK
@@ -213,6 +225,9 @@ ClpXP_RcdA -?? CtrAb
 DivK -?? DivJ
 PleC -?? DivJ
 DivK -?? PleC
+$CckA: DivL
+$ChpT: CckA
+$DivK: (!PleC & DivJ)
 ";
 
     /// Run the evaluation tests for the set of given formulae on given model.
@@ -288,15 +303,15 @@ DivK -?? PleC
         // tuples consisting of <formula, num_total, num_colors, num_states>
         // num_x are numbers of expected results
         let test_tuples = vec![
-            ("!{x}: AG EF {x}", 109428736., 16777216., 512.),
-            ("!{x}: AX {x}", 16777216., 13631488., 512.),
-            ("!{x}: AX EF {x}", 143294464., 16777216., 512.),
-            ("AF (!{x}: AX {x})", 5670699008., 13631488., 512.),
-            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 6291456., 3145728., 512.),
-            ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 5767168., 3014656., 512.),
-            ("!{x}: (AX (AF {x}))", 21102592., 14909440., 512.),
-            ("AF (!{x}: (AX (~{x} & AF {x})))", 9830400., 1277952., 512.),
-            ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 4718592., 589824., 512.),
+            ("!{x}: AG EF {x}", 1097728., 65536., 512.),
+            ("!{x}: AX {x}", 65536., 53248., 64.),
+            ("!{x}: AX EF {x}", 1499136., 65536., 512.),
+            ("AF (!{x}: AX {x})", 21430272., 53248., 512.),
+            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 24576., 12288., 64.),
+            ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 24576., 12288., 48.),
+            ("!{x}: (AX (AF {x}))", 84992., 59392., 112.),
+            ("AF (!{x}: (AX (~{x} & AF {x})))", 49152., 6144., 128.),
+            ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 28672., 3584., 128.),
             // TODO: more tests regarding formulae for inference using concrete observations
         ];
 
@@ -312,6 +327,8 @@ DivK -?? PleC
         let stg = get_extended_symbolic_graph(&bn, 3);
 
         let equivalent_formulae_pairs = vec![
+            // constants
+            ("true", "~ false"),
             // AU equivalence (where phi1 are attractors, and phi2 the rest)
             (
                 "(~(!{x}:AG EF{x})) AU (!{x}:AG EF{x})",
@@ -342,6 +359,11 @@ DivK -?? PleC
             (
                 "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})",
                 "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))",
+            ),
+            // quantifiers
+            (
+                "~(3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}))",
+                "V{x}: V{y}: (@{x}: {y} | ~(!{z}: AX {z})) | (@{y}: ~(!{z}: AX {z}))",
             ),
         ];
 

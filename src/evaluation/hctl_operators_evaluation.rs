@@ -1,6 +1,6 @@
 //! Contains the implementation of symbolic evaluation of HCTL operators for Boolean network models.
 
-use crate::formula_evaluation::low_level_operations::*;
+use crate::evaluation::low_level_operations::*;
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};

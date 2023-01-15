@@ -1,7 +1,7 @@
-//! Contains functionality regarding validating propositions and manipulating with variables.
+//! Contains functionality mostly regarding proposition validating, and manipulation with variables.
 
-use crate::formula_preprocessing::node::*;
-use crate::formula_preprocessing::operator_enums::{Atomic, HybridOp};
+use crate::preprocessing::node::*;
+use crate::preprocessing::operator_enums::{Atomic, HybridOp};
 
 use biodivine_lib_param_bn::BooleanNetwork;
 
@@ -98,9 +98,9 @@ pub fn check_props_and_rename_vars(
 
 #[cfg(test)]
 mod tests {
-    use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
-    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
+    use crate::preprocessing::parser::parse_hctl_formula;
+    use crate::preprocessing::tokenizer::try_tokenize_formula;
+    use crate::preprocessing::utils::check_props_and_rename_vars;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 

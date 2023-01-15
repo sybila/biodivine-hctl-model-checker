@@ -1,11 +1,11 @@
 //! Model-checking analysis from start to finish, with progress output and result prints.
 
-use crate::formula_evaluation::algorithm::{compute_steady_states, eval_node};
-use crate::formula_evaluation::eval_info::EvalInfo;
-use crate::formula_preprocessing::parser::parse_hctl_formula;
-use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
-use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
+use crate::evaluation::algorithm::{compute_steady_states, eval_node};
+use crate::evaluation::eval_info::EvalInfo;
 use crate::model_checking::{collect_unique_hctl_vars, get_extended_symbolic_graph};
+use crate::preprocessing::parser::parse_hctl_formula;
+use crate::preprocessing::tokenizer::try_tokenize_formula;
+use crate::preprocessing::utils::check_props_and_rename_vars;
 use crate::result_print::*;
 
 use biodivine_lib_param_bn::BooleanNetwork;

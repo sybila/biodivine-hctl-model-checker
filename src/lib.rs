@@ -7,9 +7,10 @@
 //!
 
 pub mod analysis;
-pub mod formula_evaluation;
-pub mod formula_preprocessing;
+pub mod bn_classification;
+pub mod evaluation;
 pub mod model_checking;
+pub mod preprocessing;
 pub mod result_print;
 
 mod aeon;

@@ -1,7 +1,8 @@
-//! Contains the functionality to search for duplicate sub-formulae in several formulae.
+//! Contains the functionality to search for duplicate sub-formulae in several formulae. This is
+//! highly useful for memoization during evaluation.
 
-use crate::formula_evaluation::canonization::{get_canonical, get_canonical_and_mapping};
-use crate::formula_preprocessing::node::{HctlTreeNode, NodeType};
+use crate::evaluation::canonization::{get_canonical, get_canonical_and_mapping};
+use crate::preprocessing::node::{HctlTreeNode, NodeType};
 
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
@@ -171,12 +172,12 @@ pub fn mark_duplicates_deprecated(root_node: &HctlTreeNode) -> HashMap<String, i
 
 #[cfg(test)]
 mod tests {
-    use crate::formula_evaluation::mark_duplicate_subform::{
+    use crate::evaluation::mark_duplicate_subform::{
         mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
     };
-    use crate::formula_preprocessing::parser::parse_hctl_formula;
-    use crate::formula_preprocessing::tokenizer::try_tokenize_formula;
-    use crate::formula_preprocessing::vars_props_manipulation::check_props_and_rename_vars;
+    use crate::preprocessing::parser::parse_hctl_formula;
+    use crate::preprocessing::tokenizer::try_tokenize_formula;
+    use crate::preprocessing::utils::check_props_and_rename_vars;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
