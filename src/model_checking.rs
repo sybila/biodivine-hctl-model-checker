@@ -327,6 +327,8 @@ $DivK: (!PleC & DivJ)
         let stg = get_extended_symbolic_graph(&bn, 3);
 
         let equivalent_formulae_pairs = vec![
+            // constants
+            ("true", "~ false"),
             // AU equivalence (where phi1 are attractors, and phi2 the rest)
             (
                 "(~(!{x}:AG EF{x})) AU (!{x}:AG EF{x})",
@@ -357,6 +359,11 @@ $DivK: (!PleC & DivJ)
             (
                 "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})",
                 "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))",
+            ),
+            // quantifiers
+            (
+                "~(3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}))",
+                "V{x}: V{y}: (@{x}: {y} | ~(!{z}: AX {z})) | (@{y}: ~(!{z}: AX {z}))",
             ),
         ];
 

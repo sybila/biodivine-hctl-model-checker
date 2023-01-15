@@ -351,6 +351,11 @@ mod tests {
             "!{x AG EF {x}",
             "!{}: AG EF {x}",
             "{x}: AG EF {x}",
+            "V{x} AG EF {x}",
+            "!{x}: AG EX {x} $",
+            "!{x}: # AG EF {x}",
+            "!{x}: AG* EF {x}",
+            "!{x}: (a EW b) =>= (c AU d)",
         ];
 
         for formula in invalid_formulae {
