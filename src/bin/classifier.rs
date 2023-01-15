@@ -33,7 +33,7 @@ struct Arguments {
     output_dir: String,
 }
 
-/// Wrapper function to invoke the classifier via model checker, works with CLI arguments.
+/// Wrapper function to invoke the classifier and feed it with CLI arguments.
 fn main() {
     let args = Arguments::parse();
     println!("Loading input files...");
