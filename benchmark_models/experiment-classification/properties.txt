@@ -1,3 +1,11 @@
+# at least two steady states
 3{x}: (3{y}: (@{x}: (AX~{y}) & (AX {x})) & (@{y}: AX {y}))
+
+# at least one steady state
 3{x}: (@{x}: AX {x})
+
+# at least one complex attractor
 3{x}: (@{x}: (~(AX {x}) & AG EF {x}))
+
+# no attractor with active Proliferation is reachable
+V{x}: (@{x}: v_Proliferation => ~(AG EF {x}))

@@ -1,1 +1,2 @@
-3{x}: (@{x}: (v_Apoptosis & v_Growth_Arrest & ~ v_Proliferation) & (AG EF (v_Apoptosis & v_Growth_Arrest & ~ v_Proliferation & {x})))
+# there must be attractor with a state where Apoptosis or GA is active and Proliferation is not
+3{x}: (@{x}: ((v_Apoptosis | v_Growth_Arrest) & ~v_Proliferation) & (AG EF ((v_Apoptosis | v_Growth_Arrest) & ~v_Proliferation & {x})))

@@ -1,4 +1,4 @@
-//! Binary for testing loading of classifier output.
+//! Binary for testing the classifier output loading.
 
 use biodivine_hctl_model_checker::bn_classification::load_classifier_output;
 
@@ -22,7 +22,7 @@ fn main() {
     // load the color sets that represent the classification results
     let color_sets = load_classifier_output(args.results_dir.as_str(), args.model_path.as_str());
 
-    for color_set in color_sets {
-        println!("{}", color_set.exact_cardinality());
+    for (name, color_set) in color_sets {
+        println!("{}: {}", name, color_set.exact_cardinality());
     }
 }

@@ -136,12 +136,12 @@ pub fn classify(
 
 /// Collect the results of classification, which are color sets encoded as BDDs.
 ///
-/// Each BDD is dumped in a file in `results_dir`. Moreover, the directory includes only these BDD
-/// files, a report, and a metadata file. Metadata file contains information regarding number of
-/// extended symbolic HCTL variables supported by the BDDs.
+/// Each BDD is dumped in a file in `results_dir`. Moreover, excluding these BDD files, the dir
+/// contains a report and a metadata file. Metadata file contains information regarding the number
+/// of extended symbolic HCTL variables supported by the BDDs.
 /// The file at `model_path` contains the original parametrized model that was used for the
 /// classification.
-pub fn load_classifier_output(results_dir: &str, model_path: &str) -> Vec<GraphColors> {
+pub fn load_classifier_output(results_dir: &str, model_path: &str) -> Vec<(String, GraphColors)> {
     // load number of HCTL variables from computation metadata
     let metadata_file_path = PathBuf::from(results_dir).join("metadata.txt");
     let num_hctl_vars: u16 = read_to_string(metadata_file_path)
@@ -154,8 +154,8 @@ pub fn load_classifier_output(results_dir: &str, model_path: &str) -> Vec<GraphC
     let bn = BooleanNetwork::try_from(model_string.as_str()).unwrap();
     let graph = get_extended_symbolic_graph(&bn, num_hctl_vars);
 
-    // collect the colored sets from the BDD dumps
-    let mut color_sets = Vec::new();
+    // collect the colored sets from the BDD dumps together with their "names"
+    let mut named_color_sets = Vec::new();
 
     // expects only BDD dumps (individual files) and a report&metadata in the directory (for now)
     let files = read_dir(results_dir).unwrap();
@@ -165,15 +165,15 @@ pub fn load_classifier_output(results_dir: &str, model_path: &str) -> Vec<GraphC
         if file_name == "report.txt" || file_name == "metadata.txt" {
             continue;
         }
-        let mut file = File::open(path).unwrap();
+        let mut file = File::open(path.clone()).unwrap();
 
         // read the raw BDD
         let bdd = biodivine_lib_bdd::Bdd::read_as_string(&mut file).unwrap();
 
         let color_set = GraphColors::new(bdd, graph.symbolic_context());
-        color_sets.push(color_set);
+        named_color_sets.push((file_name.to_string(), color_set));
     }
-    color_sets
+    named_color_sets
 }
 
 #[cfg(test)]

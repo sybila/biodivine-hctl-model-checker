@@ -106,25 +106,30 @@ pub fn write_class_report_and_dump_bdds(
         )
         .unwrap();
 
-        // dump corresponding BDD
-        let bdd_file = format!("bdd_dump_{}.txt", bool_vec_to_string(bool_indices.clone()));
-        let bdd_file_path = PathBuf::from(result_dir).join(bdd_file);
-        let mut bdd_file = File::create(bdd_file_path).unwrap();
+        // save the corresponding BDD, if the set is not empty
+        if category_colors.approx_cardinality() > 0. {
+            // create the file to dump BDD
+            let bdd_file = format!("bdd_dump_{}.txt", bool_vec_to_string(bool_indices.clone()));
+            let bdd_file_path = PathBuf::from(result_dir).join(bdd_file);
+            let mut bdd_file = File::create(bdd_file_path).unwrap();
 
-        /*
-        // annotation
-        writeln!(
-            bdd_file,
-            "# {}",
-            bool_vec_to_string(bool_indices)
-        )
-        .unwrap();
-         */
-
-        category_colors
-            .as_bdd()
-            .write_as_string(&mut bdd_file)
+            /*
+            // write annotation
+            writeln!(
+                bdd_file,
+                "# {}",
+                bool_vec_to_string(bool_indices)
+            )
             .unwrap();
+            */
+
+            // dump corresponding BDD
+            category_colors
+                .as_bdd()
+                .write_as_string(&mut bdd_file)
+                .unwrap();
+        }
+
         i += 1;
     }
 }
