@@ -1,6 +1,6 @@
 ### Assertion formulae
 
-# 3{x}: (@{x}: ((v_Apoptosis | v_Growth_Arrest) & ~v_Proliferation) & (AG EF ((v_Apoptosis | v_Growth_Arrest) & ~v_Proliferation & {x})))
+# 3{x}: @{x}: ((v_Apoptosis | v_Growth_Arrest | v_Proliferation) & (AG EF (v_Apoptosis | v_Growth_Arrest | v_Proliferation & {x})))
 15 colors satisfy all assertions
 
 ### Property formulae individually
@@ -8,14 +8,14 @@
 # 3{x}: (3{y}: (@{x}: (AX~{y}) & (AX {x})) & (@{y}: AX {y}))
 1 colors satisfy this property
 
-# 3{x}: (@{x}: AX {x})
-9 colors satisfy this property
-
 # 3{x}: (@{x}: (~(AX {x}) & AG EF {x}))
 6 colors satisfy this property
 
 # V{x}: (@{x}: v_Proliferation => ~(AG EF {x}))
 12 colors satisfy this property
+
+# 3{x}: @{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y})))
+1 colors satisfy this property
 
 ### Categories
 
@@ -26,22 +26,22 @@
 0 colors in this category
 
 # 0010
-3 colors in this category
-
-# 0011
-3 colors in this category
-
-# 0100
-0 colors in this category
-
-# 0101
 8 colors in this category
 
-# 0110
+# 0011
 0 colors in this category
 
-# 0111
+# 0100
+3 colors in this category
+
+# 0101
 0 colors in this category
+
+# 0110
+2 colors in this category
+
+# 0111
+1 colors in this category
 
 # 1000
 0 colors in this category
@@ -50,7 +50,7 @@
 0 colors in this category
 
 # 1010
-0 colors in this category
+1 colors in this category
 
 # 1011
 0 colors in this category
@@ -59,7 +59,7 @@
 0 colors in this category
 
 # 1101
-1 colors in this category
+0 colors in this category
 
 # 1110
 0 colors in this category

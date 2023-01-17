@@ -8,7 +8,6 @@ use crate::model_checking::{
 };
 use crate::preprocessing::node::HctlTreeNode;
 use crate::preprocessing::parser::parse_hctl_formula;
-use crate::preprocessing::read_inputs::load_formulae;
 use crate::preprocessing::tokenizer::try_tokenize_formula;
 use crate::preprocessing::utils::check_props_and_rename_vars;
 
@@ -19,6 +18,34 @@ use std::collections::{HashMap, HashSet};
 use std::fs::{read_dir, read_to_string, File};
 use std::io::Write;
 use std::path::PathBuf;
+
+/// Read the formulae from the specified file. Ignore lines starting with `#` (comments).
+/// Return two sets of formulae - assertions and properties (divided by `+++` in the file).
+fn load_all_formulae(formulae_path: &str) -> (Vec<String>, Vec<String>) {
+    let formulae_string = read_to_string(formulae_path).unwrap();
+
+    let mut assertion_formulae: Vec<String> = Vec::new();
+    let mut property_formulae: Vec<String> = Vec::new();
+    let mut delimiter_found = false;
+    for line in formulae_string.lines() {
+        let trimmed_line = line.trim();
+
+        // check for delimiter
+        if trimmed_line == "+++" {
+            delimiter_found = true;
+            continue;
+        }
+
+        if !trimmed_line.is_empty() && !trimmed_line.starts_with('#') {
+            if delimiter_found {
+                property_formulae.push(trimmed_line.to_string());
+            } else {
+                assertion_formulae.push(trimmed_line.to_string());
+            }
+        }
+    }
+    (assertion_formulae, property_formulae)
+}
 
 /// Parse formulae into syntax trees, and count maximal number of HCTL variables in a formula
 fn parse_formulae_and_count_vars(
@@ -64,12 +91,7 @@ fn combine_assertions(formulae: Vec<String>) -> String {
 /// First, colors satisfying all assertions are computed, and then the set of remaining colors is
 /// decomposed into categories based on properties. Report and BDDs representing resulting classes
 /// are generated into `output_dir`.
-pub fn classify(
-    output_dir: &str,
-    model_path: &str,
-    assertion_formulae_path: &str,
-    property_formulae_path: &str,
-) -> Result<(), String> {
+pub fn classify(output_dir: &str, model_path: &str, formulae_path: &str) -> Result<(), String> {
     // TODO: change existential semantics to universal (regarding colors in results) - doesnt matter if formula begins 3x.@x., but still
     // TODO: caching between assertions and properties somehow (and adjusting results when using them)
 
@@ -78,8 +100,7 @@ pub fn classify(
     let mut metadata_file = File::create(metadata_file_path).unwrap();
 
     // read the model and formulae
-    let assertion_formulae = load_formulae(assertion_formulae_path);
-    let property_formulae = load_formulae(property_formulae_path);
+    let (assertion_formulae, property_formulae) = load_all_formulae(formulae_path);
     let model_string = read_to_string(model_path).unwrap();
     let bn = BooleanNetwork::try_from(model_string.as_str()).unwrap();
     println!("Loaded all inputs.");

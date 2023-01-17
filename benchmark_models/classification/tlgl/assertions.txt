@@ -1,0 +1,5 @@
+# Apoptosis does not oscillate in any attractor
+~(3{x}: @{x}: ((!{y}: AG EF {y}) & v_Apoptosis & (EX ~v_Apoptosis)))
+
+# at least one phenotype is active in each attractor state
+V{x}: @{x}: ((!{y}: AG EF {y}) => (v_Apoptosis | v_Proliferation | v_Cytoskeleton_signaling))

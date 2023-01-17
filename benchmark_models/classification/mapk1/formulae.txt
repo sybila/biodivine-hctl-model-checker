@@ -1,0 +1,16 @@
+# there must be an attractor with a state where at least one of the phenotypes activated
+3{x}: @{x}: ((v_Apoptosis | v_Growth_Arrest | v_Proliferation) & (AG EF (v_Apoptosis | v_Growth_Arrest | v_Proliferation & {x})))
+
++++
+
+# more than one steady state
+3{x}: (3{y}: (@{x}: (AX~{y}) & (AX {x})) & (@{y}: AX {y}))
+
+# at least one complex attractor (not a steady state)
+3{x}: (@{x}: (~(AX {x}) & AG EF {x}))
+
+# no attractor with active Proliferation is reachable
+V{x}: (@{x}: v_Proliferation => ~(AG EF {x}))
+
+# existence of checkpoint states
+3{x}: @{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y})))

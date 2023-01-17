@@ -1,0 +1,70 @@
+### Assertion formulae
+
+# ~(3{x}: @{x}: ((!{z}: AG EF {z}) & v_Apoptosis & (EX ~v_Apoptosis)))
+# V{x}: @{x}: ((!{y}: AG EF {y}) => (v_Apoptosis | v_Proliferation | v_Cytoskeleton_signaling))
+56 colors satisfy all assertions
+
+### Property formulae individually
+
+# 3{x}: (3{y}: (@{x}: (AX~{y}) & (AX {x})) & (@{y}: AX {y}))
+12 colors satisfy this property
+
+# 3{x}: (@{x}: (~(AX {x}) & (!{y}: AG EF {y})))
+16 colors satisfy this property
+
+# 3{x}: @{x}: (EF (v_Apoptosis & (!{y}: AG EF {y})) & EF (~v_Apoptosis & (!{y}: AG EF {y})))
+28 colors satisfy this property
+
+# 3{x}: @{x}: ((!{y}: AG EF {y}) & v_Proliferation)
+0 colors satisfy this property
+
+### Categories
+
+# 0000
+28 colors in this category
+
+# 0001
+0 colors in this category
+
+# 0010
+0 colors in this category
+
+# 0011
+0 colors in this category
+
+# 0100
+0 colors in this category
+
+# 0101
+0 colors in this category
+
+# 0110
+16 colors in this category
+
+# 0111
+0 colors in this category
+
+# 1000
+0 colors in this category
+
+# 1001
+0 colors in this category
+
+# 1010
+12 colors in this category
+
+# 1011
+0 colors in this category
+
+# 1100
+0 colors in this category
+
+# 1101
+0 colors in this category
+
+# 1110
+0 colors in this category
+
+# 1111
+0 colors in this category
+

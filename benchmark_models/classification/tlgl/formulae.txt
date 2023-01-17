@@ -1,0 +1,19 @@
+# Apoptosis does not oscillate in any attractor
+~(3{x}: @{x}: ((!{z}: AG EF {z}) & v_Apoptosis & (EX ~v_Apoptosis)))
+
+# at least one phenotype is active in each attractor state
+V{x}: @{x}: ((!{y}: AG EF {y}) => (v_Apoptosis | v_Proliferation | v_Cytoskeleton_signaling))
+
++++
+
+# more than one steady state
+3{x}: (3{y}: (@{x}: (AX~{y}) & (AX {x})) & (@{y}: AX {y}))
+
+# at least one complex attractor (not a steady state)
+3{x}: (@{x}: (~(AX {x}) & (!{y}: AG EF {y})))
+
+# existence of states from which we can reach an attractor with Apoptosis active and an attractor with Apoptosis inactive
+3{x}: @{x}: (EF (v_Apoptosis & (!{y}: AG EF {y})) & EF (~v_Apoptosis & (!{y}: AG EF {y})))
+
+# Proliferation is active in some attractor state
+3{x}: @{x}: ((!{y}: AG EF {y}) & v_Proliferation)
