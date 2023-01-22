@@ -33,7 +33,6 @@ Given a (partially defined) Boolean network and HCTL formulae (encoding properti
 Currently, there is only a command-line interface, with a GUI soon to be implemented.
 Depending on the mode, the program can either print the numbers of satisfying states and colours, or print all the satisfying assignments.
 
-
 To directly invoke the model checker, compile the code using
 ```
 cargo build --release
@@ -60,7 +59,7 @@ The most relevant high-level functionality can be found in modules `analysis` an
 There is also a binary `classifier.rs` for BN classification based on given set of properties. 
 To invoke the tool, compile the binary and run it as
 ```
-.\target\release\hctl-model-checker <MODEL_PATH> <FORMULAE_PATH> [-o <OUTPUT_PATH>] [-h]
+.\target\release\classifier <MODEL_PATH> <FORMULAE_PATH> [-o <OUTPUT_PATH>] [-h]
 ```
 
 The relevant library functionality can be found in module `bn_classification`.

@@ -22,8 +22,9 @@ struct Arguments {
     /// Path to a file with assertion and property formulae.
     formulae_path: String,
 
-    /// Path to an existing directory to which report and BDD results will be dumped.
-    output_dir: String,
+    /// Path to a zip archive to which report and BDD results will be dumped.
+    #[clap(short, long, default_value = "classification_result.zip")]
+    output_zip: String,
 }
 
 /// Wrapper function to invoke the classifier and feed it with CLI arguments.
@@ -33,9 +34,9 @@ fn main() {
 
     let formulae_path = args.formulae_path;
     let model_path = args.model_path;
-    let output_dir = args.output_dir;
+    let output_name = args.output_zip;
 
-    // check if given paths are valid
+    // check if given input paths are valid
     if !Path::new(formulae_path.as_str()).is_file() {
         println!("{} is not valid file", formulae_path);
         return;
@@ -44,13 +45,9 @@ fn main() {
         println!("{} is not valid file", model_path);
         return;
     }
-    if !Path::new(output_dir.as_str()).is_dir() {
-        println!("{} is not valid directory", output_dir);
-        return;
-    }
 
     let classification_res = classify(
-        output_dir.as_str(),
+        output_name.as_str(),
         model_path.as_str(),
         formulae_path.as_str(),
     );

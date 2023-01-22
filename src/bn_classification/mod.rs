@@ -2,7 +2,9 @@
 
 pub mod generate_output;
 
-use crate::bn_classification::generate_output::{write_class_report_and_dump_bdds, write_empty_report};
+use crate::bn_classification::generate_output::{
+    write_class_report_and_dump_bdds, write_empty_report,
+};
 use crate::model_checking::{
     collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_trees,
 };
@@ -11,14 +13,19 @@ use crate::preprocessing::parser::parse_hctl_formula;
 use crate::preprocessing::tokenizer::try_tokenize_formula;
 use crate::preprocessing::utils::check_props_and_rename_vars;
 
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, GraphColors, SymbolicAsyncGraph};
+use biodivine_lib_bdd::Bdd;
+
+use biodivine_lib_param_bn::biodivine_std::traits::Set;
+use biodivine_lib_param_bn::symbolic_async_graph::{
+    GraphColoredVertices, GraphColors, SymbolicAsyncGraph,
+};
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
-use std::fs::{read_dir, read_to_string, File};
-use std::io::Write;
-use std::path::PathBuf;
-use biodivine_lib_param_bn::biodivine_std::traits::Set;
+use std::fs::{read_to_string, File};
+use std::io::Read;
+
+use zip::ZipArchive;
 
 /// Read the formulae from the specified file. Ignore lines starting with `#` (comments).
 /// Return two sets of formulae - assertions and properties (divided by `+++` in the file).
@@ -90,13 +97,13 @@ fn combine_assertions(formulae: Vec<String>) -> String {
 /// the property holds universally in every state).
 fn get_universal_colors(
     stg: &SymbolicAsyncGraph,
-    colored_vertices: &GraphColoredVertices
+    colored_vertices: &GraphColoredVertices,
 ) -> GraphColors {
     let complement = stg.mk_unit_colored_vertices().minus(colored_vertices);
     stg.unit_colors().minus(&complement.colors())
 }
 
-/// Perform the classification of boolean networks based on given properties.
+/// Perform the classification of Boolean networks based on given properties.
 /// Takes a path to a partially defined BN model and paths to 2 sets of HCTL formulae. Assertions
 /// are formulae that must be satisfied, and properties are formulae used for classification.
 ///
@@ -104,13 +111,9 @@ fn get_universal_colors(
 /// decomposed into categories based on properties. One class = colors where the same set of
 /// properties is satisfied (universally).
 ///
-/// Report and BDDs representing resulting classes are generated into `output_dir`.
-pub fn classify(output_dir: &str, model_path: &str, formulae_path: &str) -> Result<(), String> {
+/// Report and BDDs representing resulting classes are generated into `output_zip`.
+pub fn classify(output_zip: &str, model_path: &str, formulae_path: &str) -> Result<(), String> {
     // TODO: caching between assertions and properties somehow (and adjusting results when using them)
-
-    // file to put some computation metadata
-    let metadata_file_path = PathBuf::from(output_dir).join("metadata.txt");
-    let mut metadata_file = File::create(metadata_file_path).unwrap();
 
     // read the model and formulae
     let (assertion_formulae, property_formulae) = load_all_formulae(formulae_path);
@@ -127,8 +130,6 @@ pub fn classify(output_dir: &str, model_path: &str, formulae_path: &str) -> Resu
     let mut all_formulae = property_formulae.clone();
     all_formulae.push(single_assertion);
     let (mut all_trees, num_hctl_vars) = parse_formulae_and_count_vars(&bn, all_formulae)?;
-    // save number of variables for future use
-    write!(metadata_file, "{}", num_hctl_vars).unwrap();
 
     // instantiate extended STG with enough variables to evaluate all formulae
     let graph = get_extended_symbolic_graph(&bn, num_hctl_vars as u16);
@@ -141,7 +142,7 @@ pub fn classify(output_dir: &str, model_path: &str, formulae_path: &str) -> Resu
 
     if valid_colors.is_empty() {
         println!("No color satisfies given assertions. Aborting.");
-        write_empty_report(&assertion_formulae, output_dir);
+        write_empty_report(&assertion_formulae, output_zip);
         return Ok(());
     }
 
@@ -167,27 +168,36 @@ pub fn classify(output_dir: &str, model_path: &str, formulae_path: &str) -> Resu
         valid_colors,
         &property_formulae,
         &colors_properties,
-        output_dir,
+        output_zip,
+        num_hctl_vars,
     );
     println!("Output finished.");
 
     Ok(())
 }
 
-/// Collect the results of classification, which are color sets encoded as BDDs.
+/// Collect the results of classification, which are BDDs representing color sets.
 ///
-/// Each BDD is dumped in a file in `results_dir`. Moreover, excluding these BDD files, the dir
+/// Each BDD is dumped in a file in `results_archive`. Moreover, excluding these BDD files, the dir
 /// contains a report and a metadata file. Metadata file contains information regarding the number
 /// of extended symbolic HCTL variables supported by the BDDs.
+///
 /// The file at `model_path` contains the original parametrized model that was used for the
 /// classification.
-pub fn load_classifier_output(results_dir: &str, model_path: &str) -> Vec<(String, GraphColors)> {
+pub fn load_classifier_output(
+    results_archive: &str,
+    model_path: &str,
+) -> Vec<(String, GraphColors)> {
+    // open the zip archive with results
+    let archive_file = File::open(results_archive).unwrap();
+    let mut archive = ZipArchive::new(archive_file).unwrap();
+
     // load number of HCTL variables from computation metadata
-    let metadata_file_path = PathBuf::from(results_dir).join("metadata.txt");
-    let num_hctl_vars: u16 = read_to_string(metadata_file_path)
-        .unwrap()
-        .parse::<u16>()
-        .unwrap();
+    let mut metadata_file = archive.by_name("metadata.txt").unwrap();
+    let mut buffer = String::new();
+    metadata_file.read_to_string(&mut buffer).unwrap();
+    let num_hctl_vars: u16 = buffer.parse::<u16>().unwrap();
+    drop(metadata_file);
 
     // load the BN model and generate extended symbolic graph
     let model_string = read_to_string(model_path).unwrap();
@@ -197,22 +207,24 @@ pub fn load_classifier_output(results_dir: &str, model_path: &str) -> Vec<(Strin
     // collect the colored sets from the BDD dumps together with their "names"
     let mut named_color_sets = Vec::new();
 
-    // expects only BDD dumps (individual files) and a report&metadata in the directory (for now)
-    let files = read_dir(results_dir).unwrap();
-    for file in files {
-        let path = file.unwrap().path().clone();
-        let file_name = path.file_name().unwrap().to_str().unwrap();
-        if file_name == "report.txt" || file_name == "metadata.txt" {
+    // iterate over all files by indices
+    // expects only BDD dumps (individual files) and a report&metadata in the archive (for now)
+    for idx in 0..archive.len() {
+        let mut entry = archive.by_index(idx).unwrap();
+        let file_name = entry.name().to_string();
+        if file_name == *"report.txt" || file_name == *"metadata.txt" {
             continue;
         }
-        let mut file = File::open(path.clone()).unwrap();
 
         // read the raw BDD
-        let bdd = biodivine_lib_bdd::Bdd::read_as_string(&mut file).unwrap();
+        let mut bdd_str = String::new();
+        entry.read_to_string(&mut bdd_str).unwrap();
+        let bdd = Bdd::from_string(bdd_str.as_str());
 
         let color_set = GraphColors::new(bdd, graph.symbolic_context());
-        named_color_sets.push((file_name.to_string(), color_set));
+        named_color_sets.push((file_name, color_set));
     }
+
     named_color_sets
 }
 

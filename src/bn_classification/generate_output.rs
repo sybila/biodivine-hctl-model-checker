@@ -1,11 +1,14 @@
-//! Generate results of the computation (report and BDD representation).
+//! Finish the classification process and generate the results (report and BDD representation).
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::GraphColors;
 
+use std::fs::create_dir_all;
 use std::fs::File;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::Path;
+
+use zip::write::{FileOptions, ZipWriter};
 
 /// Transform integer into a corresponding binary number of given length
 fn int_to_bool_vec(mut number: i32, bits_num: i32) -> Vec<bool> {
@@ -38,44 +41,61 @@ fn bool_vec_to_string(bool_vec: Vec<bool>) -> String {
 }
 
 /// Write a short summary regarding each category of the color decomposition, and dump a BDD
-/// encoding the colors
+/// encoding the colors, all into the `archive_name` zip.
 ///
-/// `all_valid_colors` represents a "unit color set" - all colors satisfying the assertion formulae
-/// Each result corresponds to colors satisfying some property formula
-/// Each category is given by the set of colors that satisfy exactly the same properties
+/// `all_valid_colors` represents a "unit color set" - all colors satisfying the assertion formulae.
+/// Each result corresponds to colors satisfying some property formula.
+/// Each category is given by the set of colors that satisfy exactly the same properties.
 pub fn write_class_report_and_dump_bdds(
     assertion_formulae: &Vec<String>,
     all_valid_colors: GraphColors,
     property_formulae: &[String],
     property_results: &Vec<GraphColors>,
-    result_dir: &str,
+    archive_name: &str,
+    num_hctl_vars: usize,
 ) {
-    let report_file_path = PathBuf::from(result_dir).join("report.txt");
-    let mut report_file = File::create(report_file_path).unwrap();
+    let archive_path = Path::new(archive_name);
+    // if there are some non existing dirs in path, create them
+    let prefix = archive_path.parent().unwrap();
+    create_dir_all(prefix).unwrap();
 
-    writeln!(report_file, "### Assertion formulae\n").unwrap();
-    for assertion_formula in assertion_formulae {
-        writeln!(report_file, "# {}", assertion_formula).unwrap();
-    }
-    writeln!(
-        report_file,
-        "{} colors satisfy all assertions\n",
-        all_valid_colors.approx_cardinality()
-    )
-    .unwrap();
+    let archive = File::create(archive_path).unwrap();
+    let mut zip_writer = ZipWriter::new(archive);
 
-    writeln!(report_file, "### Property formulae individually\n").unwrap();
-    for (i, property_formula) in property_formulae.iter().enumerate() {
-        writeln!(report_file, "# {}", property_formula).unwrap();
-        writeln!(
-            report_file,
-            "{} colors satisfy this property\n",
-            property_results[i].approx_cardinality()
-        )
+    // write the metadata regarding the number of (symbolic) HCTL vars used during the computation
+    zip_writer
+        .start_file("metadata.txt", FileOptions::default())
         .unwrap();
+    zip_writer
+        .write_all(format!("{}", num_hctl_vars).as_bytes())
+        .unwrap();
+
+    let mut report_buffer = String::new();
+    report_buffer.push_str("### Assertion formulae\n\n");
+    for assertion_formula in assertion_formulae {
+        report_buffer.push_str(format!("# {}\n", assertion_formula).as_str());
+    }
+    report_buffer.push_str(
+        format!(
+            "{} colors satisfy all assertions\n\n",
+            all_valid_colors.approx_cardinality()
+        )
+        .as_str(),
+    );
+
+    report_buffer.push_str("### Property formulae individually\n\n");
+    for (i, property_formula) in property_formulae.iter().enumerate() {
+        report_buffer.push_str(format!("# {}\n", property_formula).as_str());
+        report_buffer.push_str(
+            format!(
+                "{} colors satisfy this property\n\n",
+                property_results[i].approx_cardinality()
+            )
+            .as_str(),
+        );
     }
 
-    writeln!(report_file, "### Categories\n").unwrap();
+    report_buffer.push_str("### Categories\n\n");
     let mut i = 0;
     let i_max = i32::pow(2, property_results.len() as u32);
     while i < i_max {
@@ -93,60 +113,57 @@ pub fn write_class_report_and_dump_bdds(
             }
         }
 
-        writeln!(
-            report_file,
-            "# {}",
-            bool_vec_to_string(bool_indices.clone())
-        )
-        .unwrap();
-        writeln!(
-            report_file,
-            "{} colors in this category\n",
-            category_colors.approx_cardinality()
-        )
-        .unwrap();
+        report_buffer
+            .push_str(format!("# {}\n", bool_vec_to_string(bool_indices.clone())).as_str());
+        report_buffer.push_str(
+            format!(
+                "{} colors in this category\n\n",
+                category_colors.approx_cardinality()
+            )
+            .as_str(),
+        );
 
         // save the corresponding BDD, if the set is not empty
         if category_colors.approx_cardinality() > 0. {
-            // create the file to dump BDD
-            let bdd_file = format!("bdd_dump_{}.txt", bool_vec_to_string(bool_indices.clone()));
-            let bdd_file_path = PathBuf::from(result_dir).join(bdd_file);
-            let mut bdd_file = File::create(bdd_file_path).unwrap();
-
-            /*
-            // write annotation
-            writeln!(
-                bdd_file,
-                "# {}",
-                bool_vec_to_string(bool_indices)
-            )
-            .unwrap();
-            */
-
-            // dump corresponding BDD
-            category_colors
-                .as_bdd()
-                .write_as_string(&mut bdd_file)
+            // dump the corresponding BDD
+            let bdd_file_name =
+                format!("bdd_dump_{}.txt", bool_vec_to_string(bool_indices.clone()));
+            let bdd_str = category_colors.as_bdd().to_string();
+            zip_writer
+                .start_file(bdd_file_name.as_str(), FileOptions::default())
                 .unwrap();
+            zip_writer.write_all(bdd_str.as_bytes()).unwrap();
         }
 
         i += 1;
     }
+
+    // write the report output
+    zip_writer
+        .start_file("report.txt", FileOptions::default())
+        .unwrap();
+    zip_writer.write_all(report_buffer.as_bytes()).unwrap();
+    zip_writer.finish().unwrap();
 }
 
 /// Write a short summary regarding the computation where assertions were not satisfied
-pub fn write_empty_report(
-    assertion_formulae: &Vec<String>,
-    result_dir: &str,
-) {
-    let report_file_path = PathBuf::from(result_dir).join("report.txt");
-    let mut report_file = File::create(report_file_path).unwrap();
+pub fn write_empty_report(assertion_formulae: &Vec<String>, archive_name: &str) {
+    let archive_path = Path::new(archive_name);
+    let archive = File::create(archive_path).unwrap();
+    let mut zip_writer = ZipWriter::new(archive);
 
-    writeln!(report_file, "### Assertion formulae\n").unwrap();
+    // write the shortened report
+    zip_writer
+        .start_file("report.txt", FileOptions::default())
+        .unwrap();
+    let mut report_buffer = String::new();
+    report_buffer.push_str("### Assertion formulae\n\n");
     for assertion_formula in assertion_formulae {
-        writeln!(report_file, "# {}", assertion_formula).unwrap();
+        report_buffer.push_str(format!("# {}\n", assertion_formula).as_str());
     }
-    writeln!(report_file, "0 colors satisfy all assertions\n").unwrap()
+    report_buffer.push_str("0 colors satisfy all assertions\n\n");
+    zip_writer.write_all(report_buffer.as_bytes()).unwrap();
+    zip_writer.finish().unwrap();
 }
 
 #[cfg(test)]
