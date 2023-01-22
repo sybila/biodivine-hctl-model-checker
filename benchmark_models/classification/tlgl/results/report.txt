@@ -1,6 +1,7 @@
 ### Assertion formulae
 
 # ~(3{x}: @{x}: ((!{z}: AG EF {z}) & v_Apoptosis & (EX ~v_Apoptosis)))
+# 3{x}: @{x}: ((!{y}: AG EF {y}) & v_Apoptosis)
 # V{x}: @{x}: ((!{y}: AG EF {y}) => (v_Apoptosis | v_Proliferation | v_Cytoskeleton_signaling))
 56 colors satisfy all assertions
 

@@ -134,6 +134,21 @@ pub fn write_class_report_and_dump_bdds(
     }
 }
 
+/// Write a short summary regarding the computation where assertions were not satisfied
+pub fn write_empty_report(
+    assertion_formulae: &Vec<String>,
+    result_dir: &str,
+) {
+    let report_file_path = PathBuf::from(result_dir).join("report.txt");
+    let mut report_file = File::create(report_file_path).unwrap();
+
+    writeln!(report_file, "### Assertion formulae\n").unwrap();
+    for assertion_formula in assertion_formulae {
+        writeln!(report_file, "# {}", assertion_formula).unwrap();
+    }
+    writeln!(report_file, "0 colors satisfy all assertions\n").unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::bn_classification::generate_output::{bool_vec_to_string, int_to_bool_vec};

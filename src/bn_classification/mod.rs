@@ -2,7 +2,7 @@
 
 pub mod generate_output;
 
-use crate::bn_classification::generate_output::write_class_report_and_dump_bdds;
+use crate::bn_classification::generate_output::{write_class_report_and_dump_bdds, write_empty_report};
 use crate::model_checking::{
     collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_trees,
 };
@@ -11,13 +11,14 @@ use crate::preprocessing::parser::parse_hctl_formula;
 use crate::preprocessing::tokenizer::try_tokenize_formula;
 use crate::preprocessing::utils::check_props_and_rename_vars;
 
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColors, SymbolicAsyncGraph};
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, GraphColors, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
 use std::fs::{read_dir, read_to_string, File};
 use std::io::Write;
 use std::path::PathBuf;
+use biodivine_lib_param_bn::biodivine_std::traits::Set;
 
 /// Read the formulae from the specified file. Ignore lines starting with `#` (comments).
 /// Return two sets of formulae - assertions and properties (divided by `+++` in the file).
@@ -84,15 +85,27 @@ fn combine_assertions(formulae: Vec<String>) -> String {
     conjunction
 }
 
+/// Return the set of colors for which ALL system states are contained in the given color-vertex
+/// set (i.e., if the given relation is a result of model checking a property, get colors for which
+/// the property holds universally in every state).
+fn get_universal_colors(
+    stg: &SymbolicAsyncGraph,
+    colored_vertices: &GraphColoredVertices
+) -> GraphColors {
+    let complement = stg.mk_unit_colored_vertices().minus(colored_vertices);
+    stg.unit_colors().minus(&complement.colors())
+}
+
 /// Perform the classification of boolean networks based on given properties.
 /// Takes a path to a partially defined BN model and paths to 2 sets of HCTL formulae. Assertions
 /// are formulae that must be satisfied, and properties are formulae used for classification.
 ///
 /// First, colors satisfying all assertions are computed, and then the set of remaining colors is
-/// decomposed into categories based on properties. Report and BDDs representing resulting classes
-/// are generated into `output_dir`.
+/// decomposed into categories based on properties. One class = colors where the same set of
+/// properties is satisfied (universally).
+///
+/// Report and BDDs representing resulting classes are generated into `output_dir`.
 pub fn classify(output_dir: &str, model_path: &str, formulae_path: &str) -> Result<(), String> {
-    // TODO: change existential semantics to universal (regarding colors in results) - doesnt matter if formula begins 3x.@x., but still
     // TODO: caching between assertions and properties somehow (and adjusting results when using them)
 
     // file to put some computation metadata
@@ -120,11 +133,17 @@ pub fn classify(output_dir: &str, model_path: &str, formulae_path: &str) -> Resu
     // instantiate extended STG with enough variables to evaluate all formulae
     let graph = get_extended_symbolic_graph(&bn, num_hctl_vars as u16);
 
-    // compute the satisfying colors for assertion formula
+    // compute the colors (universally) satisfying the combined assertion formula
     let assertion_tree = all_trees.pop().unwrap();
     let result_assertions = model_check_trees(vec![assertion_tree], &graph)?;
-    let valid_colors: GraphColors = result_assertions.get(0).unwrap().colors();
+    let valid_colors = get_universal_colors(&graph, result_assertions.get(0).unwrap());
     println!("Assertions evaluated.");
+
+    if valid_colors.is_empty() {
+        println!("No color satisfies given assertions. Aborting.");
+        write_empty_report(&assertion_formulae, output_dir);
+        return Ok(());
+    }
 
     // restrict the colors on the symbolic graph
     let graph = SymbolicAsyncGraph::with_custom_context(
@@ -138,11 +157,11 @@ pub fn classify(output_dir: &str, model_path: &str, formulae_path: &str) -> Resu
     let results_properties = model_check_trees(all_trees, &graph)?;
     let colors_properties: Vec<GraphColors> = results_properties
         .iter()
-        .map(|colored_vertices| colored_vertices.colors())
+        .map(|colored_vertices| get_universal_colors(&graph, colored_vertices))
         .collect();
-    println!("Classifying based on model-checking results...");
 
-    // print the classification report and dump resulting BDDs
+    // do the classification while printing the report and dumping resulting BDDs
+    println!("Classifying based on model-checking results...");
     write_class_report_and_dump_bdds(
         &assertion_formulae,
         valid_colors,

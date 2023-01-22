@@ -1,2 +1,0 @@
-# there must be an attractor with a state where at least one of the phenotypes activated
-3{x}: @{x}: ((v_Apoptosis | v_Growth_Arrest | v_Proliferation) & (AG EF (v_Apoptosis | v_Growth_Arrest | v_Proliferation & {x})))
