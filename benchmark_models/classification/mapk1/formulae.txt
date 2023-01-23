@@ -12,5 +12,5 @@ V{x}: @{x}: ((!{y}: AG EF {y}) => (v_Apoptosis & AX {x}))
 # Proliferation and Apoptosis are simultaneously active in an attractor state
 3{x}: @{x}: ((!{y}: AG EF {y}) & v_Apoptosis & v_Proliferation)
 
-# Apoptosis stabilizes in the attractor
+# Apoptosis stabilizes in an attractor
 3{x}: @{x}: ((!{y}: AG EF {y}) & v_Apoptosis & ~(EF ~v_Apoptosis))

@@ -1,8 +1,10 @@
 //! Components regarding the BN classification based on HCTL properties
 
-pub mod generate_output;
+pub mod load_input;
+pub mod write_output;
 
-use crate::bn_classification::generate_output::{
+use crate::bn_classification::load_input::load_extended_aeon;
+use crate::bn_classification::write_output::{
     write_class_report_and_dump_bdds, write_empty_report,
 };
 use crate::model_checking::{
@@ -13,8 +15,6 @@ use crate::preprocessing::parser::parse_hctl_formula;
 use crate::preprocessing::tokenizer::try_tokenize_formula;
 use crate::preprocessing::utils::check_props_and_rename_vars;
 
-use biodivine_lib_bdd::Bdd;
-
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{
     GraphColoredVertices, GraphColors, SymbolicAsyncGraph,
@@ -22,38 +22,6 @@ use biodivine_lib_param_bn::symbolic_async_graph::{
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
-use std::fs::{read_to_string, File};
-use std::io::Read;
-
-use zip::ZipArchive;
-
-/// Read the formulae from the specified file. Ignore lines starting with `#` (comments).
-/// Return two sets of formulae - assertions and properties (divided by `+++` in the file).
-fn load_all_formulae(formulae_path: &str) -> (Vec<String>, Vec<String>) {
-    let formulae_string = read_to_string(formulae_path).unwrap();
-
-    let mut assertion_formulae: Vec<String> = Vec::new();
-    let mut property_formulae: Vec<String> = Vec::new();
-    let mut delimiter_found = false;
-    for line in formulae_string.lines() {
-        let trimmed_line = line.trim();
-
-        // check for delimiter
-        if trimmed_line == "+++" {
-            delimiter_found = true;
-            continue;
-        }
-
-        if !trimmed_line.is_empty() && !trimmed_line.starts_with('#') {
-            if delimiter_found {
-                property_formulae.push(trimmed_line.to_string());
-            } else {
-                assertion_formulae.push(trimmed_line.to_string());
-            }
-        }
-    }
-    (assertion_formulae, property_formulae)
-}
 
 /// Parse formulae into syntax trees, and count maximal number of HCTL variables in a formula
 fn parse_formulae_and_count_vars(
@@ -86,7 +54,8 @@ fn combine_assertions(formulae: Vec<String>) -> String {
     }
 
     // this ensures that formula does not end with "&"
-    // moreover, even if there are no assertions, resulting formula will not be empty
+    // Moreover, even if there are no assertions, resulting formula won't be empty and will be
+    // satisfied in all colors
     conjunction.push_str("true");
 
     conjunction
@@ -104,21 +73,20 @@ fn get_universal_colors(
 }
 
 /// Perform the classification of Boolean networks based on given properties.
-/// Takes a path to a partially defined BN model and paths to 2 sets of HCTL formulae. Assertions
-/// are formulae that must be satisfied, and properties are formulae used for classification.
+/// Takes a path to a file in `extended AEON` format containing a partially defined BN model
+/// and 2 sets of HCTL formulae. Assertions are formulae that must be satisfied, and properties
+/// are formulae used for classification.
 ///
 /// First, colors satisfying all assertions are computed, and then the set of remaining colors is
-/// decomposed into categories based on properties. One class = colors where the same set of
-/// properties is satisfied (universally).
+/// decomposed into categories based on satisfied properties. One class = colors where the same set
+/// of properties is satisfied (universally).
 ///
-/// Report and BDDs representing resulting classes are generated into `output_zip`.
-pub fn classify(output_zip: &str, model_path: &str, formulae_path: &str) -> Result<(), String> {
+/// Report and BDDs representing resulting classes are generated into `output_zip` archive.
+pub fn classify(output_zip: &str, input_path: &str) -> Result<(), String> {
     // TODO: caching between assertions and properties somehow (and adjusting results when using them)
 
-    // read the model and formulae
-    let (assertion_formulae, property_formulae) = load_all_formulae(formulae_path);
-    let model_string = read_to_string(model_path).unwrap();
-    let bn = BooleanNetwork::try_from(model_string.as_str()).unwrap();
+    // load the model and two sets of formulae
+    let (bn, assertion_formulae, property_formulae) = load_extended_aeon(input_path)?;
     println!("Loaded all inputs.");
 
     println!("Evaluating assertions...");
@@ -174,58 +142,6 @@ pub fn classify(output_zip: &str, model_path: &str, formulae_path: &str) -> Resu
     println!("Output finished.");
 
     Ok(())
-}
-
-/// Collect the results of classification, which are BDDs representing color sets.
-///
-/// Each BDD is dumped in a file in `results_archive`. Moreover, excluding these BDD files, the dir
-/// contains a report and a metadata file. Metadata file contains information regarding the number
-/// of extended symbolic HCTL variables supported by the BDDs.
-///
-/// The file at `model_path` contains the original parametrized model that was used for the
-/// classification.
-pub fn load_classifier_output(
-    results_archive: &str,
-    model_path: &str,
-) -> Vec<(String, GraphColors)> {
-    // open the zip archive with results
-    let archive_file = File::open(results_archive).unwrap();
-    let mut archive = ZipArchive::new(archive_file).unwrap();
-
-    // load number of HCTL variables from computation metadata
-    let mut metadata_file = archive.by_name("metadata.txt").unwrap();
-    let mut buffer = String::new();
-    metadata_file.read_to_string(&mut buffer).unwrap();
-    let num_hctl_vars: u16 = buffer.parse::<u16>().unwrap();
-    drop(metadata_file);
-
-    // load the BN model and generate extended symbolic graph
-    let model_string = read_to_string(model_path).unwrap();
-    let bn = BooleanNetwork::try_from(model_string.as_str()).unwrap();
-    let graph = get_extended_symbolic_graph(&bn, num_hctl_vars);
-
-    // collect the colored sets from the BDD dumps together with their "names"
-    let mut named_color_sets = Vec::new();
-
-    // iterate over all files by indices
-    // expects only BDD dumps (individual files) and a report&metadata in the archive (for now)
-    for idx in 0..archive.len() {
-        let mut entry = archive.by_index(idx).unwrap();
-        let file_name = entry.name().to_string();
-        if file_name == *"report.txt" || file_name == *"metadata.txt" {
-            continue;
-        }
-
-        // read the raw BDD
-        let mut bdd_str = String::new();
-        entry.read_to_string(&mut bdd_str).unwrap();
-        let bdd = Bdd::from_string(bdd_str.as_str());
-
-        let color_set = GraphColors::new(bdd, graph.symbolic_context());
-        named_color_sets.push((file_name, color_set));
-    }
-
-    named_color_sets
 }
 
 #[cfg(test)]

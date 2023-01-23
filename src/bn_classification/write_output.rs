@@ -168,7 +168,7 @@ pub fn write_empty_report(assertion_formulae: &Vec<String>, archive_name: &str) 
 
 #[cfg(test)]
 mod tests {
-    use crate::bn_classification::generate_output::{bool_vec_to_string, int_to_bool_vec};
+    use crate::bn_classification::write_output::{bool_vec_to_string, int_to_bool_vec};
 
     #[test]
     fn test_int_to_bool_vec() {

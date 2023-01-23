@@ -1,11 +1,11 @@
-//! Symbolic classifier for BN models based on dynamic properties.
+//! Tool for symbolic classification of BN models based on dynamic properties.
 //!
-//! Takes an input path to a partially defined BN model and a path to HCTL formulae.
-//! There are 2 kinds of formulae - assertions that must be satisfied, and properties that are
-//! used for classification (in the file divided by delimiter line `+++`).
+//! Takes a path to a file in `extended AEON` format containing a partially defined BN model and
+//! two sets of HCTL formulae - assertions that must be satisfied, and properties that are
+//! used for classification (all components divided by the delimiter line `+++`).
 //!
 //! First, conjunction of assertions is model-checked, and then the set of remaining colors is
-//! decomposed into categories based on properties.
+//! decomposed into categories based on properties they satisfy.
 //!
 
 use biodivine_hctl_model_checker::bn_classification::classify;
@@ -16,13 +16,11 @@ use std::path::Path;
 #[derive(Parser)]
 #[clap(about = "Symbolic classifier for BN models based on dynamic properties.")]
 struct Arguments {
-    /// Path to a file with BN model file in one of supported formats.
-    model_path: String,
+    /// Path to a file in `extended AEON` format containing a BN model
+    /// and 2 sets of HCTL formulae, divided by `+++` delimiter.
+    input_path: String,
 
-    /// Path to a file with assertion and property formulae.
-    formulae_path: String,
-
-    /// Path to a zip archive to which report and BDD results will be dumped.
+    /// Path to a zip archive to which a report and BDD results will be dumped.
     #[clap(short, long, default_value = "classification_result.zip")]
     output_zip: String,
 }
@@ -32,25 +30,16 @@ fn main() {
     let args = Arguments::parse();
     println!("Loading input files...");
 
-    let formulae_path = args.formulae_path;
-    let model_path = args.model_path;
+    let input_path = args.input_path;
     let output_name = args.output_zip;
 
-    // check if given input paths are valid
-    if !Path::new(formulae_path.as_str()).is_file() {
-        println!("{} is not valid file", formulae_path);
-        return;
-    }
-    if !Path::new(model_path.as_str()).is_file() {
-        println!("{} is not valid file", model_path);
+    // check if given input path is valid
+    if !Path::new(input_path.as_str()).is_file() {
+        println!("{} is not valid file", input_path);
         return;
     }
 
-    let classification_res = classify(
-        output_name.as_str(),
-        model_path.as_str(),
-        formulae_path.as_str(),
-    );
+    let classification_res = classify(output_name.as_str(), input_path.as_str());
 
     if classification_res.is_err() {
         println!(
