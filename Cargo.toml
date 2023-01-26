@@ -13,7 +13,6 @@ categories = ["science", "simulation"]
 license = "MIT"
 exclude = ["benchmark_models", ".github", ".githooks"]
 
-
 #[profile.release]
 #lto = true
 
@@ -38,7 +37,7 @@ path = "src/bin/load_classifier_output.rs"
 
 [dependencies]
 biodivine-lib-bdd = ">=0.4.2, <1.0.0"
-biodivine-lib-param-bn = "0.4.2"
+biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn", branch = "dev-annotations" }
 clap = { version = "3.1.6", features = ["derive"] }
 rand = "0.6.5"
 termcolor = "1.1.2"

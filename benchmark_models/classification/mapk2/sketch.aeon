@@ -75,13 +75,13 @@ $v_p53: ((((((!v_DNA_damage & v_p38) | ((((v_DNA_damage & !v_ERK) & !v_p38) & !v
 
 +++
 
-# there must be an attractor with a state where at least one of the phenotypes activated
+# There must be an attractor with a state where at least one of the phenotypes activated.
 3{x}: @{x}: ((!{y}: AG EF {y}) & (v_Apoptosis | v_Growth_Arrest | v_Proliferation))
 
 +++
 
-# Apoptosis is active in all attractor states (system always converges to the programmed cell death).
-V{x}: @{x}: ((!{y}: AG EF {y}) => (v_Apoptosis))
+# The only attractors are fixed points with active Apoptosis (system always converges to the programmed cell death).
+V{x}: @{x}: ((!{y}: AG EF {y}) => ((AX {x}) & v_Apoptosis))
 
 # Growth_arrest is stably activated in an attractor.
 3{x}: @{x}: ((!{y}: AG EF {y}) & v_Growth_Arrest & ~(EF ~v_Growth_Arrest))
@@ -91,4 +91,3 @@ V{x}: @{x}: ((!{y}: AG EF {y}) => (v_Apoptosis))
 
 # Proliferation and Apoptosis are simultaneously active in an attractor state
 3{x}: @{x}: ((!{y}: AG EF {y}) & v_Apoptosis & v_Proliferation)
-
