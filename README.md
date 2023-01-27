@@ -18,7 +18,7 @@ This includes properties like stability, bi-stability, attractors, or oscillator
 To run the model checker, you will need the Rust compiler.
 We recommend following the instructions on [rustlang.org](https://www.rust-lang.org/learn/get-started).
 
-To successfully compile and run the code, on some systems, you will also need to download the Z3 library (for the purposes of linking).
+To successfully compile and run the code, on some systems, you may also need to download the Z3 library (for the purposes of linking).
 We recommend downloading the Z3 release from [their GitHub](https://github.com/Z3Prover/z3/releases) (z3-4.11.0 should work).
 The linker/binaries will look for the relevant `libz3.so` or `z3.dll`, and potentially for `z3.h`. 
 The easiest way should be to just add `-L path_to_z3/bin` to the environment variable `RUSTFLAGS`, and add `path_to_z3/include` to env variable `CPATH`.
