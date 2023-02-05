@@ -29,7 +29,7 @@ pub fn analyse_formulae(
     let mut parsed_trees = Vec::new();
     let mut max_num_hctl_vars = 0;
     for formula in formulae {
-        print_if_allowed(format!("Formula: {}", formula), print_op);
+        print_if_allowed(format!("Formula: {formula}"), print_op);
         let tokens = try_tokenize_formula(formula)?;
         let tree = parse_hctl_formula(&tokens)?;
         print_if_allowed(format!("Parsed formula:   {}", tree.subform_str), print_op);

@@ -50,7 +50,7 @@ impl fmt::Display for UnaryOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             UnaryOp::Not => write!(f, "~"),
-            c => write!(f, "{:?}", c),
+            c => write!(f, "{c:?}"),
         }
     }
 }
@@ -63,7 +63,7 @@ impl fmt::Display for BinaryOp {
             BinaryOp::Xor => write!(f, "^"),
             BinaryOp::Imp => write!(f, "=>"),
             BinaryOp::Iff => write!(f, "<=>"),
-            c => write!(f, "{:?}", c),
+            c => write!(f, "{c:?}"),
         }
     }
 }
@@ -71,15 +71,15 @@ impl fmt::Display for BinaryOp {
 impl fmt::Display for HybridOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let op = self;
-        write!(f, "{:?}", op)
+        write!(f, "{op:?}")
     }
 }
 
 impl fmt::Display for Atomic {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Atomic::Var(name) => write!(f, "{{{}}}", name),
-            Atomic::Prop(name) => write!(f, "{}", name),
+            Atomic::Var(name) => write!(f, "{{{name}}}"),
+            Atomic::Prop(name) => write!(f, "{name}"),
             Atomic::True => write!(f, "True"),
             Atomic::False => write!(f, "False"),
         }

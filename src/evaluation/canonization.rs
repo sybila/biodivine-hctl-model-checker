@@ -47,8 +47,8 @@ pub fn canonize_subform(
                 // skip ':'
                 subform_chars.next();
                 // insert new mapping to dict and push it all to canonical string
-                mapping_dict.insert(var_name.clone(), format!("var{}", stack_len));
-                canonical.push_str(format!("{}{{var{}}}:", ch, stack_len).as_str());
+                mapping_dict.insert(var_name.clone(), format!("var{stack_len}"));
+                canonical.push_str(format!("{ch}{{var{stack_len}}}:").as_str());
                 stack_len += 1;
             }
             // rename existing var to canonical form, or handle free variables
@@ -65,15 +65,15 @@ pub fn canonize_subform(
                 // we must be prepared for free vars to appear (not bounded by hybrid operators)
                 // it is because we are canonizing all subformulas in the tree
                 if !mapping_dict.contains_key(var_name.as_str()) {
-                    mapping_dict.insert(var_name.clone(), format!("var{}", stack_len));
+                    mapping_dict.insert(var_name.clone(), format!("var{stack_len}"));
                     stack_len += 1;
                 }
 
                 if let Some(canonical_name) = mapping_dict.get(var_name.as_str()) {
-                    canonical.push_str(format!("{{{}}}", canonical_name).as_str());
+                    canonical.push_str(format!("{{{canonical_name}}}").as_str());
                 } else {
                     // This branch should never happen
-                    println!("Canonical name was not found for {}", var_name);
+                    println!("Canonical name was not found for {var_name}");
                 }
             }
             // all the other character, including boolean+temporal operators, '@', prop names

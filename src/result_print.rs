@@ -21,7 +21,7 @@ pub(crate) fn print_if_allowed(text: String, print_options: PrintOptions) {
     if print_options == PrintOptions::NoPrint || print_options == PrintOptions::ShortPrint {
         return;
     }
-    println!("{}", text)
+    println!("{text}")
 }
 
 /// Print general info about the resulting set of colored vertices - the cardinality of the whole
@@ -64,12 +64,12 @@ pub(crate) fn print_results_full(
                     stdout
                         .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
                         .unwrap();
-                    write!(&mut stdout, "{} & ", var).unwrap();
+                    write!(&mut stdout, "{var} & ").unwrap();
                 } else {
                     stdout
                         .set_color(ColorSpec::new().set_fg(Some(Color::Red)))
                         .unwrap();
-                    write!(&mut stdout, "~{} & ", var).unwrap();
+                    write!(&mut stdout, "~{var} & ").unwrap();
                 }
             }
             stdout

@@ -12,9 +12,7 @@ keywords = ["hctl", "model-checking", "boolean-network", "symbolic", "systems-bi
 categories = ["science", "simulation"]
 license = "MIT"
 exclude = ["benchmark_models", ".github", ".githooks"]
-
-#[profile.release]
-#lto = true
+rust-version = "1.60"
 
 [profile.test]
 opt-level = 3 # to be able to run non-trivial tests
@@ -26,14 +24,6 @@ path = "src/main.rs"
 [[bin]]
 name = "convert-aeon-to-bnet"
 path = "src/bin/convert_aeon_to_bnet.rs"
-
-[[bin]]
-name = "classifier"
-path = "src/bin/classifier.rs"
-
-[[bin]]
-name = "load-classifier-output"
-path = "src/bin/load_classifier_output.rs"
 
 [dependencies]
 biodivine-lib-bdd = ">=0.4.2, <1.0.0"

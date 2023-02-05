@@ -217,7 +217,7 @@ fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<HctlTreeNode
                 }
                 Token::Atom(Atomic::Var(name)) => {
                     return Ok(Box::new(HctlTreeNode {
-                        subform_str: format!("{{{}}}", name),
+                        subform_str: format!("{{{name}}}"),
                         height: 0,
                         node_type: NodeType::TerminalNode(Atomic::Var(name.clone())),
                     }))
@@ -227,7 +227,7 @@ fn parse_9_terminal_and_parentheses(tokens: &[Token]) -> Result<Box<HctlTreeNode
                 _ => {} // otherwise, fall through to the error at the end.
             }
         }
-        Err(format!("Unexpected: {:?}. Expecting formula.", tokens))
+        Err(format!("Unexpected: {tokens:?}. Expecting formula."))
     }
 }
 

@@ -25,11 +25,11 @@ pub fn check_props_and_rename_vars(
             Atomic::Var(name) => {
                 // check that variable is not free (it must be already in mapping dict)
                 if !mapping_dict.contains_key(name.as_str()) {
-                    return Err(format!("Variable {} is free.", name));
+                    return Err(format!("Variable {name} is free."));
                 }
                 let renamed_var = mapping_dict.get(name.as_str()).unwrap();
                 Ok(HctlTreeNode {
-                    subform_str: format!("{{{}}}", renamed_var),
+                    subform_str: format!("{{{renamed_var}}}"),
                     height: 0,
                     node_type: NodeType::TerminalNode(Atomic::Var(renamed_var.to_string())),
                 })
@@ -38,7 +38,7 @@ pub fn check_props_and_rename_vars(
                 // check that proposition corresponds to valid BN variable
                 let network_variable = bn.as_graph().find_variable(name);
                 if network_variable.is_none() {
-                    return Err(format!("There is no network variable named {}.", name));
+                    return Err(format!("There is no network variable named {name}."));
                 }
                 Ok(orig_node)
             }
@@ -71,8 +71,7 @@ pub fn check_props_and_rename_vars(
                     // check that var is not already quantified
                     if mapping_dict.contains_key(var.as_str()) {
                         return Err(format!(
-                            "Variable {} is quantified several times in one sub-formula",
-                            var
+                            "Variable {var} is quantified several times in one sub-formula"
                         ));
                     }
                     last_used_name.push('x'); // this represents adding to stack

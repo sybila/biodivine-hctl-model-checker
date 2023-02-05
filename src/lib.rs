@@ -7,7 +7,6 @@
 //!
 
 pub mod analysis;
-pub mod bn_classification;
 pub mod evaluation;
 pub mod model_checking;
 pub mod preprocessing;
