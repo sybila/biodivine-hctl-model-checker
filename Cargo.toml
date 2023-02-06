@@ -27,8 +27,8 @@ path = "src/bin/convert_aeon_to_bnet.rs"
 
 [dependencies]
 biodivine-lib-bdd = ">=0.4.2, <1.0.0"
-biodivine-lib-param-bn = { git = "https://github.com/sybila/biodivine-lib-param-bn", branch = "master" }
-clap = { version = "3.1.6", features = ["derive"] }
-rand = "0.6.5"
+biodivine-lib-param-bn = ">=0.4.3, <1.0.0"
+clap = { version = "4.1.4", features = ["derive"] }
+rand = "0.8.5"
 termcolor = "1.1.2"
 zip = "0.6.3"
