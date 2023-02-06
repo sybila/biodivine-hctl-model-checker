@@ -1,1 +1,0 @@
-3{x}: (@{x}: (v_Apoptosis & v_Growth_Arrest & ~ v_Proliferation) & (AG EF (v_Apoptosis & v_Growth_Arrest & ~ v_Proliferation & {x})))

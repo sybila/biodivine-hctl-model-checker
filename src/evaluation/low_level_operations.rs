@@ -30,9 +30,8 @@ fn create_comparator(
             let network_var_name = reg_graph.get_variable_name(network_var_id);
 
             // extra BDD vars are called "{network_variable}_extra_{i}"
-            let hctl_var1_component_name = format!("{}_extra_{}", network_var_name, hctl_var_id);
-            let hctl_var2_component_name =
-                format!("{}_extra_{}", network_var_name, other_hctl_var_id);
+            let hctl_var1_component_name = format!("{network_var_name}_extra_{hctl_var_id}");
+            let hctl_var2_component_name = format!("{network_var_name}_extra_{other_hctl_var_id}");
 
             let bdd_hctl_var1_component = graph
                 .symbolic_context()
@@ -49,7 +48,7 @@ fn create_comparator(
 
         for network_var_id in reg_graph.variables() {
             let network_var_name = reg_graph.get_variable_name(network_var_id);
-            let hctl_component_name = format!("{}_extra_{}", network_var_name, hctl_var_id);
+            let hctl_component_name = format!("{network_var_name}_extra_{hctl_var_id}");
             let bdd_network_var = graph
                 .symbolic_context()
                 .bdd_variable_set()

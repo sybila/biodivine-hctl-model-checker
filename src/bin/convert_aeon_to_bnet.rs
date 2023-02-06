@@ -47,7 +47,7 @@ fn flatten_fn_update(network: &mut BooleanNetwork, update: &FnUpdate) -> FnUpdat
         FnUpdate::Not(update) => flatten_fn_update(network, update).negation(),
         FnUpdate::Param(id, args) => {
             let name = network.get_parameter(*id).get_name().clone();
-            explode_function(network, args, format!("{}_", name))
+            explode_function(network, args, format!("{name}_"))
         }
         FnUpdate::Binary(op, left, right) => FnUpdate::Binary(
             *op,
@@ -69,8 +69,8 @@ fn explode_function(
         FnUpdate::Param(parameter, Vec::new())
     } else {
         let regulator = regulators[0];
-        let true_branch = explode_function(network, &regulators[1..], format!("{}1", name_prefix));
-        let false_branch = explode_function(network, &regulators[1..], format!("{}0", name_prefix));
+        let true_branch = explode_function(network, &regulators[1..], format!("{name_prefix}1"));
+        let false_branch = explode_function(network, &regulators[1..], format!("{name_prefix}0"));
         let var = FnUpdate::Var(regulator);
         var.clone()
             .implies(true_branch)

@@ -80,7 +80,7 @@ fn try_tokenize_recursive(
                         'G' => output.push(Token::Unary(UnaryOp::Eg)),
                         'U' => output.push(Token::Binary(BinaryOp::Eu)),
                         'W' => output.push(Token::Binary(BinaryOp::Ew)),
-                        _ => return Err(format!("Unexpected char '{}' after 'E'.", c2)),
+                        _ => return Err(format!("Unexpected char '{c2}' after 'E'.")),
                     }
                 } else {
                     return Err("Expected one of '{X,F,G,U,W}' after 'E'.".to_string());
@@ -106,7 +106,7 @@ fn try_tokenize_recursive(
                         'G' => output.push(Token::Unary(UnaryOp::Ag)),
                         'U' => output.push(Token::Binary(BinaryOp::Au)),
                         'W' => output.push(Token::Binary(BinaryOp::Aw)),
-                        _ => return Err(format!("Unexpected char '{}' after 'A'.", c2)),
+                        _ => return Err(format!("Unexpected char '{c2}' after 'A'.")),
                     }
                 } else {
                     return Err("Expected one of '{X,F,G,U,W}' after 'A'.".to_string());
@@ -162,7 +162,7 @@ fn try_tokenize_recursive(
                 let name = collect_name(input_chars)?;
                 output.push(Token::Atom(Atomic::Prop(c.to_string() + &name)));
             }
-            _ => return Err(format!("Unexpected char '{}'.", c)),
+            _ => return Err(format!("Unexpected char '{c}'.")),
         }
     }
 
@@ -219,7 +219,7 @@ fn collect_var_from_operator(
     let _ = input_chars.take_while(|c| c.is_whitespace());
     // now collect the variable name itself- it is in the form {var_name} for now
     if Some('{') != input_chars.next() {
-        return Err(format!("Expected '{{' after '{}'.", operator));
+        return Err(format!("Expected '{{' after '{operator}'."));
     }
     let name = collect_name(input_chars)?;
     if name.is_empty() {
@@ -242,17 +242,17 @@ impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Token::Unary(UnaryOp::Not) => write!(f, "~"),
-            Token::Unary(c) => write!(f, "{:?}", c), // unary temporal
+            Token::Unary(c) => write!(f, "{c:?}"), // unary temporal
             Token::Binary(BinaryOp::And) => write!(f, "&"),
             Token::Binary(BinaryOp::Or) => write!(f, "|"),
             Token::Binary(BinaryOp::Xor) => write!(f, "^"),
             Token::Binary(BinaryOp::Imp) => write!(f, "=>"),
             Token::Binary(BinaryOp::Iff) => write!(f, "<=>"),
-            Token::Binary(c) => write!(f, "{:?}", c), // binary temporal
-            Token::Hybrid(op, var) => write!(f, "{:?} {{{}}}:", op, var),
-            Token::Atom(Atomic::Prop(name)) => write!(f, "{}", name),
-            Token::Atom(Atomic::Var(name)) => write!(f, "{{{}}}", name),
-            Token::Atom(constant) => write!(f, "{:?}", constant),
+            Token::Binary(c) => write!(f, "{c:?}"), // binary temporal
+            Token::Hybrid(op, var) => write!(f, "{op:?} {{{var}}}:"),
+            Token::Atom(Atomic::Prop(name)) => write!(f, "{name}"),
+            Token::Atom(Atomic::Var(name)) => write!(f, "{{{name}}}"),
+            Token::Atom(constant) => write!(f, "{constant:?}"),
             Token::Tokens(_) => write!(f, "( TOKENS )"), // debug purposes only
         }
     }
@@ -264,7 +264,7 @@ fn print_tokens_recursively(tokens: &Vec<Token>) {
     for token in tokens {
         match token {
             Token::Tokens(token_vec) => print_tokens_recursively(token_vec),
-            _ => print!("{} ", token),
+            _ => print!("{token} "),
         }
     }
 }
