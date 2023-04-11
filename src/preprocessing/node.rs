@@ -73,34 +73,64 @@ impl fmt::Display for HctlTreeNode {
 }
 
 /// Create a hybrid node from given arguments.
-pub fn create_hybrid(child: Box<HctlTreeNode>, var: String, op: HybridOp) -> HctlTreeNode {
+pub fn create_hybrid(child: HctlTreeNode, var: String, op: HybridOp) -> HctlTreeNode {
     HctlTreeNode {
         subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
         height: child.height + 1,
-        node_type: NodeType::HybridNode(op, var, child),
+        node_type: NodeType::HybridNode(op, var, Box::new(child)),
     }
 }
 
 /// Create an unary node from given arguments.
-pub fn create_unary(child: Box<HctlTreeNode>, op: UnaryOp) -> HctlTreeNode {
+pub fn create_unary(child: HctlTreeNode, op: UnaryOp) -> HctlTreeNode {
     HctlTreeNode {
         subform_str: format!("({} {})", op, child.subform_str),
         height: child.height + 1,
-        node_type: NodeType::UnaryNode(op, child),
+        node_type: NodeType::UnaryNode(op, Box::new(child)),
     }
 }
 
 /// Create a binary node from given arguments.
-pub fn create_binary(
-    left: Box<HctlTreeNode>,
-    right: Box<HctlTreeNode>,
-    op: BinaryOp,
-) -> HctlTreeNode {
+pub fn create_binary(left: HctlTreeNode, right: HctlTreeNode, op: BinaryOp) -> HctlTreeNode {
     HctlTreeNode {
         subform_str: format!("({} {} {})", left.subform_str, op, right.subform_str),
         height: cmp::max(left.height, right.height) + 1,
-        node_type: NodeType::BinaryNode(op, left, right),
+        node_type: NodeType::BinaryNode(op, Box::new(left), Box::new(right)),
     }
 }
 
-// TODO: make "create_var", "create_prop", and "create_constant" functions similar to previous
+/// Create a terminal `variable` node from given arguments.
+pub fn create_var_node(var_name: String) -> HctlTreeNode {
+    HctlTreeNode {
+        subform_str: format!("{{{var_name}}}"),
+        height: 0,
+        node_type: NodeType::TerminalNode(Atomic::Var(var_name)),
+    }
+}
+
+/// Create a terminal `proposition` node from given arguments.
+pub fn create_prop_node(prop_name: String) -> HctlTreeNode {
+    HctlTreeNode {
+        subform_str: format!("{{{prop_name}}}"),
+        height: 0,
+        node_type: NodeType::TerminalNode(Atomic::Prop(prop_name)),
+    }
+}
+
+/// Create a terminal `constant` node (true/false) from given arguments.
+/// `constant` should only be "true" or "false"
+pub fn create_constant_node(constant_val: bool) -> HctlTreeNode {
+    if constant_val {
+        HctlTreeNode {
+            subform_str: "True".to_string(),
+            height: 0,
+            node_type: NodeType::TerminalNode(Atomic::True),
+        }
+    } else {
+        HctlTreeNode {
+            subform_str: "False".to_string(),
+            height: 0,
+            node_type: NodeType::TerminalNode(Atomic::False),
+        }
+    }
+}
