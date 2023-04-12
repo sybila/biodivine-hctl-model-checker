@@ -4,9 +4,7 @@ use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_info::EvalInfo;
 use crate::preprocessing::node::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::HybridOp;
-use crate::preprocessing::parser::parse_hctl_formula;
-use crate::preprocessing::tokenizer::try_tokenize_formula;
-use crate::preprocessing::utils::check_props_and_rename_vars;
+use crate::preprocessing::parser::parse_and_minimize_hctl_formula;
 
 use biodivine_lib_param_bn::symbolic_async_graph::{
     GraphColoredVertices, SymbolicAsyncGraph, SymbolicContext,
@@ -94,6 +92,17 @@ pub fn model_check_trees(
     Ok(results)
 }
 
+/// Perform the model checking for a given HCTL syntax tree on GIVEN graph.
+/// Return the resulting set of colored vertices.
+/// There MUST be enough symbolic variables to represent all needed HCTL vars.
+pub fn model_check_tree(
+    formula_tree: HctlTreeNode,
+    stg: &SymbolicAsyncGraph,
+) -> Result<GraphColoredVertices, String> {
+    let result = model_check_trees(vec![formula_tree], stg)?;
+    Ok(result[0].clone())
+}
+
 /// Perform the model checking for the list of formulae on GIVEN graph and return the list
 /// of resulting sets of colored vertices (in the same order as input formulae).
 /// Return Error if the given extended symbolic graph does not support enough extra BDD variables to
@@ -105,19 +114,15 @@ pub fn model_check_multiple_formulae(
     // first parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
     for formula in formulae {
-        let tokens = try_tokenize_formula(formula)?;
-        let tree = parse_hctl_formula(&tokens)?;
-        let modified_tree =
-            check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
+        let tree = parse_and_minimize_hctl_formula(stg.as_network(), formula.as_str())?;
 
         // check that given extended symbolic graph supports enough stated variables
-        let num_vars_formula =
-            collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
+        let num_vars_formula = collect_unique_hctl_vars(tree.clone(), HashSet::new()).len();
         if !check_hctl_var_support(stg, num_vars_formula) {
             return Err("Graph does not support enough HCTL state variables".to_string());
         }
 
-        parsed_trees.push(modified_tree);
+        parsed_trees.push(tree);
     }
 
     // run the main model-checking procedure on formulae trees
@@ -148,21 +153,18 @@ pub fn model_check_formula_unsafe_ex(
     formula: String,
     stg: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
-    let tokens = try_tokenize_formula(formula).unwrap();
-    let tree = parse_hctl_formula(&tokens).unwrap();
-    let modified_tree =
-        check_props_and_rename_vars(*tree, HashMap::new(), String::new(), stg.as_network())?;
+    let tree = parse_and_minimize_hctl_formula(stg.as_network(), formula.as_str())?;
     // check that given extended symbolic graph supports enough stated variables
-    let num_vars_formula = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
+    let num_vars_formula = collect_unique_hctl_vars(tree.clone(), HashSet::new()).len();
     if !check_hctl_var_support(stg, num_vars_formula) {
         return Err("Graph does not support enough HCTL state variables".to_string());
     }
 
-    let mut eval_info = EvalInfo::from_single_tree(&modified_tree);
+    let mut eval_info = EvalInfo::from_single_tree(&tree);
 
     // do not consider self-loops during EX computation (UNSAFE optimisation)
     Ok(eval_node(
-        modified_tree,
+        tree,
         stg,
         &mut eval_info,
         &stg.mk_empty_vertices(),
@@ -175,7 +177,6 @@ mod tests {
         collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_formula,
     };
     use crate::preprocessing::parser::parse_hctl_formula;
-    use crate::preprocessing::tokenizer::try_tokenize_formula;
     use crate::preprocessing::utils::check_props_and_rename_vars;
 
     use biodivine_lib_param_bn::BooleanNetwork;
@@ -448,8 +449,7 @@ $DivK: (!PleC & DivJ)
     fn test_state_var_collecting() {
         // formula "FORKS1 & FORKS2" - both parts are semantically same, just use different var names
         let formula = "(!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))) & (!{x1}: 3{y1}: (@{x1}: ~{y1} & (!{z1}: AX {z1})) & (@{y1}: (!{z1}: AX {z1})))".to_string();
-        let tokens = try_tokenize_formula(formula).unwrap();
-        let tree = parse_hctl_formula(&tokens).unwrap();
+        let tree = parse_hctl_formula(formula.as_str()).unwrap();
 
         // test for original tree
         let expected_vars = vec![
@@ -461,7 +461,7 @@ $DivK: (!PleC & DivJ)
             "z1".to_string(),
         ];
         assert_eq!(
-            collect_unique_hctl_vars(*tree.clone(), HashSet::new()),
+            collect_unique_hctl_vars(tree.clone(), HashSet::new()),
             HashSet::from_iter(expected_vars)
         );
 
@@ -470,7 +470,7 @@ $DivK: (!PleC & DivJ)
 
         // and for tree with minimized number of renamed state vars
         let modified_tree =
-            check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
+            check_props_and_rename_vars(tree, HashMap::new(), String::new(), &bn).unwrap();
         let expected_vars = vec!["x".to_string(), "xx".to_string(), "xxx".to_string()];
         assert_eq!(
             collect_unique_hctl_vars(modified_tree, HashSet::new()),

@@ -1,6 +1,6 @@
 [package]
 name = "biodivine-hctl-model-checker"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Ondřej Huvar <xhuvar@fi.muni.cz>", "Samuel Pastva <sam.pastva@gmail.com>"]
 edition = "2021"
 description = "Library for symbolic HCTL model checking on partially defined Boolean networks."
@@ -31,4 +31,3 @@ biodivine-lib-param-bn = ">=0.4.3, <1.0.0"
 clap = { version = "4.1.4", features = ["derive"] }
 rand = "0.8.5"
 termcolor = "1.1.2"
-zip = "0.6.3"

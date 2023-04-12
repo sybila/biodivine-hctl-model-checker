@@ -175,9 +175,7 @@ mod tests {
     use crate::evaluation::mark_duplicate_subform::{
         mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
     };
-    use crate::preprocessing::parser::parse_hctl_formula;
-    use crate::preprocessing::tokenizer::try_tokenize_formula;
-    use crate::preprocessing::utils::check_props_and_rename_vars;
+    use crate::preprocessing::parser::parse_and_minimize_hctl_formula;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
@@ -190,11 +188,8 @@ mod tests {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
-        let tokens = try_tokenize_formula(formula).unwrap();
-        let tree = parse_hctl_formula(&tokens).unwrap();
-        let modified_tree =
-            check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
-        let duplicates = mark_duplicates_canonized_single(&modified_tree);
+        let tree = parse_and_minimize_hctl_formula(&bn, formula.as_str()).unwrap();
+        let duplicates = mark_duplicates_canonized_single(&tree);
 
         assert_eq!(duplicates, expected_duplicates);
     }
@@ -212,12 +207,8 @@ mod tests {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
-        let tokens = try_tokenize_formula(formula).unwrap();
-        let tree = parse_hctl_formula(&tokens).unwrap();
-        let modified_tree =
-            check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
-        let duplicates = mark_duplicates_canonized_single(&modified_tree);
-
+        let tree = parse_and_minimize_hctl_formula(&bn, formula.as_str()).unwrap();
+        let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);
     }
 
@@ -240,11 +231,8 @@ mod tests {
 
         let mut trees = Vec::new();
         for formula in formulae {
-            let tokens = try_tokenize_formula(formula).unwrap();
-            let tree = parse_hctl_formula(&tokens).unwrap();
-            let modified_tree =
-                check_props_and_rename_vars(*tree, HashMap::new(), String::new(), &bn).unwrap();
-            trees.push(modified_tree);
+            let tree = parse_and_minimize_hctl_formula(&bn, formula.as_str()).unwrap();
+            trees.push(tree);
         }
         let duplicates = mark_duplicates_canonized_multiple(&trees);
 

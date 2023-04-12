@@ -8,25 +8,25 @@ use std::str::Chars;
 
 /// Enum of all possible tokens occurring in a HCTL formula string.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Token {
+pub enum HctlToken {
     Unary(UnaryOp),           // Unary operators: '~','EX','AX','EF','AF','EG','AG'
     Binary(BinaryOp),         // Binary operators: '&','|','^','=>','<=>','EU','AU','EW','AW'
     Hybrid(HybridOp, String), // Hybrid operator and its variable: '!', '@', '3', 'V'
     Atom(Atomic),             // Proposition, variable, or 'true'/'false' constant
-    Tokens(Vec<Token>),       // A block of tokens inside parentheses
+    Tokens(Vec<HctlToken>),   // A block of tokens inside parentheses
 }
 
 /// Try to tokenize given HCTL formula string.
 /// Wrapper for the recursive `try_tokenize_formula` function.
-pub fn try_tokenize_formula(formula: String) -> Result<Vec<Token>, String> {
+pub fn try_tokenize_formula(formula: String) -> Result<Vec<HctlToken>, String> {
     try_tokenize_recursive(&mut formula.chars().peekable(), true)
 }
 
-/// Process a peekable iterator of characters into a vector of `Token`s.
+/// Process a peekable iterator of characters into a vector of `HctlToken`s.
 fn try_tokenize_recursive(
     input_chars: &mut Peekable<Chars>,
     top_level: bool,
-) -> Result<Vec<Token>, String> {
+) -> Result<Vec<HctlToken>, String> {
     let mut output = Vec::new();
 
     while let Some(c) = input_chars.next() {
@@ -35,13 +35,13 @@ fn try_tokenize_recursive(
 
         match c {
             c if c.is_whitespace() => {} // skip whitespace
-            '~' => output.push(Token::Unary(UnaryOp::Not)),
-            '&' => output.push(Token::Binary(BinaryOp::And)),
-            '|' => output.push(Token::Binary(BinaryOp::Or)),
-            '^' => output.push(Token::Binary(BinaryOp::Xor)),
+            '~' => output.push(HctlToken::Unary(UnaryOp::Not)),
+            '&' => output.push(HctlToken::Binary(BinaryOp::And)),
+            '|' => output.push(HctlToken::Binary(BinaryOp::Or)),
+            '^' => output.push(HctlToken::Binary(BinaryOp::Xor)),
             '=' => {
                 if Some('>') == input_chars.next() {
-                    output.push(Token::Binary(BinaryOp::Imp));
+                    output.push(HctlToken::Binary(BinaryOp::Imp));
                 } else {
                     return Err("Expected '>' after '='.".to_string());
                 }
@@ -49,7 +49,7 @@ fn try_tokenize_recursive(
             '<' => {
                 if Some('=') == input_chars.next() {
                     if Some('>') == input_chars.next() {
-                        output.push(Token::Binary(BinaryOp::Iff));
+                        output.push(HctlToken::Binary(BinaryOp::Iff));
                     } else {
                         return Err("Expected '>' after '<='.".to_string());
                     }
@@ -67,7 +67,7 @@ fn try_tokenize_recursive(
                     if let Some(c3) = input_chars.peek() {
                         if is_valid_in_name(*c3) {
                             let name = collect_name(input_chars)?;
-                            output.push(Token::Atom(Atomic::Prop(
+                            output.push(HctlToken::Atom(Atomic::Prop(
                                 c.to_string() + c2.to_string().as_str() + &name,
                             )));
                             continue;
@@ -75,11 +75,11 @@ fn try_tokenize_recursive(
                     }
 
                     match c2 {
-                        'X' => output.push(Token::Unary(UnaryOp::Ex)),
-                        'F' => output.push(Token::Unary(UnaryOp::Ef)),
-                        'G' => output.push(Token::Unary(UnaryOp::Eg)),
-                        'U' => output.push(Token::Binary(BinaryOp::Eu)),
-                        'W' => output.push(Token::Binary(BinaryOp::Ew)),
+                        'X' => output.push(HctlToken::Unary(UnaryOp::Ex)),
+                        'F' => output.push(HctlToken::Unary(UnaryOp::Ef)),
+                        'G' => output.push(HctlToken::Unary(UnaryOp::Eg)),
+                        'U' => output.push(HctlToken::Binary(BinaryOp::Eu)),
+                        'W' => output.push(HctlToken::Binary(BinaryOp::Ew)),
                         _ => return Err(format!("Unexpected char '{c2}' after 'E'.")),
                     }
                 } else {
@@ -94,18 +94,18 @@ fn try_tokenize_recursive(
                     if let Some(c3) = input_chars.peek() {
                         if is_valid_in_name(*c3) {
                             let name = collect_name(input_chars)?;
-                            output.push(Token::Atom(Atomic::Prop(
+                            output.push(HctlToken::Atom(Atomic::Prop(
                                 c.to_string() + c2.to_string().as_str() + &name,
                             )));
                             continue;
                         }
                     }
                     match c2 {
-                        'X' => output.push(Token::Unary(UnaryOp::Ax)),
-                        'F' => output.push(Token::Unary(UnaryOp::Af)),
-                        'G' => output.push(Token::Unary(UnaryOp::Ag)),
-                        'U' => output.push(Token::Binary(BinaryOp::Au)),
-                        'W' => output.push(Token::Binary(BinaryOp::Aw)),
+                        'X' => output.push(HctlToken::Unary(UnaryOp::Ax)),
+                        'F' => output.push(HctlToken::Unary(UnaryOp::Af)),
+                        'G' => output.push(HctlToken::Unary(UnaryOp::Ag)),
+                        'U' => output.push(HctlToken::Binary(BinaryOp::Au)),
+                        'W' => output.push(HctlToken::Binary(BinaryOp::Aw)),
                         _ => return Err(format!("Unexpected char '{c2}' after 'A'.")),
                     }
                 } else {
@@ -115,24 +115,24 @@ fn try_tokenize_recursive(
             '!' => {
                 // we will collect the variable name via inside helper function
                 let name = collect_var_from_operator(input_chars, '!')?;
-                output.push(Token::Hybrid(HybridOp::Bind, name));
+                output.push(HctlToken::Hybrid(HybridOp::Bind, name));
             }
             '@' => {
                 // we will collect the variable name via inside helper function
                 let name = collect_var_from_operator(input_chars, '@')?;
-                output.push(Token::Hybrid(HybridOp::Jump, name));
+                output.push(HctlToken::Hybrid(HybridOp::Jump, name));
             }
             // "3" can be either exist quantifier or part of some proposition
             '3' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
                 let name = collect_var_from_operator(input_chars, '3')?;
-                output.push(Token::Hybrid(HybridOp::Exists, name));
+                output.push(HctlToken::Hybrid(HybridOp::Exists, name));
             }
             // "V" can be either forall quantifier or part of some proposition
             'V' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
                 let name = collect_var_from_operator(input_chars, 'V')?;
-                output.push(Token::Hybrid(HybridOp::Forall, name));
+                output.push(HctlToken::Hybrid(HybridOp::Forall, name));
             }
             ')' => {
                 return if !top_level {
@@ -144,7 +144,7 @@ fn try_tokenize_recursive(
             '(' => {
                 // start a nested token group
                 let token_group = try_tokenize_recursive(input_chars, false)?;
-                output.push(Token::Tokens(token_group));
+                output.push(HctlToken::Tokens(token_group));
             }
             // variable name
             '{' => {
@@ -152,15 +152,16 @@ fn try_tokenize_recursive(
                 if name.is_empty() {
                     return Err("Variable name can't be empty.".to_string());
                 }
-                output.push(Token::Atom(Atomic::Var(name)));
+                output.push(HctlToken::Atom(Atomic::Var(name)));
                 if Some('}') != input_chars.next() {
                     return Err("Expected '}'.".to_string());
                 }
             }
-            // proposition name
+            // proposition name or constant
+            // these 2 are NOT distinguished now but later during parsing
             c if is_valid_in_name(c) => {
                 let name = collect_name(input_chars)?;
-                output.push(Token::Atom(Atomic::Prop(c.to_string() + &name)));
+                output.push(HctlToken::Atom(Atomic::Prop(c.to_string() + &name)));
             }
             _ => return Err(format!("Unexpected char '{c}'.")),
         }
@@ -237,33 +238,33 @@ fn collect_var_from_operator(
     Ok(name)
 }
 
-impl fmt::Display for Token {
+impl fmt::Display for HctlToken {
     /// Display tokens for debug purposes.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Token::Unary(UnaryOp::Not) => write!(f, "~"),
-            Token::Unary(c) => write!(f, "{c:?}"), // unary temporal
-            Token::Binary(BinaryOp::And) => write!(f, "&"),
-            Token::Binary(BinaryOp::Or) => write!(f, "|"),
-            Token::Binary(BinaryOp::Xor) => write!(f, "^"),
-            Token::Binary(BinaryOp::Imp) => write!(f, "=>"),
-            Token::Binary(BinaryOp::Iff) => write!(f, "<=>"),
-            Token::Binary(c) => write!(f, "{c:?}"), // binary temporal
-            Token::Hybrid(op, var) => write!(f, "{op:?} {{{var}}}:"),
-            Token::Atom(Atomic::Prop(name)) => write!(f, "{name}"),
-            Token::Atom(Atomic::Var(name)) => write!(f, "{{{name}}}"),
-            Token::Atom(constant) => write!(f, "{constant:?}"),
-            Token::Tokens(_) => write!(f, "( TOKENS )"), // debug purposes only
+            HctlToken::Unary(UnaryOp::Not) => write!(f, "~"),
+            HctlToken::Unary(c) => write!(f, "{c:?}"), // unary temporal
+            HctlToken::Binary(BinaryOp::And) => write!(f, "&"),
+            HctlToken::Binary(BinaryOp::Or) => write!(f, "|"),
+            HctlToken::Binary(BinaryOp::Xor) => write!(f, "^"),
+            HctlToken::Binary(BinaryOp::Imp) => write!(f, "=>"),
+            HctlToken::Binary(BinaryOp::Iff) => write!(f, "<=>"),
+            HctlToken::Binary(c) => write!(f, "{c:?}"), // binary temporal
+            HctlToken::Hybrid(op, var) => write!(f, "{op:?} {{{var}}}:"),
+            HctlToken::Atom(Atomic::Prop(name)) => write!(f, "{name}"),
+            HctlToken::Atom(Atomic::Var(name)) => write!(f, "{{{name}}}"),
+            HctlToken::Atom(constant) => write!(f, "{constant:?}"),
+            HctlToken::Tokens(_) => write!(f, "( TOKENS )"), // debug purposes only
         }
     }
 }
 
 #[allow(dead_code)]
 /// Recursively print tokens.
-fn print_tokens_recursively(tokens: &Vec<Token>) {
+fn print_tokens_recursively(tokens: &Vec<HctlToken>) {
     for token in tokens {
         match token {
-            Token::Tokens(token_vec) => print_tokens_recursively(token_vec),
+            HctlToken::Tokens(token_vec) => print_tokens_recursively(token_vec),
             _ => print!("{token} "),
         }
     }
@@ -271,7 +272,7 @@ fn print_tokens_recursively(tokens: &Vec<Token>) {
 
 #[allow(dead_code)]
 /// Print the vector of tokens (for debug purposes).
-pub fn print_tokens(tokens: &Vec<Token>) {
+pub fn print_tokens(tokens: &Vec<HctlToken>) {
     print_tokens_recursively(tokens);
     println!();
 }
@@ -279,7 +280,7 @@ pub fn print_tokens(tokens: &Vec<Token>) {
 #[cfg(test)]
 mod tests {
     use crate::preprocessing::operator_enums::*;
-    use crate::preprocessing::tokenizer::{try_tokenize_formula, Token};
+    use crate::preprocessing::tokenizer::{try_tokenize_formula, HctlToken};
 
     #[test]
     /// Test tokenization process on several valid HCTL formulae.
@@ -289,10 +290,10 @@ mod tests {
         assert_eq!(
             tokens1_result.unwrap(),
             vec![
-                Token::Hybrid(HybridOp::Bind, "x".to_string()),
-                Token::Unary(UnaryOp::Ag),
-                Token::Unary(UnaryOp::Ef),
-                Token::Atom(Atomic::Var("x".to_string())),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                HctlToken::Unary(UnaryOp::Ag),
+                HctlToken::Unary(UnaryOp::Ef),
+                HctlToken::Atom(Atomic::Var("x".to_string())),
             ]
         );
 
@@ -301,17 +302,17 @@ mod tests {
         assert_eq!(
             tokens2_result.unwrap(),
             vec![
-                Token::Unary(UnaryOp::Af),
-                Token::Tokens(vec![
-                    Token::Hybrid(HybridOp::Bind, "x".to_string()),
-                    Token::Tokens(vec![
-                        Token::Unary(UnaryOp::Ax),
-                        Token::Tokens(vec![
-                            Token::Unary(UnaryOp::Not),
-                            Token::Atom(Atomic::Var("x".to_string())),
-                            Token::Binary(BinaryOp::And),
-                            Token::Unary(UnaryOp::Af),
-                            Token::Atom(Atomic::Var("x".to_string())),
+                HctlToken::Unary(UnaryOp::Af),
+                HctlToken::Tokens(vec![
+                    HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                    HctlToken::Tokens(vec![
+                        HctlToken::Unary(UnaryOp::Ax),
+                        HctlToken::Tokens(vec![
+                            HctlToken::Unary(UnaryOp::Not),
+                            HctlToken::Atom(Atomic::Var("x".to_string())),
+                            HctlToken::Binary(BinaryOp::And),
+                            HctlToken::Unary(UnaryOp::Af),
+                            HctlToken::Atom(Atomic::Var("x".to_string())),
                         ]),
                     ]),
                 ]),
@@ -323,21 +324,21 @@ mod tests {
         assert_eq!(
             tokens3_result.unwrap(),
             vec![
-                Token::Hybrid(HybridOp::Bind, "x".to_string()),
-                Token::Hybrid(HybridOp::Exists, "y".to_string()),
-                Token::Tokens(vec![
-                    Token::Hybrid(HybridOp::Jump, "x".to_string()),
-                    Token::Unary(UnaryOp::Not),
-                    Token::Atom(Atomic::Var("y".to_string())),
-                    Token::Binary(BinaryOp::And),
-                    Token::Unary(UnaryOp::Ax),
-                    Token::Atom(Atomic::Var("x".to_string())),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                HctlToken::Hybrid(HybridOp::Exists, "y".to_string()),
+                HctlToken::Tokens(vec![
+                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string()),
+                    HctlToken::Unary(UnaryOp::Not),
+                    HctlToken::Atom(Atomic::Var("y".to_string())),
+                    HctlToken::Binary(BinaryOp::And),
+                    HctlToken::Unary(UnaryOp::Ax),
+                    HctlToken::Atom(Atomic::Var("x".to_string())),
                 ]),
-                Token::Binary(BinaryOp::And),
-                Token::Tokens(vec![
-                    Token::Hybrid(HybridOp::Jump, "y".to_string()),
-                    Token::Unary(UnaryOp::Ax),
-                    Token::Atom(Atomic::Var("y".to_string())),
+                HctlToken::Binary(BinaryOp::And),
+                HctlToken::Tokens(vec![
+                    HctlToken::Hybrid(HybridOp::Jump, "y".to_string()),
+                    HctlToken::Unary(UnaryOp::Ax),
+                    HctlToken::Atom(Atomic::Var("y".to_string())),
                 ]),
             ]
         );

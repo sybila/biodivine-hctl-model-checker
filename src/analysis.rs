@@ -4,7 +4,6 @@ use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_info::EvalInfo;
 use crate::model_checking::{collect_unique_hctl_vars, get_extended_symbolic_graph};
 use crate::preprocessing::parser::parse_hctl_formula;
-use crate::preprocessing::tokenizer::try_tokenize_formula;
 use crate::preprocessing::utils::check_props_and_rename_vars;
 use crate::result_print::*;
 
@@ -30,11 +29,10 @@ pub fn analyse_formulae(
     let mut max_num_hctl_vars = 0;
     for formula in formulae {
         print_if_allowed(format!("Formula: {formula}"), print_op);
-        let tokens = try_tokenize_formula(formula)?;
-        let tree = parse_hctl_formula(&tokens)?;
+        let tree = parse_hctl_formula(formula.as_str())?;
         print_if_allowed(format!("Parsed formula:   {}", tree.subform_str), print_op);
 
-        let modified_tree = check_props_and_rename_vars(*tree, HashMap::new(), String::new(), bn)?;
+        let modified_tree = check_props_and_rename_vars(tree, HashMap::new(), String::new(), bn)?;
         let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
         print_if_allowed(
             format!("Modified formula: {}", modified_tree.subform_str),

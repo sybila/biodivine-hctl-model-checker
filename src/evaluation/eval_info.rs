@@ -52,15 +52,13 @@ impl EvalInfo {
 mod tests {
     use crate::evaluation::eval_info::EvalInfo;
     use crate::preprocessing::parser::parse_hctl_formula;
-    use crate::preprocessing::tokenizer::try_tokenize_formula;
     use std::collections::HashMap;
 
     #[test]
     /// Test equivalent ways to generate EvalInfo object.
     fn test_eval_info_creation() {
         let formula = "!{x}: (AX {x} & AX {x})".to_string();
-        let tokens = try_tokenize_formula(formula).unwrap();
-        let syntax_tree = *parse_hctl_formula(&tokens).unwrap();
+        let syntax_tree = parse_hctl_formula(formula.as_str()).unwrap();
 
         let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
         let eval_info = EvalInfo::new(expected_duplicates.clone());

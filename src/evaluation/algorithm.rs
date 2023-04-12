@@ -270,14 +270,7 @@ mod tests {
     /// Test recognition of fixed-point pattern.
     fn test_fixed_point_pattern() {
         let tree = create_hybrid(
-            Box::new(create_unary(
-                Box::new(HctlTreeNode {
-                    subform_str: "{x}".to_string(),
-                    height: 0,
-                    node_type: NodeType::TerminalNode(Atomic::Var("x".to_string())),
-                }),
-                UnaryOp::Ax,
-            )),
+            create_unary(create_var_node("x".to_string()), UnaryOp::Ax),
             "x".to_string(),
             HybridOp::Bind,
         );
@@ -288,17 +281,10 @@ mod tests {
     /// Test recognition of attractor pattern.
     fn test_attractor_pattern() {
         let tree = create_hybrid(
-            Box::new(create_unary(
-                Box::new(create_unary(
-                    Box::new(HctlTreeNode {
-                        subform_str: "{x}".to_string(),
-                        height: 0,
-                        node_type: NodeType::TerminalNode(Atomic::Var("x".to_string())),
-                    }),
-                    UnaryOp::Ef,
-                )),
+            create_unary(
+                create_unary(create_var_node("x".to_string()), UnaryOp::Ef),
                 UnaryOp::Ag,
-            )),
+            ),
             "x".to_string(),
             HybridOp::Bind,
         );
