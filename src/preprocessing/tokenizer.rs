@@ -157,7 +157,8 @@ fn try_tokenize_recursive(
                     return Err("Expected '}'.".to_string());
                 }
             }
-            // proposition name
+            // proposition name or constant
+            // these 2 are NOT distinguished now but later during parsing
             c if is_valid_in_name(c) => {
                 let name = collect_name(input_chars)?;
                 output.push(HctlToken::Atom(Atomic::Prop(c.to_string() + &name)));

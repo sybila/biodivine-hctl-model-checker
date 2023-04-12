@@ -111,7 +111,7 @@ pub fn create_var_node(var_name: String) -> HctlTreeNode {
 /// Create a terminal `proposition` node from given arguments.
 pub fn create_prop_node(prop_name: String) -> HctlTreeNode {
     HctlTreeNode {
-        subform_str: format!("{{{prop_name}}}"),
+        subform_str: prop_name.clone(),
         height: 0,
         node_type: NodeType::TerminalNode(Atomic::Prop(prop_name)),
     }

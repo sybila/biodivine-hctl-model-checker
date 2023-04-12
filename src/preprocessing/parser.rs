@@ -218,17 +218,15 @@ fn parse_9_terminal_and_parentheses(tokens: &[HctlToken]) -> Result<HctlTreeNode
             // This should be name (var/prop) or a parenthesis group, everything else does not make sense.
             match &tokens[0] {
                 HctlToken::Atom(Atomic::Prop(name)) => {
-                    return if name == "true" {
+                    return if name == "true" || name == "True" || name == "1" {
                         Ok(create_constant_node(true))
-                    } else if name == "false" {
+                    } else if name == "false" || name == "False" || name == "0" {
                         Ok(create_constant_node(false))
                     } else {
                         Ok(create_prop_node(name.clone()))
                     }
                 }
-                HctlToken::Atom(Atomic::Var(name)) => {
-                    return Ok(create_var_node(name.clone()))
-                }
+                HctlToken::Atom(Atomic::Var(name)) => return Ok(create_var_node(name.clone())),
                 // recursively solve sub-formulae in parentheses
                 HctlToken::Tokens(inner) => return parse_hctl_tokens(inner),
                 _ => {} // otherwise, fall through to the error at the end.
@@ -246,15 +244,36 @@ mod tests {
 
     #[test]
     /// Test whether several valid HCTL formulae are parsed without causing errors.
+    /// Also check that the formula is saved correctly in the tree root.
     fn test_parse_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}".to_string();
         assert!(parse_hctl_formula(valid1.as_str()).is_ok());
+        let tree = parse_hctl_formula(valid1.as_str()).unwrap();
+        assert_eq!(tree.subform_str, "(Bind {x}: (Ag (Ef {x})))".to_string());
 
         let valid2 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string();
         assert!(parse_hctl_formula(valid2.as_str()).is_ok());
+        let tree = parse_hctl_formula(valid2.as_str()).unwrap();
+        assert_eq!(
+            tree.subform_str,
+            "(Bind {x}: (Exists {y}: ((Jump {x}: ((~ {y}) & (Ax {x}))) & (Jump {y}: (Ax {y})))))"
+                .to_string()
+        );
 
         let valid3 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))".to_string();
         assert!(parse_hctl_formula(valid3.as_str()).is_ok());
+        let tree = parse_hctl_formula(valid3.as_str()).unwrap();
+        assert_eq!(tree.subform_str, "(Exists {x}: (Exists {y}: ((Jump {x}: ((~ {y}) & (Ax {x}))) & ((Jump {y}: (Ax {y})) & ((Ef ({x} & (Bind {z}: (Ax {z})))) & ((Ef ({y} & (Bind {z}: (Ax {z})))) & (Ax ((Ef ({x} & (Bind {z}: (Ax {z})))) ^ (Ef ({y} & (Bind {z}: (Ax {z}))))))))))))".to_string());
+
+        // also test propositions and constants
+        // propositions names should not be modified, constants should be unified to True/False
+        let valid4 = "(prop1 & PROP2 | false) AU (True & 0)".to_string();
+        assert!(parse_hctl_formula(valid4.as_str()).is_ok());
+        let tree = parse_hctl_formula(valid4.as_str()).unwrap();
+        assert_eq!(
+            tree.subform_str,
+            "(((prop1 & PROP2) | False) Au (True & False))".to_string()
+        );
     }
 
     #[test]
