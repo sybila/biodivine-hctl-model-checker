@@ -14,16 +14,19 @@ use biodivine_lib_param_bn::BooleanNetwork;
 use std::collections::{HashMap, HashSet};
 
 /// Create an extended symbolic graph that supports the number of needed HCTL variables.
-pub fn get_extended_symbolic_graph(bn: &BooleanNetwork, num_hctl_vars: u16) -> SymbolicAsyncGraph {
+pub fn get_extended_symbolic_graph(
+    bn: &BooleanNetwork,
+    num_hctl_vars: u16,
+) -> Result<SymbolicAsyncGraph, String> {
     // for each BN var, `num_hctl_vars` new BDD vars must be created
     let mut map_num_vars = HashMap::new();
     for bn_var in bn.variables() {
         map_num_vars.insert(bn_var, num_hctl_vars);
     }
-    let context = SymbolicContext::with_extra_state_variables(bn, &map_num_vars).unwrap();
+    let context = SymbolicContext::with_extra_state_variables(bn, &map_num_vars)?;
     let unit = context.mk_constant(true);
 
-    SymbolicAsyncGraph::with_custom_context(bn.clone(), context, unit).unwrap()
+    SymbolicAsyncGraph::with_custom_context(bn.clone(), context, unit)
 }
 
 /// Compute the set of all uniquely named HCTL variables in the formula tree.
@@ -239,7 +242,7 @@ $DivK: (!PleC & DivJ)
         bn: BooleanNetwork,
     ) {
         // test formulae use 3 HCTL vars at most
-        let stg = get_extended_symbolic_graph(&bn, 3);
+        let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
 
         for (formula, num_total, num_colors, num_states) in test_tuples {
             let result = model_check_formula(formula.to_string(), &stg).unwrap();
@@ -325,7 +328,7 @@ $DivK: (!PleC & DivJ)
     /// Compare whether the results are the same.
     fn test_model_check_equivalences(bn: BooleanNetwork) {
         // test formulae use 3 HCTL vars at most
-        let stg = get_extended_symbolic_graph(&bn, 3);
+        let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
 
         let equivalent_formulae_pairs = vec![
             // constants
@@ -401,7 +404,7 @@ $DivK: (!PleC & DivJ)
     fn test_model_check_error_1() {
         // create symbolic graph supporting only one variable
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let stg = get_extended_symbolic_graph(&bn, 1);
+        let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
 
         // define formula with two variables
         let formula = "!{x}: !{y}: (AX {x} & AX {y})".to_string();
@@ -413,7 +416,7 @@ $DivK: (!PleC & DivJ)
     fn test_model_check_error_2() {
         // create placeholder symbolic graph
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let stg = get_extended_symbolic_graph(&bn, 2);
+        let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // define formula that contains free variable
         let formula = "AX {x}".to_string();
@@ -425,7 +428,7 @@ $DivK: (!PleC & DivJ)
     fn test_model_check_error_3() {
         // create placeholder symbolic graph
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let stg = get_extended_symbolic_graph(&bn, 2);
+        let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // define formula with several times quantified var
         let formula = "!{x}: !{x}: AX {x}".to_string();
@@ -437,7 +440,7 @@ $DivK: (!PleC & DivJ)
     fn test_model_check_error_4() {
         // create placeholder symbolic graph
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let stg = get_extended_symbolic_graph(&bn, 2);
+        let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // define formula with invalid proposition
         let formula = "AX invalid_proposition".to_string();

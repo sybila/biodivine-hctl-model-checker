@@ -27,7 +27,7 @@ pub fn analyse_formulae(
     // first parse all the formulae and count max number of HCTL variables
     let mut parsed_trees = Vec::new();
     let mut max_num_hctl_vars = 0;
-    for formula in formulae {
+    for formula in &formulae {
         print_if_allowed(format!("Formula: {formula}"), print_op);
         let tree = parse_hctl_formula(formula.as_str())?;
         print_if_allowed(format!("Parsed formula:   {}", tree.subform_str), print_op);
@@ -47,7 +47,7 @@ pub fn analyse_formulae(
     }
 
     // instantiate one extended STG with enough variables to evaluate all formulae
-    let graph = get_extended_symbolic_graph(bn, max_num_hctl_vars as u16);
+    let graph = get_extended_symbolic_graph(bn, max_num_hctl_vars as u16)?;
     print_if_allowed(
         format!(
             "Loaded BN with {} components and {} parameters",
@@ -80,14 +80,22 @@ pub fn analyse_formulae(
     print_if_allowed("=========\nEVAL INFO:\n=========\n".to_string(), print_op);
 
     // evaluate the formulae (perform the actual model checking) and summarize results
-    for parse_tree in parsed_trees {
+    for (i, parse_tree) in parsed_trees.iter().enumerate() {
+        let formula = formulae[i].clone();
         let curr_comp_start = SystemTime::now();
-        let result = eval_node(parse_tree, &graph, &mut eval_info, &self_loop_states);
+        let result = eval_node(
+            parse_tree.clone(),
+            &graph,
+            &mut eval_info,
+            &self_loop_states,
+        );
 
         match print_op {
-            PrintOptions::FullPrint => print_results_full(&graph, &result, curr_comp_start, true),
-            PrintOptions::MediumPrint => summarize_results(&result, curr_comp_start),
-            PrintOptions::ShortPrint => summarize_results(&result, curr_comp_start),
+            PrintOptions::FullPrint => {
+                print_results_full(formula, &graph, &result, curr_comp_start, true)
+            }
+            PrintOptions::MediumPrint => summarize_results(formula, &result, curr_comp_start),
+            PrintOptions::ShortPrint => summarize_results(formula, &result, curr_comp_start),
             PrintOptions::NoPrint => {}
         }
     }

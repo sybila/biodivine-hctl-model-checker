@@ -26,9 +26,14 @@ pub(crate) fn print_if_allowed(text: String, print_options: PrintOptions) {
 
 /// Print general info about the resulting set of colored vertices - the cardinality of the whole
 /// set and its projections to colors and vertices (and the computation time).
-pub(crate) fn summarize_results(results: &GraphColoredVertices, start_time: SystemTime) {
+pub(crate) fn summarize_results(
+    formula: String,
+    results: &GraphColoredVertices,
+    start_time: SystemTime,
+) {
+    println!("Formula: {formula}");
     println!(
-        "Time to eval formula: {}ms",
+        "Time to model check: {}ms",
         start_time.elapsed().unwrap().as_millis()
     );
     println!("{} results in total", results.approx_cardinality());
@@ -42,13 +47,14 @@ pub(crate) fn summarize_results(results: &GraphColoredVertices, start_time: Syst
 /// If param `show_names` is false, the states are displayed as a vector of 0/1; otherwise the full
 /// proposition names are displayed.
 pub(crate) fn print_results_full(
+    formula: String,
     graph: &SymbolicAsyncGraph,
     results: &GraphColoredVertices,
     start_time: SystemTime,
     show_names: bool,
 ) {
     // first print general summarizing information
-    summarize_results(results, start_time);
+    summarize_results(formula, results, start_time);
 
     let network = graph.as_network();
     for valuation in results.vertices().materialize().iter() {

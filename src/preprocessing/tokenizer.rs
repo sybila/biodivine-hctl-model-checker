@@ -30,9 +30,6 @@ fn try_tokenize_recursive(
     let mut output = Vec::new();
 
     while let Some(c) = input_chars.next() {
-        //print!("{}", c);
-        //io::stdout().flush().unwrap();
-
         match c {
             c if c.is_whitespace() => {} // skip whitespace
             '~' => output.push(HctlToken::Unary(UnaryOp::Not)),
