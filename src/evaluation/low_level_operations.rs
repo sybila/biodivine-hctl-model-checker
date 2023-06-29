@@ -102,23 +102,24 @@ pub fn project_out_hctl_var(
         bdd_vars_to_project.push(*extra_vars.get(hctl_var_id).unwrap());
     }
 
-    /*
-    // DEPRECATED version of collecting all BDD vars that encode the HCTL var
-    let vars_total = graph.symbolic_context().num_hctl_var_sets() as usize;
-    let bdd_vars_to_project: Vec<BddVariable> = graph
-        .symbolic_context()
-        .all_extra_state_variables()
-        .iter()
-        .skip(hctl_var_id)
-        .step_by(vars_total)
-        .copied()
-        .collect();
-     */
-
     // project these bdd vars out
-    let result_bdd = colored_state_set.as_bdd().project(&bdd_vars_to_project);
+    let result_bdd = colored_state_set.as_bdd().exists(&bdd_vars_to_project);
 
     // after projection we do not need to intersect with unit bdd
+    GraphColoredVertices::new(result_bdd, graph.symbolic_context())
+}
+
+/// Project out (existentially quantify) the BDD variables encoding the state.
+/// This is used during evaluation of jump operator.
+pub fn project_out_state_vars(
+    graph: &SymbolicAsyncGraph,
+    colored_state_set: GraphColoredVertices,
+) -> GraphColoredVertices {
+    // project out the bdd vars coding variables from the Boolean network
+    let result_bdd = colored_state_set
+        .into_bdd()
+        .exists(graph.symbolic_context().state_variables());
+    // after projecting we do not need to intersect with unit bdd
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 

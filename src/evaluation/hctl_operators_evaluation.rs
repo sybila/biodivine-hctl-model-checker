@@ -99,11 +99,7 @@ pub fn eval_jump(
     let intersection = comparator.intersect(phi);
 
     // now lets project out the bdd vars coding variables from the Boolean network
-    let result_bdd = intersection
-        .into_bdd()
-        .project(graph.symbolic_context().state_variables());
-    // after projecting we do not need to intersect with unit bdd
-    GraphColoredVertices::new(result_bdd, graph.symbolic_context())
+    project_out_state_vars(graph, intersection)
 }
 
 /// Evaluate EX operator by computing predecessors, but adds self-loops to steady states.

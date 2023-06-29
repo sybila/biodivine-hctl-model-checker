@@ -374,7 +374,7 @@ $DivK: (!PleC & DivJ)
         for (formula1, formula2) in equivalent_formulae_pairs {
             let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
             let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
-            assert_eq!(result1, result2);
+            assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
         }
     }
 
