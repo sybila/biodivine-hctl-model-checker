@@ -3,6 +3,7 @@
 pub mod algorithm;
 pub mod eval_info;
 pub mod mark_duplicate_subform;
+pub mod sanitizing;
 
 mod canonization;
 mod hctl_operators_evaluation;

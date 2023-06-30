@@ -2,6 +2,7 @@
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_info::EvalInfo;
+use crate::evaluation::sanitizing::sanitize_graph_colored_vertices;
 use crate::preprocessing::node::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::HybridOp;
 use crate::preprocessing::parser::parse_and_minimize_hctl_formula;
@@ -174,10 +175,35 @@ pub fn model_check_formula_unsafe_ex(
     ))
 }
 
+/// Perform the model checking procedure and sanitize the resulting BDD by getting rid of the
+/// symbolic variables, thus making it compatible with other biodivine libraries.
+pub fn model_check_and_sanitize(
+    formula: String,
+    stg: &SymbolicAsyncGraph,
+) -> Result<GraphColoredVertices, String> {
+    let result = model_check_multiple_and_sanitize(vec![formula], stg)?;
+    Ok(result[0].clone())
+}
+
+/// Perform the model checking procedure and sanitize the resulting BDD by getting rid of the
+/// symbolic variables, thus making it compatible with other biodivine libraries.
+pub fn model_check_multiple_and_sanitize(
+    formulae: Vec<String>,
+    stg: &SymbolicAsyncGraph,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    let results = model_check_multiple_formulae(formulae, stg)?;
+    let sanitized_results: Vec<GraphColoredVertices> = results
+        .iter()
+        .map(|x| sanitize_graph_colored_vertices(stg, x))
+        .collect();
+    Ok(sanitized_results)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::model_checking::{
-        collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_formula,
+        collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_and_sanitize,
+        model_check_formula,
     };
     use crate::preprocessing::parser::parse_hctl_formula;
     use crate::preprocessing::utils::check_props_and_rename_vars;
@@ -246,6 +272,11 @@ $DivK: (!PleC & DivJ)
 
         for (formula, num_total, num_colors, num_states) in test_tuples {
             let result = model_check_formula(formula.to_string(), &stg).unwrap();
+            assert_eq!(num_total, result.approx_cardinality());
+            assert_eq!(num_colors, result.colors().approx_cardinality());
+            assert_eq!(num_states, result.vertices().approx_cardinality());
+
+            let result = model_check_and_sanitize(formula.to_string(), &stg).unwrap();
             assert_eq!(num_total, result.approx_cardinality());
             assert_eq!(num_colors, result.colors().approx_cardinality());
             assert_eq!(num_states, result.vertices().approx_cardinality());
@@ -374,6 +405,10 @@ $DivK: (!PleC & DivJ)
         for (formula1, formula2) in equivalent_formulae_pairs {
             let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
             let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
+            assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
+
+            let result1 = model_check_and_sanitize(formula1.to_string(), &stg).unwrap();
+            let result2 = model_check_and_sanitize(formula2.to_string(), &stg).unwrap();
             assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
         }
     }
