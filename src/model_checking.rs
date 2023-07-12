@@ -2,6 +2,7 @@
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_info::EvalInfo;
+use crate::evaluation::sanitizing::sanitize_colored_vertices;
 use crate::preprocessing::node::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::HybridOp;
 use crate::preprocessing::parser::parse_and_minimize_hctl_formula;
@@ -92,7 +93,13 @@ pub fn model_check_trees(
             &self_loop_states,
         ));
     }
-    Ok(results)
+
+    // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
+    let sanitized_results: Vec<GraphColoredVertices> = results
+        .iter()
+        .map(|x| sanitize_colored_vertices(stg, x))
+        .collect();
+    Ok(sanitized_results)
 }
 
 /// Perform the model checking for a given HCTL syntax tree on GIVEN graph.
@@ -146,12 +153,10 @@ pub fn model_check_formula(
 
 #[allow(dead_code)]
 /// Perform the model checking on GIVEN graph and return the resulting set of colored vertices.
-/// Return Error if the given extended symbolic graph does not support enough extra BDD variables
-/// to represent all needed HCTL state-variables or if some formula is badly formed.
 /// Self-loops are not pre-computed, and thus are ignored in EX computation, which is fine for
-/// some formulae, but incorrect for others - it is an UNSAFE optimisation - only use it if you are
-/// sure everything will work fine.
-/// This must NOT be used for formulae containing !{x}:AX{x} sub-formulae.
+/// some formulae, but incorrect for others - it is thus an UNSAFE optimisation - only use it
+/// if you are sure everything will work fine.
+/// This must NOT be used for formulae containing `!{x}:AX{x}` sub-formulae.
 pub fn model_check_formula_unsafe_ex(
     formula: String,
     stg: &SymbolicAsyncGraph,
@@ -166,12 +171,9 @@ pub fn model_check_formula_unsafe_ex(
     let mut eval_info = EvalInfo::from_single_tree(&tree);
 
     // do not consider self-loops during EX computation (UNSAFE optimisation)
-    Ok(eval_node(
-        tree,
-        stg,
-        &mut eval_info,
-        &stg.mk_empty_vertices(),
-    ))
+    let result = eval_node(tree, stg, &mut eval_info, &stg.mk_empty_vertices());
+    // sanitize resulting BDD
+    Ok(sanitize_colored_vertices(stg, &result))
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 [package]
 name = "biodivine-hctl-model-checker"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Ondřej Huvar <xhuvar@fi.muni.cz>", "Samuel Pastva <sam.pastva@gmail.com>"]
 edition = "2021"
 description = "Library for symbolic HCTL model checking on partially defined Boolean networks."
