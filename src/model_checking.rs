@@ -2,7 +2,7 @@
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_info::EvalInfo;
-use crate::evaluation::sanitizing::sanitize_graph_colored_vertices;
+use crate::evaluation::sanitizing::sanitize_colored_vertices;
 use crate::preprocessing::node::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::HybridOp;
 use crate::preprocessing::parser::parse_and_minimize_hctl_formula;
@@ -93,7 +93,13 @@ pub fn model_check_trees(
             &self_loop_states,
         ));
     }
-    Ok(results)
+
+    // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
+    let sanitized_results: Vec<GraphColoredVertices> = results
+        .iter()
+        .map(|x| sanitize_colored_vertices(stg, x))
+        .collect();
+    Ok(sanitized_results)
 }
 
 /// Perform the model checking for a given HCTL syntax tree on GIVEN graph.
@@ -147,12 +153,10 @@ pub fn model_check_formula(
 
 #[allow(dead_code)]
 /// Perform the model checking on GIVEN graph and return the resulting set of colored vertices.
-/// Return Error if the given extended symbolic graph does not support enough extra BDD variables
-/// to represent all needed HCTL state-variables or if some formula is badly formed.
 /// Self-loops are not pre-computed, and thus are ignored in EX computation, which is fine for
-/// some formulae, but incorrect for others - it is an UNSAFE optimisation - only use it if you are
-/// sure everything will work fine.
-/// This must NOT be used for formulae containing !{x}:AX{x} sub-formulae.
+/// some formulae, but incorrect for others - it is thus an UNSAFE optimisation - only use it
+/// if you are sure everything will work fine.
+/// This must NOT be used for formulae containing `!{x}:AX{x}` sub-formulae.
 pub fn model_check_formula_unsafe_ex(
     formula: String,
     stg: &SymbolicAsyncGraph,
@@ -167,43 +171,15 @@ pub fn model_check_formula_unsafe_ex(
     let mut eval_info = EvalInfo::from_single_tree(&tree);
 
     // do not consider self-loops during EX computation (UNSAFE optimisation)
-    Ok(eval_node(
-        tree,
-        stg,
-        &mut eval_info,
-        &stg.mk_empty_vertices(),
-    ))
-}
-
-/// Perform the model checking procedure and sanitize the resulting BDD by getting rid of the
-/// symbolic variables, thus making it compatible with other biodivine libraries.
-pub fn model_check_and_sanitize(
-    formula: String,
-    stg: &SymbolicAsyncGraph,
-) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_and_sanitize(vec![formula], stg)?;
-    Ok(result[0].clone())
-}
-
-/// Perform the model checking procedure and sanitize the resulting BDD by getting rid of the
-/// symbolic variables, thus making it compatible with other biodivine libraries.
-pub fn model_check_multiple_and_sanitize(
-    formulae: Vec<String>,
-    stg: &SymbolicAsyncGraph,
-) -> Result<Vec<GraphColoredVertices>, String> {
-    let results = model_check_multiple_formulae(formulae, stg)?;
-    let sanitized_results: Vec<GraphColoredVertices> = results
-        .iter()
-        .map(|x| sanitize_graph_colored_vertices(stg, x))
-        .collect();
-    Ok(sanitized_results)
+    let result = eval_node(tree, stg, &mut eval_info, &stg.mk_empty_vertices());
+    // sanitize resulting BDD
+    Ok(sanitize_colored_vertices(stg, &result))
 }
 
 #[cfg(test)]
 mod tests {
     use crate::model_checking::{
-        collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_and_sanitize,
-        model_check_formula,
+        collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_formula,
     };
     use crate::preprocessing::parser::parse_hctl_formula;
     use crate::preprocessing::utils::check_props_and_rename_vars;
@@ -272,11 +248,6 @@ $DivK: (!PleC & DivJ)
 
         for (formula, num_total, num_colors, num_states) in test_tuples {
             let result = model_check_formula(formula.to_string(), &stg).unwrap();
-            assert_eq!(num_total, result.approx_cardinality());
-            assert_eq!(num_colors, result.colors().approx_cardinality());
-            assert_eq!(num_states, result.vertices().approx_cardinality());
-
-            let result = model_check_and_sanitize(formula.to_string(), &stg).unwrap();
             assert_eq!(num_total, result.approx_cardinality());
             assert_eq!(num_colors, result.colors().approx_cardinality());
             assert_eq!(num_states, result.vertices().approx_cardinality());
@@ -405,10 +376,6 @@ $DivK: (!PleC & DivJ)
         for (formula1, formula2) in equivalent_formulae_pairs {
             let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
             let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
-            assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
-
-            let result1 = model_check_and_sanitize(formula1.to_string(), &stg).unwrap();
-            let result2 = model_check_and_sanitize(formula2.to_string(), &stg).unwrap();
             assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
         }
     }

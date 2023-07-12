@@ -84,12 +84,10 @@ fn sanitize_bdd(
     Bdd::from_string(&String::from_utf8(c_string).unwrap())
 }
 
-/// Sanitize underlying BDD of a given coloured state set by removing its symbolic variables
-/// that were used for representing HCTL state-variables.
-///
-/// The method assumes that variables and parameters are ordered equivalently, they are just
-/// augmented with extra model checking variables that are unused in the original BDD.
-pub fn sanitize_graph_colored_vertices(
+/// Sanitize underlying BDD of a given coloured state set by removing the symbolic variables
+/// that were used for representing HCTL state-variables. At the moment, we remove all symbolic
+/// variables.
+pub fn sanitize_colored_vertices(
     stg: &SymbolicAsyncGraph,
     colored_vertices: &GraphColoredVertices,
 ) -> GraphColoredVertices {
@@ -101,4 +99,40 @@ pub fn sanitize_graph_colored_vertices(
         colored_vertices.as_bdd(),
     );
     GraphColoredVertices::new(sanitized_result_bdd, &canonical_context)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::evaluation::algorithm::compute_steady_states;
+    use crate::evaluation::sanitizing::sanitize_colored_vertices;
+    use crate::model_checking::get_extended_symbolic_graph;
+    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
+    use biodivine_lib_param_bn::BooleanNetwork;
+
+    const MODEL: &str = r"
+    targets,factors
+    A, B | C
+    B, C
+    C, A
+    ";
+
+    #[test]
+    fn test_sanitize_colored_vertices() {
+        let bn = BooleanNetwork::try_from_bnet(MODEL).unwrap();
+        let canonical_stg = SymbolicAsyncGraph::new(bn.clone()).unwrap();
+        let extended_stg = get_extended_symbolic_graph(&bn, 1).unwrap();
+
+        let fp_canonical = compute_steady_states(&canonical_stg);
+        let fp_extended = compute_steady_states(&extended_stg);
+        assert_ne!(
+            fp_canonical.as_bdd().to_string(),
+            fp_extended.as_bdd().to_string()
+        );
+
+        let fp_extended_sanitized = sanitize_colored_vertices(&extended_stg, &fp_extended);
+        assert_eq!(
+            fp_canonical.as_bdd().to_string(),
+            fp_extended_sanitized.as_bdd().to_string()
+        );
+    }
 }
