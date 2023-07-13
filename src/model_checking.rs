@@ -33,13 +33,7 @@ pub fn model_check_multiple_trees_dirty(
             &self_loop_states,
         ));
     }
-
-    // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
-    let sanitized_results: Vec<GraphColoredVertices> = results
-        .iter()
-        .map(|x| sanitize_colored_vertices(stg, x))
-        .collect();
-    Ok(sanitized_results)
+    Ok(results)
 }
 
 /// Perform the model checking for the list of HCTL syntax trees on GIVEN graph.
