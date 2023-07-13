@@ -198,6 +198,7 @@ pub fn model_check_formula_dirty(
 /// some formulae, but incorrect for others - it is thus an UNSAFE optimisation - only use it
 /// if you are sure everything will work fine.
 /// This must NOT be used for formulae containing `!{x}:AX{x}` sub-formulae.
+/// Also, does not sanitize results.
 pub fn model_check_formula_unsafe_ex(
     formula: String,
     stg: &SymbolicAsyncGraph,
@@ -213,8 +214,7 @@ pub fn model_check_formula_unsafe_ex(
 
     // do not consider self-loops during EX computation (UNSAFE optimisation)
     let result = eval_node(tree, stg, &mut eval_info, &stg.mk_empty_vertices());
-    // sanitize resulting BDD
-    Ok(sanitize_colored_vertices(stg, &result))
+    Ok(result)
 }
 
 #[cfg(test)]
