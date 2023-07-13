@@ -74,7 +74,8 @@ fn check_hctl_var_support(stg: &SymbolicAsyncGraph, num_hctl_vars: usize) -> boo
 /// Perform the model checking for the list of HCTL syntax trees on GIVEN graph.
 /// Return the list of resulting sets of colored vertices (in the same order as input formulae).
 /// There MUST be enough symbolic variables to represent HCTL vars.
-pub fn model_check_trees(
+/// Does not sanitize the resulting BDDs.
+fn model_check_trees_non_sanitized(
     formula_trees: Vec<HctlTreeNode>,
     stg: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
@@ -93,6 +94,18 @@ pub fn model_check_trees(
             &self_loop_states,
         ));
     }
+    Ok(results)
+}
+
+/// Perform the model checking for the list of HCTL syntax trees on GIVEN graph.
+/// Return the list of resulting sets of colored vertices (in the same order as input formulae).
+/// There MUST be enough symbolic variables to represent HCTL vars.
+pub fn model_check_trees(
+    formula_trees: Vec<HctlTreeNode>,
+    stg: &SymbolicAsyncGraph,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    // evaluate the formulae and collect results
+    let results = model_check_trees_non_sanitized(formula_trees, stg)?;
 
     // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
     let sanitized_results: Vec<GraphColoredVertices> = results
@@ -113,14 +126,10 @@ pub fn model_check_tree(
     Ok(result[0].clone())
 }
 
-/// Perform the model checking for the list of formulae on GIVEN graph and return the list
-/// of resulting sets of colored vertices (in the same order as input formulae).
-/// Return Error if the given extended symbolic graph does not support enough extra BDD variables to
-/// represent all needed HCTL state-variables or if some formula is badly formed.
-pub fn model_check_multiple_formulae(
+fn parse_into_trees(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
-) -> Result<Vec<GraphColoredVertices>, String> {
+) -> Result<Vec<HctlTreeNode>, String> {
     // first parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
     for formula in formulae {
@@ -134,9 +143,32 @@ pub fn model_check_multiple_formulae(
 
         parsed_trees.push(tree);
     }
+    Ok(parsed_trees)
+}
 
+/// Perform the model checking for the list of formulae on GIVEN graph and return the list
+/// of resulting sets of colored vertices (in the same order as input formulae).
+/// Return Error if the given extended symbolic graph does not support enough extra BDD variables to
+/// represent all needed HCTL state-variables or if some formula is badly formed.
+pub fn model_check_multiple_formulae(
+    formulae: Vec<String>,
+    stg: &SymbolicAsyncGraph,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    // get the abstract syntactic trees
+    let parsed_trees = parse_into_trees(formulae, stg)?;
     // run the main model-checking procedure on formulae trees
     model_check_trees(parsed_trees, stg)
+}
+
+/// Perform the model checking for the list of formulae, but do not sanitize the results.
+pub fn model_check_multiple_formulae_dirty(
+    formulae: Vec<String>,
+    stg: &SymbolicAsyncGraph,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    // get the abstract syntactic trees
+    let parsed_trees = parse_into_trees(formulae, stg)?;
+    // run the main model-checking procedure on formulae trees
+    model_check_trees_non_sanitized(parsed_trees, stg)
 }
 
 /// Perform the model checking for given formula on GIVEN graph and return the resulting
@@ -148,6 +180,15 @@ pub fn model_check_formula(
     stg: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
     let result = model_check_multiple_formulae(vec![formula], stg)?;
+    Ok(result[0].clone())
+}
+
+/// Perform the model checking for given formula, but do not sanitize the result.
+pub fn model_check_formula_dirty(
+    formula: String,
+    stg: &SymbolicAsyncGraph,
+) -> Result<GraphColoredVertices, String> {
+    let result = model_check_multiple_formulae_dirty(vec![formula], stg)?;
     Ok(result[0].clone())
 }
 
@@ -180,6 +221,7 @@ pub fn model_check_formula_unsafe_ex(
 mod tests {
     use crate::model_checking::{
         collect_unique_hctl_vars, get_extended_symbolic_graph, model_check_formula,
+        model_check_formula_dirty,
     };
     use crate::preprocessing::parser::parse_hctl_formula;
     use crate::preprocessing::utils::check_props_and_rename_vars;
@@ -248,6 +290,11 @@ $DivK: (!PleC & DivJ)
 
         for (formula, num_total, num_colors, num_states) in test_tuples {
             let result = model_check_formula(formula.to_string(), &stg).unwrap();
+            assert_eq!(num_total, result.approx_cardinality());
+            assert_eq!(num_colors, result.colors().approx_cardinality());
+            assert_eq!(num_states, result.vertices().approx_cardinality());
+
+            let result = model_check_formula_dirty(formula.to_string(), &stg).unwrap();
             assert_eq!(num_total, result.approx_cardinality());
             assert_eq!(num_colors, result.colors().approx_cardinality());
             assert_eq!(num_states, result.vertices().approx_cardinality());
@@ -376,6 +423,10 @@ $DivK: (!PleC & DivJ)
         for (formula1, formula2) in equivalent_formulae_pairs {
             let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
             let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
+            assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
+
+            let result1 = model_check_formula_dirty(formula1.to_string(), &stg).unwrap();
+            let result2 = model_check_formula_dirty(formula2.to_string(), &stg).unwrap();
             assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
         }
     }
