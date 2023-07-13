@@ -105,7 +105,7 @@ pub fn sanitize_colored_vertices(
 mod tests {
     use crate::evaluation::algorithm::compute_steady_states;
     use crate::evaluation::sanitizing::sanitize_colored_vertices;
-    use crate::model_checking::get_extended_symbolic_graph;
+    use crate::mc_utils::get_extended_symbolic_graph;
     use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
     use biodivine_lib_param_bn::BooleanNetwork;
 
