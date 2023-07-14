@@ -3,7 +3,7 @@
 
 use biodivine_lib_bdd::Bdd;
 use biodivine_lib_param_bn::symbolic_async_graph::{
-    GraphColoredVertices, SymbolicAsyncGraph, SymbolicContext,
+    GraphColoredVertices, GraphColors, GraphVertices, SymbolicAsyncGraph, SymbolicContext,
 };
 use std::collections::HashMap;
 use std::io::Write;
@@ -13,7 +13,7 @@ use std::io::Write;
 ///
 /// The method assumes that variables and parameters are ordered equivalently, they are just
 /// augmented with extra model checking variables that are unused in the original BDD.
-fn sanitize_bdd(
+pub fn sanitize_bdd(
     model_checking_context: &SymbolicContext,
     canonical_context: &SymbolicContext,
     bdd: &Bdd,
@@ -101,11 +101,38 @@ pub fn sanitize_colored_vertices(
     GraphColoredVertices::new(sanitized_result_bdd, &canonical_context)
 }
 
+/// Sanitize underlying BDD of a given colour set by removing the symbolic variables
+/// that were used for representing HCTL state-variables. At the moment, we remove all symbolic
+/// variables.
+pub fn sanitize_colors(stg: &SymbolicAsyncGraph, colors: &GraphColors) -> GraphColors {
+    let canonical_bn = stg.as_network();
+    let canonical_context = SymbolicContext::new(canonical_bn).unwrap();
+    let sanitized_result_bdd =
+        sanitize_bdd(stg.symbolic_context(), &canonical_context, colors.as_bdd());
+    GraphColors::new(sanitized_result_bdd, &canonical_context)
+}
+
+/// Sanitize underlying BDD of a given set of vertices by removing the symbolic variables
+/// that were used for representing HCTL state-variables. At the moment, we remove all symbolic
+/// variables.
+pub fn sanitize_vertices(stg: &SymbolicAsyncGraph, vertices: &GraphVertices) -> GraphVertices {
+    let canonical_bn = stg.as_network();
+    let canonical_context = SymbolicContext::new(canonical_bn).unwrap();
+    let sanitized_result_bdd = sanitize_bdd(
+        stg.symbolic_context(),
+        &canonical_context,
+        vertices.as_bdd(),
+    );
+    GraphVertices::new(sanitized_result_bdd, &canonical_context)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::evaluation::algorithm::compute_steady_states;
-    use crate::evaluation::sanitizing::sanitize_colored_vertices;
     use crate::mc_utils::get_extended_symbolic_graph;
+    use crate::postprocessing::sanitizing::{
+        sanitize_colored_vertices, sanitize_colors, sanitize_vertices,
+    };
     use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
     use biodivine_lib_param_bn::BooleanNetwork;
 
@@ -117,7 +144,7 @@ mod tests {
     ";
 
     #[test]
-    fn test_sanitize_colored_vertices() {
+    fn test_sanitize() {
         let bn = BooleanNetwork::try_from_bnet(MODEL).unwrap();
         let canonical_stg = SymbolicAsyncGraph::new(bn.clone()).unwrap();
         let extended_stg = get_extended_symbolic_graph(&bn, 1).unwrap();
@@ -128,11 +155,30 @@ mod tests {
             fp_canonical.as_bdd().to_string(),
             fp_extended.as_bdd().to_string()
         );
+        assert_ne!(
+            fp_canonical.colors().as_bdd().to_string(),
+            fp_extended.colors().as_bdd().to_string()
+        );
+        assert_ne!(
+            fp_canonical.vertices().as_bdd().to_string(),
+            fp_extended.vertices().as_bdd().to_string()
+        );
 
         let fp_extended_sanitized = sanitize_colored_vertices(&extended_stg, &fp_extended);
+        let fp_colors_sanitized = sanitize_colors(&extended_stg, &fp_extended.colors());
+        let fp_vertices_sanitized = sanitize_vertices(&extended_stg, &fp_extended.vertices());
+
         assert_eq!(
             fp_canonical.as_bdd().to_string(),
             fp_extended_sanitized.as_bdd().to_string()
+        );
+        assert_eq!(
+            fp_canonical.colors().as_bdd().to_string(),
+            fp_colors_sanitized.as_bdd().to_string()
+        );
+        assert_eq!(
+            fp_canonical.vertices().as_bdd().to_string(),
+            fp_vertices_sanitized.as_bdd().to_string()
         );
     }
 }

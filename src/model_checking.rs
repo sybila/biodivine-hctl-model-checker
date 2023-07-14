@@ -2,8 +2,8 @@
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_info::EvalInfo;
-use crate::evaluation::sanitizing::sanitize_colored_vertices;
 use crate::mc_utils::*;
+use crate::postprocessing::sanitizing::sanitize_colored_vertices;
 use crate::preprocessing::node::HctlTreeNode;
 use crate::preprocessing::parser::parse_and_minimize_hctl_formula;
 

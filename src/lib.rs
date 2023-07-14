@@ -10,6 +10,7 @@ pub mod analysis;
 pub mod evaluation;
 pub mod mc_utils;
 pub mod model_checking;
+pub mod postprocessing;
 pub mod preprocessing;
 pub mod result_print;
 
