@@ -1,6 +1,6 @@
 [package]
 name = "biodivine-hctl-model-checker"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["Ondřej Huvar <xhuvar@fi.muni.cz>", "Samuel Pastva <sam.pastva@gmail.com>"]
 edition = "2021"
 description = "Library for symbolic HCTL model checking on partially defined Boolean networks."
@@ -12,7 +12,7 @@ keywords = ["hctl", "model-checking", "boolean-network", "symbolic", "systems-bi
 categories = ["science", "simulation"]
 license = "MIT"
 exclude = ["benchmark_models", ".github", ".githooks"]
-rust-version = "1.60"
+rust-version = "1.72"
 
 [profile.test]
 opt-level = 3 # to be able to run non-trivial tests

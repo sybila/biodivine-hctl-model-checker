@@ -10,15 +10,15 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PrintOptions {
     NoPrint,
-    ShortPrint,
-    MediumPrint,
-    FullPrint,
+    JustSummary,
+    WithProgress,
+    Exhaustive,
 }
 
 /// Print the given text, but only if the correct print options are selected (long or full).
 /// This simplifies the code regarding printing (no redundant if statements).
 pub(crate) fn print_if_allowed(text: String, print_options: PrintOptions) {
-    if print_options == PrintOptions::NoPrint || print_options == PrintOptions::ShortPrint {
+    if print_options == PrintOptions::NoPrint || print_options == PrintOptions::JustSummary {
         return;
     }
     println!("{text}")
@@ -43,7 +43,8 @@ pub(crate) fn summarize_results(
 }
 
 /// Print the general info about the resulting set and then prints all states which are included
-/// in the resulting set for at least one color.
+/// in the resulting set for at least one color (basically 'project out the colors' and print just
+/// the states).
 /// If param `show_names` is false, the states are displayed as a vector of 0/1; otherwise the full
 /// proposition names are displayed.
 pub(crate) fn print_results_full(

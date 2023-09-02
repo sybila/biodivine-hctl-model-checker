@@ -36,7 +36,7 @@ struct Arguments {
     model_format: String,
 
     /// Choice of the amount of output regarding computation and results.
-    #[clap(short, long, default_value = "short", value_parser = PossibleValuesParser::new(["none", "short", "medium", "full"]))]
+    #[clap(short, long, default_value = "summary", value_parser = PossibleValuesParser::new(["no-print", "summary", "with-progress", "exhaustive"]))]
     print_option: String,
 }
 
@@ -65,11 +65,11 @@ fn main() {
 
     // compute the results
     let res = match args.print_option.as_str() {
-        "none" => analyse_formulae(&bn, formulae, PrintOptions::NoPrint),
-        "short" => analyse_formulae(&bn, formulae, PrintOptions::ShortPrint),
-        "medium" => analyse_formulae(&bn, formulae, PrintOptions::MediumPrint),
-        "full" => analyse_formulae(&bn, formulae, PrintOptions::FullPrint),
-        // this cant really happen, just here to be exhaustive
+        "no-print" => analyse_formulae(&bn, formulae, PrintOptions::NoPrint),
+        "summary" => analyse_formulae(&bn, formulae, PrintOptions::JustSummary),
+        "with-progress" => analyse_formulae(&bn, formulae, PrintOptions::WithProgress),
+        "exhaustive" => analyse_formulae(&bn, formulae, PrintOptions::Exhaustive),
+        // this cant really happen (would cause error earlier), just here to have exhaustive match
         _ => Err(format!(
             "Wrong print option \"{}\".",
             args.print_option.as_str()

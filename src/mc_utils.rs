@@ -8,7 +8,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
 
-/// Create an extended symbolic graph that supports the number of needed HCTL variables.
+/// Create an extended symbolic transition graph that supports the number of needed HCTL variables.
 pub fn get_extended_symbolic_graph(
     bn: &BooleanNetwork,
     num_hctl_vars: u16,
