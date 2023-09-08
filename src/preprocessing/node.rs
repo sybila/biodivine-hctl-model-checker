@@ -73,7 +73,7 @@ impl fmt::Display for HctlTreeNode {
 }
 
 /// Create a hybrid node from given arguments.
-pub fn create_hybrid(child: HctlTreeNode, var: String, op: HybridOp) -> HctlTreeNode {
+pub fn create_hybrid_node(child: HctlTreeNode, var: String, op: HybridOp) -> HctlTreeNode {
     HctlTreeNode {
         subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
         height: child.height + 1,
@@ -82,7 +82,7 @@ pub fn create_hybrid(child: HctlTreeNode, var: String, op: HybridOp) -> HctlTree
 }
 
 /// Create an unary node from given arguments.
-pub fn create_unary(child: HctlTreeNode, op: UnaryOp) -> HctlTreeNode {
+pub fn create_unary_node(child: HctlTreeNode, op: UnaryOp) -> HctlTreeNode {
     HctlTreeNode {
         subform_str: format!("({} {})", op, child.subform_str),
         height: child.height + 1,
@@ -91,7 +91,7 @@ pub fn create_unary(child: HctlTreeNode, op: UnaryOp) -> HctlTreeNode {
 }
 
 /// Create a binary node from given arguments.
-pub fn create_binary(left: HctlTreeNode, right: HctlTreeNode, op: BinaryOp) -> HctlTreeNode {
+pub fn create_binary_node(left: HctlTreeNode, right: HctlTreeNode, op: BinaryOp) -> HctlTreeNode {
     HctlTreeNode {
         subform_str: format!("({} {} {})", left.subform_str, op, right.subform_str),
         height: cmp::max(left.height, right.height) + 1,
@@ -134,3 +134,13 @@ pub fn create_constant_node(constant_val: bool) -> HctlTreeNode {
         }
     }
 }
+
+/// Create a terminal `wild-card proposition` node from given arguments.
+pub fn create_wild_card_node(prop_name: String) -> HctlTreeNode {
+    HctlTreeNode {
+        subform_str: format!("%{prop_name}%"),
+        height: 0,
+        node_type: NodeType::TerminalNode(Atomic::WildCardProp(prop_name)),
+    }
+}
+

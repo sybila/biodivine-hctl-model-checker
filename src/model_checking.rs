@@ -1,14 +1,14 @@
 //! High-level functionality regarding the whole model-checking process.
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
-use crate::evaluation::eval_info::EvalInfo;
+use crate::evaluation::eval_info::EvalContext;
 use crate::mc_utils::*;
 use crate::postprocessing::sanitizing::sanitize_colored_vertices;
 use crate::preprocessing::node::HctlTreeNode;
-use crate::preprocessing::parser::parse_and_minimize_hctl_formula;
+use crate::preprocessing::parser::{parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula};
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 /// Perform the model checking for the list of HCTL syntax trees on GIVEN graph.
 /// Return the list of resulting sets of colored vertices (in the same order as input formulae).
@@ -19,8 +19,8 @@ pub fn model_check_multiple_trees_dirty(
     stg: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // find duplicate sub-formulae throughout all formulae + initiate caching structures
-    let mut eval_info = EvalInfo::from_multiple_trees(&formula_trees);
-    // compute states with self-loops which will be needed, and add them to graph object
+    let mut eval_info = EvalContext::from_multiple_trees(&formula_trees);
+    // pre-compute states with self-loops which will be needed during eval
     let self_loop_states = compute_steady_states(stg);
 
     // evaluate the formulae (perform the actual model checking) and collect results
@@ -34,6 +34,15 @@ pub fn model_check_multiple_trees_dirty(
         ));
     }
     Ok(results)
+}
+
+/// Perform the model checking for the syntactic tree, but do not sanitize the results.
+pub fn model_check_tree_dirty(
+    formula_tree: HctlTreeNode,
+    stg: &SymbolicAsyncGraph,
+) -> Result<GraphColoredVertices, String> {
+    let result = model_check_multiple_trees_dirty(vec![formula_tree], stg)?;
+    Ok(result[0].clone())
 }
 
 /// Perform the model checking for the list of HCTL syntax trees on GIVEN graph.
@@ -65,30 +74,21 @@ pub fn model_check_tree(
     Ok(result[0].clone())
 }
 
-/// Perform the model checking for the syntactic tree, but do not sanitize the results.
-pub fn model_check_tree_dirty(
-    formula_tree: HctlTreeNode,
-    stg: &SymbolicAsyncGraph,
-) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_trees_dirty(vec![formula_tree], stg)?;
-    Ok(result[0].clone())
-}
-
-fn parse_into_trees(
+/// Parse given formulae into syntactic trees and perform compatibility check with the provided STG.
+fn parse_hctl_and_check(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
 ) -> Result<Vec<HctlTreeNode>, String> {
-    // first parse all the formulae and check that graph supports enough HCTL vars
+    // parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
     for formula in formulae {
         let tree = parse_and_minimize_hctl_formula(stg.as_network(), formula.as_str())?;
 
         // check that given extended symbolic graph supports enough stated variables
-        let num_vars_formula = collect_unique_hctl_vars(tree.clone(), HashSet::new()).len();
+        let num_vars_formula = collect_unique_hctl_vars(tree.clone()).len();
         if !check_hctl_var_support(stg, num_vars_formula) {
             return Err("Graph does not support enough HCTL state variables".to_string());
         }
-
         parsed_trees.push(tree);
     }
     Ok(parsed_trees)
@@ -103,7 +103,7 @@ pub fn model_check_multiple_formulae(
     stg: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees
-    let parsed_trees = parse_into_trees(formulae, stg)?;
+    let parsed_trees = parse_hctl_and_check(formulae, stg)?;
     // run the main model-checking procedure on formulae trees
     model_check_trees(parsed_trees, stg)
 }
@@ -114,7 +114,7 @@ pub fn model_check_multiple_formulae_dirty(
     stg: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees
-    let parsed_trees = parse_into_trees(formulae, stg)?;
+    let parsed_trees = parse_hctl_and_check(formulae, stg)?;
     // run the main model-checking procedure on formulae trees
     model_check_multiple_trees_dirty(parsed_trees, stg)
 }
@@ -140,25 +140,95 @@ pub fn model_check_formula_dirty(
     Ok(result[0].clone())
 }
 
+/// Parse given extended formulae into syntactic trees and perform compatibility check with the
+/// provided STG.
+fn parse_extended_and_check(
+    formulae: Vec<String>,
+    stg: &SymbolicAsyncGraph,
+) -> Result<Vec<HctlTreeNode>, String> {
+    // parse all the formulae and check that graph supports enough HCTL vars
+    let mut parsed_trees = Vec::new();
+    for formula in formulae {
+        let tree = parse_and_minimize_extended_formula(stg.as_network(), formula.as_str())?;
+
+        // check that given extended symbolic graph supports enough stated variables
+        let num_vars_formula = collect_unique_hctl_vars(tree.clone()).len();
+        if !check_hctl_var_support(stg, num_vars_formula) {
+            return Err("Graph does not support enough HCTL state variables".to_string());
+        }
+        parsed_trees.push(tree);
+    }
+    Ok(parsed_trees)
+}
+
+/// todo: describe
+pub fn model_check_multiple_extended_formulae(
+    formulae: Vec<String>,
+    stg: &SymbolicAsyncGraph,
+    substitution_context: HashMap<String, GraphColoredVertices>,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    // get the abstract syntactic trees and check compatibility with graph
+    let parsed_trees = parse_extended_and_check(formulae, stg)?;
+
+    // prepare the extended evaluation context
+
+    // 1) find normal duplicate sub-formulae throughout all formulae + initiate caching structures
+    let mut eval_info = EvalContext::from_multiple_trees(&parsed_trees);
+    // 2) extended the cache with given substitution context for wild-card nodes
+    eval_info.extend_context_with_wild_cards(substitution_context);
+    // 3) pre-compute compute states with self-loops which will be needed during eval
+    let self_loop_states = compute_steady_states(stg);
+
+    // evaluate the formulae (perform the actual model checking) and collect results
+    let mut results: Vec<GraphColoredVertices> = Vec::new();
+    for parse_tree in parsed_trees {
+        results.push(eval_node(
+            parse_tree,
+            stg,
+            &mut eval_info,
+            &self_loop_states,
+        ));
+    }
+
+    // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
+    let sanitized_results: Vec<GraphColoredVertices> = results
+        .iter()
+        .map(|x| sanitize_colored_vertices(stg, x))
+        .collect();
+    Ok(sanitized_results)
+}
+
+/// Perform the model checking for given extended formula on GIVEN graph and return the resulting
+/// set of colored vertices.
+/// The `substitution context` is a dictionary determining how `wild-card props` are evaluated.
+pub fn model_check_extended_formula(
+    formula: String,
+    stg: &SymbolicAsyncGraph,
+    substitution_context: HashMap<String, GraphColoredVertices>,
+) -> Result<GraphColoredVertices, String> {
+    let result = model_check_multiple_extended_formulae(vec![formula], stg, substitution_context)?;
+    Ok(result[0].clone())
+}
+
 #[allow(dead_code)]
 /// Perform the model checking on GIVEN graph and return the resulting set of colored vertices.
 /// Self-loops are not pre-computed, and thus are ignored in EX computation, which is fine for
 /// some formulae, but incorrect for others - it is thus an UNSAFE optimisation - only use it
 /// if you are sure everything will work fine.
 /// This must NOT be used for formulae containing `!{x}:AX{x}` sub-formulae.
-/// Also, does not sanitize results.
+/// Also, this does not sanitize results.
 pub fn model_check_formula_unsafe_ex(
     formula: String,
     stg: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
     let tree = parse_and_minimize_hctl_formula(stg.as_network(), formula.as_str())?;
     // check that given extended symbolic graph supports enough stated variables
-    let num_vars_formula = collect_unique_hctl_vars(tree.clone(), HashSet::new()).len();
+    let num_vars_formula = collect_unique_hctl_vars(tree.clone()).len();
     if !check_hctl_var_support(stg, num_vars_formula) {
         return Err("Graph does not support enough HCTL state variables".to_string());
     }
 
-    let mut eval_info = EvalInfo::from_single_tree(&tree);
+    let mut eval_info = EvalContext::from_single_tree(&tree);
 
     // do not consider self-loops during EX computation (UNSAFE optimisation)
     let result = eval_node(tree, stg, &mut eval_info, &stg.mk_empty_vertices());
@@ -167,14 +237,11 @@ pub fn model_check_formula_unsafe_ex(
 
 #[cfg(test)]
 mod tests {
-    use crate::mc_utils::{collect_unique_hctl_vars, get_extended_symbolic_graph};
-    use crate::model_checking::{model_check_formula, model_check_formula_dirty};
-    use crate::preprocessing::parser::parse_hctl_formula;
-    use crate::preprocessing::utils::check_props_and_rename_vars;
+    use std::collections::HashMap;
+    use crate::mc_utils::get_extended_symbolic_graph;
+    use crate::model_checking::{model_check_extended_formula, model_check_formula, model_check_formula_dirty};
 
     use biodivine_lib_param_bn::BooleanNetwork;
-
-    use std::collections::{HashMap, HashSet};
 
     // model FISSION-YEAST-2008
     const MODEL_FISSION_YEAST: &str = r"
@@ -446,37 +513,46 @@ $DivK: (!PleC & DivJ)
         assert!(model_check_formula(formula, &stg).is_err());
     }
 
+    /// Test evaluation of extended HCTL formulae, in which `wild-card properties` can
+    /// represent already pre-computed results.
+    fn test_model_check_extended_formulae(bn: BooleanNetwork) {
+        // test formulae use 3 HCTL vars at most
+        let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
+
+        // the test is conducted on 2 different formulae
+
+        // first define and evaluate the 2 formulae normally in one step
+        let formula1 = "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))";
+        let formula2 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))";
+        let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
+        let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
+
+        // now precompute part of the formula, and then substitute it as `wild-card proposition`
+        let substitution_formula = "(!{z}: AX {z})";
+        // we must use 'dirty' version to avoid sanitation
+        let raw_set = model_check_formula_dirty(substitution_formula.to_string(), &stg).unwrap();
+        let mut substitution_context = HashMap::new();
+        substitution_context.insert("subst".to_string(), raw_set);
+
+        let formula1 = "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: %subst%)";
+        let formula2 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & %subst%) & EF ({y} & %subst%) & AX (EF ({x} & %subst%) ^ EF ({y} & %subst%))";
+        let result1_v2 = model_check_extended_formula(formula1.to_string(), &stg, substitution_context.clone()).unwrap();
+        let result2_v2 = model_check_extended_formula(formula2.to_string(), &stg, substitution_context).unwrap();
+
+        assert!(result1.as_bdd().iff(result1_v2.as_bdd()).is_true());
+        assert!(result2.as_bdd().iff(result2_v2.as_bdd()).is_true());
+    }
+
     #[test]
-    /// Test regarding collecting state vars from HCTL formulae.
-    fn test_state_var_collecting() {
-        // formula "FORKS1 & FORKS2" - both parts are semantically same, just use different var names
-        let formula = "(!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))) & (!{x1}: 3{y1}: (@{x1}: ~{y1} & (!{z1}: AX {z1})) & (@{y1}: (!{z1}: AX {z1})))".to_string();
-        let tree = parse_hctl_formula(formula.as_str()).unwrap();
+    /// Test evaluation of extended HCTL formulae, in which `wild-card properties` can
+    /// represent already pre-computed results. Use all 3 pre-defined models.
+    fn test_model_check_extended_all_models() {
+        let bn1 = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
+        let bn2 = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
+        let bn3 = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
 
-        // test for original tree
-        let expected_vars = vec![
-            "x".to_string(),
-            "y".to_string(),
-            "z".to_string(),
-            "x1".to_string(),
-            "y1".to_string(),
-            "z1".to_string(),
-        ];
-        assert_eq!(
-            collect_unique_hctl_vars(tree.clone(), HashSet::new()),
-            HashSet::from_iter(expected_vars)
-        );
-
-        // define any placeholder bn
-        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
-
-        // and for tree with minimized number of renamed state vars
-        let modified_tree =
-            check_props_and_rename_vars(tree, HashMap::new(), String::new(), &bn).unwrap();
-        let expected_vars = vec!["x".to_string(), "xx".to_string(), "xxx".to_string()];
-        assert_eq!(
-            collect_unique_hctl_vars(modified_tree, HashSet::new()),
-            HashSet::from_iter(expected_vars)
-        );
+        test_model_check_extended_formulae(bn1);
+        test_model_check_extended_formulae(bn2);
+        test_model_check_extended_formulae(bn3);
     }
 }

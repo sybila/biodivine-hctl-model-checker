@@ -1,7 +1,7 @@
 //! Model-checking analysis from start to finish, with progress output and result prints.
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
-use crate::evaluation::eval_info::EvalInfo;
+use crate::evaluation::eval_info::EvalContext;
 use crate::mc_utils::{collect_unique_hctl_vars, get_extended_symbolic_graph};
 use crate::preprocessing::parser::parse_hctl_formula;
 use crate::preprocessing::utils::check_props_and_rename_vars;
@@ -9,7 +9,7 @@ use crate::result_print::*;
 
 use biodivine_lib_param_bn::BooleanNetwork;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::time::SystemTime;
 
 /// Perform the whole model checking analysis regarding several (individual) formulae. This
@@ -42,7 +42,7 @@ pub fn analyse_formulae(
         );
 
         let modified_tree = check_props_and_rename_vars(tree, HashMap::new(), String::new(), bn)?;
-        let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone(), HashSet::new()).len();
+        let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone()).len();
         print_if_allowed(
             format!("Modified version:     {}", modified_tree.subform_str),
             print_op,
@@ -86,7 +86,7 @@ pub fn analyse_formulae(
     print_if_allowed("-----".to_string(), print_op);
 
     // find duplicate sub-formulae throughout all formulae + initiate caching structures
-    let mut eval_info = EvalInfo::from_multiple_trees(&parsed_trees);
+    let mut eval_info = EvalContext::from_multiple_trees(&parsed_trees);
     print_if_allowed(
         format!(
             "Found following duplicate sub-formulae (canonized): {:?}",

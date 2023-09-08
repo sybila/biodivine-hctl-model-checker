@@ -9,7 +9,7 @@
 
 use crate::preprocessing::node::*;
 use crate::preprocessing::operator_enums::*;
-use crate::preprocessing::tokenizer::{try_tokenize_formula, HctlToken};
+use crate::preprocessing::tokenizer::{try_tokenize_formula, HctlToken, try_tokenize_extended_formula};
 use crate::preprocessing::utils::check_props_and_rename_vars;
 
 use biodivine_lib_param_bn::BooleanNetwork;
@@ -18,9 +18,20 @@ use std::collections::HashMap;
 
 /// Parse an HCTL formula string representation into an actual formula tree.
 /// Basically a wrapper for tokenize+parse (used often for testing/debug purposes).
+///
 /// NEEDS to call procedure for renaming variables to fully finish the preprocessing step.
 pub fn parse_hctl_formula(formula: &str) -> Result<HctlTreeNode, String> {
     let tokens = try_tokenize_formula(formula.to_string())?;
+    let tree = parse_hctl_tokens(&tokens)?;
+    Ok(tree)
+}
+
+/// Parse an extended HCTL formula string representation into an actual formula tree.
+/// Extended formulae can include `wild-card propositions` in form "%proposition%".
+///
+/// NEEDS to call procedure for renaming variables to fully finish the preprocessing step.
+pub fn parse_extended_formula(formula: &str) -> Result<HctlTreeNode, String> {
+    let tokens = try_tokenize_extended_formula(formula.to_string())?;
     let tree = parse_hctl_tokens(&tokens)?;
     Ok(tree)
 }
@@ -32,11 +43,23 @@ pub fn parse_and_minimize_hctl_formula(
     bn: &BooleanNetwork,
     formula: &str,
 ) -> Result<HctlTreeNode, String> {
-    let tokens = try_tokenize_formula(formula.to_string())?;
-    let tree = parse_hctl_tokens(&tokens)?;
+    let tree = parse_hctl_formula(formula)?;
     let tree = check_props_and_rename_vars(tree, HashMap::new(), String::new(), bn)?;
     Ok(tree)
 }
+
+/// Parse an extended HCTL formula string representation into an actual formula tree
+/// with renamed (minimized) set of variables.
+/// Extended formulae can include `wild-card propositions` in form "%proposition%".
+pub fn parse_and_minimize_extended_formula(
+    bn: &BooleanNetwork,
+    formula: &str,
+) -> Result<HctlTreeNode, String> {
+    let tree = parse_extended_formula(formula)?;
+    let tree = check_props_and_rename_vars(tree, HashMap::new(), String::new(), bn)?;
+    Ok(tree)
+}
+
 
 /// Predicate for whether given token represents hybrid operator.
 fn is_hybrid(token: &HctlToken) -> bool {
@@ -100,7 +123,7 @@ fn parse_1_hybrid(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
         }
         match &tokens[i] {
             HctlToken::Hybrid(op, var) => {
-                create_hybrid(parse_1_hybrid(&tokens[(i + 1)..])?, var.clone(), op.clone())
+                create_hybrid_node(parse_1_hybrid(&tokens[(i + 1)..])?, var.clone(), op.clone())
             }
             _ => HctlTreeNode::new(), // This branch cant happen, but must result in same type
         }
@@ -113,7 +136,7 @@ fn parse_1_hybrid(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_2_iff(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let iff_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Iff));
     Ok(if let Some(i) = iff_token {
-        create_binary(
+        create_binary_node(
             parse_3_imp(&tokens[..i])?,
             parse_2_iff(&tokens[(i + 1)..])?,
             BinaryOp::Iff,
@@ -127,7 +150,7 @@ fn parse_2_iff(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_3_imp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let imp_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Imp));
     Ok(if let Some(i) = imp_token {
-        create_binary(
+        create_binary_node(
             parse_4_or(&tokens[..i])?,
             parse_3_imp(&tokens[(i + 1)..])?,
             BinaryOp::Imp,
@@ -141,7 +164,7 @@ fn parse_3_imp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_4_or(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let or_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Or));
     Ok(if let Some(i) = or_token {
-        create_binary(
+        create_binary_node(
             parse_5_xor(&tokens[..i])?,
             parse_4_or(&tokens[(i + 1)..])?,
             BinaryOp::Or,
@@ -155,7 +178,7 @@ fn parse_4_or(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_5_xor(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let xor_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Xor));
     Ok(if let Some(i) = xor_token {
-        create_binary(
+        create_binary_node(
             parse_6_and(&tokens[..i])?,
             parse_5_xor(&tokens[(i + 1)..])?,
             BinaryOp::Xor,
@@ -169,7 +192,7 @@ fn parse_5_xor(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_6_and(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let and_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::And));
     Ok(if let Some(i) = and_token {
-        create_binary(
+        create_binary_node(
             parse_7_binary_temp(&tokens[..i])?,
             parse_6_and(&tokens[(i + 1)..])?,
             BinaryOp::And,
@@ -184,7 +207,7 @@ fn parse_7_binary_temp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let binary_token = index_of_first_binary_temp(tokens);
     Ok(if let Some(i) = binary_token {
         match &tokens[i] {
-            HctlToken::Binary(op) => create_binary(
+            HctlToken::Binary(op) => create_binary_node(
                 parse_8_unary(&tokens[..i])?,
                 parse_7_binary_temp(&tokens[(i + 1)..])?,
                 op.clone(),
@@ -201,7 +224,7 @@ fn parse_8_unary(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let unary_token = index_of_first_unary(tokens);
     Ok(if let Some(i) = unary_token {
         match &tokens[i] {
-            HctlToken::Unary(op) => create_unary(parse_8_unary(&tokens[(i + 1)..])?, op.clone()),
+            HctlToken::Unary(op) => create_unary_node(parse_8_unary(&tokens[(i + 1)..])?, op.clone()),
             _ => HctlTreeNode::new(), // This branch cant happen, but must result in same type
         }
     } else {
@@ -215,7 +238,8 @@ fn parse_9_terminal_and_parentheses(tokens: &[HctlToken]) -> Result<HctlTreeNode
         Err("Expected formula, found nothing.".to_string())
     } else {
         if tokens.len() == 1 {
-            // This should be name (var/prop) or a parenthesis group, everything else does not make sense.
+            // This should be name (var/prop/wild-card prop) or a parenthesis group, anything
+            // else does not make sense (constants are tokenized as propositions until now).
             match &tokens[0] {
                 HctlToken::Atom(Atomic::Prop(name)) => {
                     return if name == "true" || name == "True" || name == "1" {
@@ -227,6 +251,7 @@ fn parse_9_terminal_and_parentheses(tokens: &[HctlToken]) -> Result<HctlTreeNode
                     }
                 }
                 HctlToken::Atom(Atomic::Var(name)) => return Ok(create_var_node(name.clone())),
+                HctlToken::Atom(Atomic::WildCardProp(name)) => return Ok(create_wild_card_node(name.clone())),
                 // recursively solve sub-formulae in parentheses
                 HctlToken::Tokens(inner) => return parse_hctl_tokens(inner),
                 _ => {} // otherwise, fall through to the error at the end.
@@ -280,7 +305,7 @@ mod tests {
     /// Test parsing of several valid HCTL formulae against expected results.
     fn compare_parser_with_expected() {
         let formula = "(false & p1)".to_string();
-        let expected_tree = create_binary(
+        let expected_tree = create_binary_node(
             create_constant_node(false),
             create_prop_node("p1".to_string()),
             BinaryOp::And,
@@ -288,8 +313,8 @@ mod tests {
         assert_eq!(parse_hctl_formula(formula.as_str()).unwrap(), expected_tree);
 
         let formula = "!{x}: (AX {x})".to_string();
-        let expected_tree = create_hybrid(
-            create_unary(create_var_node("x".to_string()), UnaryOp::Ax),
+        let expected_tree = create_hybrid_node(
+            create_unary_node(create_var_node("x".to_string()), UnaryOp::Ax),
             "x".to_string(),
             HybridOp::Bind,
         );

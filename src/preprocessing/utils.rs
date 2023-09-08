@@ -7,7 +7,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::HashMap;
 
-/// Checks that all vars in formula are quantified (exactly once) and props are valid.
+/// Checks that all vars in formula are quantified (exactly once) and props are valid BN variables.
 /// Renames hctl vars in the formula tree to canonical form - "x", "xx", ...
 /// Renames as many state-vars as possible to identical names, without changing the semantics.
 pub fn check_props_and_rename_vars(
@@ -38,14 +38,14 @@ pub fn check_props_and_rename_vars(
                 }
                 Ok(orig_node)
             }
-            // constants are always fine
+            // constants or wild-card propositions are always considered fine
             _ => return Ok(orig_node),
         },
         // just dive one level deeper for unary nodes, and rename string
         NodeType::UnaryNode(op, child) => {
             let node =
                 check_props_and_rename_vars(*child, mapping_dict, last_used_name.clone(), bn)?;
-            Ok(create_unary(node, op))
+            Ok(create_unary_node(node, op))
         }
         // just dive deeper for binary nodes, and rename string
         NodeType::BinaryNode(op, left, right) => {
@@ -56,7 +56,7 @@ pub fn check_props_and_rename_vars(
                 bn,
             )?;
             let node2 = check_props_and_rename_vars(*right, mapping_dict, last_used_name, bn)?;
-            Ok(create_binary(node1, node2, op))
+            Ok(create_binary_node(node1, node2, op))
         }
         // hybrid nodes are more complicated
         NodeType::HybridNode(op, var, child) => {
@@ -86,7 +86,7 @@ pub fn check_props_and_rename_vars(
 
             // rename the variable in the node
             let renamed_var = mapping_dict.get(var.as_str()).unwrap();
-            Ok(create_hybrid(node, renamed_var.clone(), op))
+            Ok(create_hybrid_node(node, renamed_var.clone(), op))
         }
     };
 }

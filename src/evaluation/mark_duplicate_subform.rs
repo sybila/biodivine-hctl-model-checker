@@ -5,12 +5,15 @@ use crate::evaluation::canonization::{get_canonical, get_canonical_and_mapping};
 use crate::preprocessing::node::{HctlTreeNode, NodeType};
 
 use std::collections::{BinaryHeap, HashMap, HashSet};
+use crate::preprocessing::operator_enums::Atomic;
 
 /// Check if there are some duplicate subtrees in a given formula syntax tree.
 /// This function uses canonization and thus recognizes duplicates with differently named
 /// variables (e.g., `AX {y}` and `AX {z}`).
 /// Return the CANONICAL versions of duplicate sub-formulae + the number of their appearances.
-/// Note that terminal nodes (props, vars, constants) are not considered.
+///
+/// Note that except for wild-card properties, most of the terminal nodes (props, vars, constants)
+/// are not considered.
 pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> HashMap<String, i32> {
     // go through each tree from top, use height to compare only the nodes with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
@@ -34,10 +37,13 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
 
     // because we are traversing trees, we dont care about cycles
     while let Some(current_node) = heap_queue.pop() {
-        // lets stop the process when we hit the first terminal node
-        // terminals are not worth to mark as duplicates and use them for caching
-        if current_node.height == 0 {
-            break;
+        // if current node is terminal, process it only if it represents the `wild-card prop`
+        // other kinds of terminals are not worth to be considered and cached during eval
+        if let NodeType::TerminalNode(atom) = &current_node.node_type {
+            if let Atomic::WildCardProp(_) = atom {
+            } else {
+                break;
+            }
         }
 
         let mut skip = false;
@@ -45,6 +51,7 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
             get_canonical_and_mapping(current_node.subform_str.clone());
 
         // only mark duplicates with at max 1 variable (to not cause var name collisions during caching)
+        // todo: extend this for any number of variables
         if (last_height == current_node.height) & (renaming.len() <= 1) {
             // if we have saved some nodes of the same height, compare them with the current one
             for other_canonical_string in same_height_canonical_strings.clone() {
@@ -62,13 +69,13 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
                 }
             }
 
-            // do not traverse subtree of the duplicate later (will be cached during eval)
+            // do not traverse subtree of the duplicate later (whole node is cached during eval)
             if skip {
                 continue;
             }
             same_height_canonical_strings.insert(current_subform_canonical);
         } else {
-            // we got node from lower level, so we empty the set of nodes to compare
+            // we continue with node from lower level, so we empty the set of nodes to compare
             last_height = current_node.height;
             same_height_canonical_strings.clear();
             same_height_canonical_strings.insert(get_canonical(current_node.subform_str.clone()));

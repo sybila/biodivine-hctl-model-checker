@@ -19,13 +19,21 @@ pub enum HctlToken {
 /// Try to tokenize given HCTL formula string.
 /// Wrapper for the recursive `try_tokenize_formula` function.
 pub fn try_tokenize_formula(formula: String) -> Result<Vec<HctlToken>, String> {
-    try_tokenize_recursive(&mut formula.chars().peekable(), true)
+    try_tokenize_recursive(&mut formula.chars().peekable(), true, false)
+}
+
+/// Try to tokenize given `extended` HCTL formula string. That means that formula can include
+/// `wild-card properties` in form of "%proposition%".
+/// Wrapper for the recursive `try_tokenize_formula` function.
+pub fn try_tokenize_extended_formula(formula: String) -> Result<Vec<HctlToken>, String> {
+    try_tokenize_recursive(&mut formula.chars().peekable(), true, true)
 }
 
 /// Process a peekable iterator of characters into a vector of `HctlToken`s.
 fn try_tokenize_recursive(
     input_chars: &mut Peekable<Chars>,
     top_level: bool,
+    parse_wild_cards: bool,
 ) -> Result<Vec<HctlToken>, String> {
     let mut output = Vec::new();
 
@@ -140,7 +148,7 @@ fn try_tokenize_recursive(
             }
             '(' => {
                 // start a nested token group
-                let token_group = try_tokenize_recursive(input_chars, false)?;
+                let token_group = try_tokenize_recursive(input_chars, false, parse_wild_cards)?;
                 output.push(HctlToken::Tokens(token_group));
             }
             // variable name
@@ -152,6 +160,17 @@ fn try_tokenize_recursive(
                 output.push(HctlToken::Atom(Atomic::Var(name)));
                 if Some('}') != input_chars.next() {
                     return Err("Expected '}'.".to_string());
+                }
+            }
+            // wild-card proposition name
+            '%' if parse_wild_cards => {
+                let name = collect_name(input_chars)?;
+                if name.is_empty() {
+                    return Err("Wild-card proposition name can't be empty.".to_string());
+                }
+                output.push(HctlToken::Atom(Atomic::WildCardProp(name)));
+                if Some('%') != input_chars.next() {
+                    return Err("Expected '%'.".to_string());
                 }
             }
             // proposition name or constant
@@ -250,6 +269,7 @@ impl fmt::Display for HctlToken {
             HctlToken::Hybrid(op, var) => write!(f, "{op:?} {{{var}}}:"),
             HctlToken::Atom(Atomic::Prop(name)) => write!(f, "{name}"),
             HctlToken::Atom(Atomic::Var(name)) => write!(f, "{{{name}}}"),
+            HctlToken::Atom(Atomic::WildCardProp(name)) => write!(f, "%{name}%"),
             HctlToken::Atom(constant) => write!(f, "{constant:?}"),
             HctlToken::Tokens(_) => write!(f, "( TOKENS )"), // debug purposes only
         }
