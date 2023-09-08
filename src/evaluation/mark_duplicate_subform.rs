@@ -4,8 +4,8 @@
 use crate::evaluation::canonization::{get_canonical, get_canonical_and_mapping};
 use crate::preprocessing::node::{HctlTreeNode, NodeType};
 
-use std::collections::{BinaryHeap, HashMap, HashSet};
 use crate::preprocessing::operator_enums::Atomic;
+use std::collections::{BinaryHeap, HashMap, HashSet};
 
 /// Check if there are some duplicate subtrees in a given formula syntax tree.
 /// This function uses canonization and thus recognizes duplicates with differently named
@@ -42,7 +42,7 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
         if let NodeType::TerminalNode(atom) = &current_node.node_type {
             if let Atomic::WildCardProp(_) = atom {
             } else {
-                break;
+                continue;
             }
         }
 
@@ -182,20 +182,22 @@ mod tests {
     use crate::evaluation::mark_duplicate_subform::{
         mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
     };
-    use crate::preprocessing::parser::parse_and_minimize_hctl_formula;
+    use crate::preprocessing::parser::{
+        parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula,
+    };
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
     #[test]
     /// Compare automatically detected duplicate sub-formulae to expected ones.
     fn test_duplicates_single_simple() {
-        let formula = "!{x}: 3{y}: (AX {x} & AX {y})".to_string();
+        let formula = "!{x}: 3{y}: (AX {x} & AX {y})";
         let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
 
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
-        let tree = parse_and_minimize_hctl_formula(&bn, formula.as_str()).unwrap();
+        let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
 
         assert_eq!(duplicates, expected_duplicates);
@@ -204,8 +206,7 @@ mod tests {
     #[test]
     /// Compare automatically detected duplicate sub-formulae to expected ones.
     fn test_duplicates_single_complex() {
-        let formula =
-            "(!{x}: 3{y}: ((AG EF {x} & AG EF {y}) & (EF {y}))) & (!{z}: EF {z})".to_string();
+        let formula = "(!{x}: 3{y}: ((AG EF {x} & AG EF {y}) & (EF {y}))) & (!{z}: EF {z})";
         let expected_duplicates = HashMap::from([
             ("(Ag (Ef {var0}))".to_string(), 1),
             ("(Ef {var0})".to_string(), 2),
@@ -214,7 +215,7 @@ mod tests {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
-        let tree = parse_and_minimize_hctl_formula(&bn, formula.as_str()).unwrap();
+        let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);
     }
@@ -224,9 +225,9 @@ mod tests {
     /// Use multiple input formulae.
     fn test_duplicates_multiple() {
         let formulae = vec![
-            "!{x}: 3{y}: (AX {x} & AX {y})".to_string(),
-            "!{x}: (AX {x})".to_string(),
-            "!{z}: AX {z}".to_string(),
+            "!{x}: 3{y}: (AX {x} & AX {y})",
+            "!{x}: (AX {x})",
+            "!{z}: AX {z}",
         ];
         let expected_duplicates = HashMap::from([
             ("(Ax {var0})".to_string(), 2),
@@ -238,11 +239,25 @@ mod tests {
 
         let mut trees = Vec::new();
         for formula in formulae {
-            let tree = parse_and_minimize_hctl_formula(&bn, formula.as_str()).unwrap();
+            let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
             trees.push(tree);
         }
         let duplicates = mark_duplicates_canonized_multiple(&trees);
 
+        assert_eq!(duplicates, expected_duplicates);
+    }
+
+    #[test]
+    /// Test that wild-card propositions are also detected correctly (opposed to other terminals).
+    fn test_duplicates_wild_cards() {
+        // define a placeholder bn
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+
+        let formula = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%) & v1 & v1";
+        let expected_duplicates = HashMap::from([("%subst%".to_string(), 1)]);
+
+        let tree = parse_and_minimize_extended_formula(&bn, formula).unwrap();
+        let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);
     }
 }

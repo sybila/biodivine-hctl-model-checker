@@ -1,7 +1,7 @@
 //! Model-checking analysis from start to finish, with progress output and result prints.
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
-use crate::evaluation::eval_info::EvalContext;
+use crate::evaluation::eval_context::EvalContext;
 use crate::mc_utils::{collect_unique_hctl_vars, get_extended_symbolic_graph};
 use crate::preprocessing::parser::parse_hctl_formula;
 use crate::preprocessing::utils::check_props_and_rename_vars;

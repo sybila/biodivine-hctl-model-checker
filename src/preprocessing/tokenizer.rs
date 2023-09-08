@@ -297,15 +297,17 @@ pub fn print_tokens(tokens: &Vec<HctlToken>) {
 #[cfg(test)]
 mod tests {
     use crate::preprocessing::operator_enums::*;
-    use crate::preprocessing::tokenizer::{try_tokenize_formula, HctlToken};
+    use crate::preprocessing::tokenizer::{
+        try_tokenize_extended_formula, try_tokenize_formula, HctlToken,
+    };
 
     #[test]
     /// Test tokenization process on several valid HCTL formulae.
     fn test_tokenize_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}".to_string();
-        let tokens1_result = try_tokenize_formula(valid1);
+        let tokens1 = try_tokenize_formula(valid1).unwrap();
         assert_eq!(
-            tokens1_result.unwrap(),
+            tokens1,
             vec![
                 HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
                 HctlToken::Unary(UnaryOp::Ag),
@@ -315,9 +317,9 @@ mod tests {
         );
 
         let valid2 = "AF (!{x}: (AX (~{x} & AF {x})))".to_string();
-        let tokens2_result = try_tokenize_formula(valid2);
+        let tokens2 = try_tokenize_formula(valid2).unwrap();
         assert_eq!(
-            tokens2_result.unwrap(),
+            tokens2,
             vec![
                 HctlToken::Unary(UnaryOp::Af),
                 HctlToken::Tokens(vec![
@@ -337,9 +339,9 @@ mod tests {
         );
 
         let valid3 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string();
-        let tokens3_result = try_tokenize_formula(valid3);
+        let tokens3 = try_tokenize_formula(valid3).unwrap();
         assert_eq!(
-            tokens3_result.unwrap(),
+            tokens3,
             vec![
                 HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
                 HctlToken::Hybrid(HybridOp::Exists, "y".to_string()),
@@ -379,5 +381,52 @@ mod tests {
         for formula in invalid_formulae {
             assert!(try_tokenize_formula(formula.to_string()).is_err())
         }
+    }
+
+    #[test]
+    /// Test tokenization process on several extended HCTL formulae containing
+    /// `wild-card propositions`.
+    fn test_tokenize_extended_formulae() {
+        let formula1 = "(!{x}: AX {x}) & %p%";
+        // tokenizer for standard HCTL should fail, for extended succeed
+        assert!(try_tokenize_formula(formula1.to_string()).is_err());
+        assert!(try_tokenize_extended_formula(formula1.to_string()).is_ok());
+        let tokens = try_tokenize_extended_formula(formula1.to_string()).unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                HctlToken::Tokens(vec![
+                    HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                    HctlToken::Unary(UnaryOp::Ax),
+                    HctlToken::Atom(Atomic::Var("x".to_string())),
+                ]),
+                HctlToken::Binary(BinaryOp::And),
+                HctlToken::Atom(Atomic::WildCardProp("p".to_string())),
+            ]
+        );
+
+        let formula2 = "!{x}: 3{y}: (@{x}: ~{y} & %s%) & (@{y}: %s%)";
+        assert!(try_tokenize_formula(formula2.to_string()).is_err());
+        assert!(try_tokenize_extended_formula(formula2.to_string()).is_ok());
+        let tokens = try_tokenize_extended_formula(formula2.to_string()).unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                HctlToken::Hybrid(HybridOp::Exists, "y".to_string()),
+                HctlToken::Tokens(vec![
+                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string()),
+                    HctlToken::Unary(UnaryOp::Not),
+                    HctlToken::Atom(Atomic::Var("y".to_string())),
+                    HctlToken::Binary(BinaryOp::And),
+                    HctlToken::Atom(Atomic::WildCardProp("s".to_string())),
+                ]),
+                HctlToken::Binary(BinaryOp::And),
+                HctlToken::Tokens(vec![
+                    HctlToken::Hybrid(HybridOp::Jump, "y".to_string()),
+                    HctlToken::Atom(Atomic::WildCardProp("s".to_string())),
+                ]),
+            ]
+        );
     }
 }

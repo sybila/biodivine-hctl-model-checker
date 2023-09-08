@@ -48,10 +48,15 @@ impl EvalContext {
         self.duplicates.clone()
     }
 
+    /// Get the cache field containing the cached sub-formulae, their result and var renaming.
+    pub fn get_cache(&self) -> HashMap<String, (GraphColoredVertices, HashMap<String, String>)> {
+        self.cache.clone()
+    }
+
     /// Extend the standard evaluation context with "pre-computed cache" regarding wild-card nodes.
     pub fn extend_context_with_wild_cards(
         &mut self,
-        substitution_context: HashMap<String, GraphColoredVertices>
+        substitution_context: HashMap<String, GraphColoredVertices>,
     ) {
         // For each `wild-card proposition` in `substitution_context`, increment its duplicate
         // counter. That way, the first occurrence will also be treated as duplicate and taken from
@@ -77,21 +82,57 @@ impl EvalContext {
 
 #[cfg(test)]
 mod tests {
-    use crate::evaluation::eval_info::EvalContext;
-    use crate::preprocessing::parser::parse_hctl_formula;
+    use crate::evaluation::eval_context::EvalContext;
+    use crate::mc_utils::get_extended_symbolic_graph;
+    use crate::preprocessing::parser::{parse_extended_formula, parse_hctl_formula};
+
+    use biodivine_lib_param_bn::BooleanNetwork;
+
     use std::collections::HashMap;
 
     #[test]
     /// Test equivalent ways to generate EvalContext object.
-    fn test_eval_info_creation() {
-        let formula = "!{x}: (AX {x} & AX {x})".to_string();
-        let syntax_tree = parse_hctl_formula(formula.as_str()).unwrap();
+    fn test_eval_context_creation() {
+        let formula = "!{x}: (AX {x} & AX {x})";
+        let syntax_tree = parse_hctl_formula(formula).unwrap();
 
         let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
         let eval_info = EvalContext::new(expected_duplicates.clone());
 
         assert_eq!(eval_info, EvalContext::from_single_tree(&syntax_tree));
-        assert_eq!(eval_info, EvalContext::from_multiple_trees(&vec![syntax_tree]));
+        assert_eq!(
+            eval_info,
+            EvalContext::from_multiple_trees(&vec![syntax_tree])
+        );
         assert_eq!(eval_info.get_duplicates(), expected_duplicates);
+    }
+
+    #[test]
+    /// Test extension of the EvalContext with "pre-computed cache" regarding wild-card nodes.
+    fn test_eval_context_extension() {
+        // prepare placeholder BN and STG
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
+
+        let formula = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%)";
+        let syntax_tree = parse_extended_formula(formula).unwrap();
+        let mut eval_info = EvalContext::from_single_tree(&syntax_tree);
+
+        assert_eq!(
+            eval_info.get_duplicates(),
+            HashMap::from([("%subst%".to_string(), 1)])
+        );
+        assert_eq!(eval_info.get_cache(), HashMap::new());
+
+        let raw_set = stg.mk_unit_colored_vertices();
+        let substitution_context = HashMap::from([("subst".to_string(), raw_set.clone())]);
+        eval_info.extend_context_with_wild_cards(substitution_context);
+        let expected_cache = HashMap::from([("%subst%".to_string(), (raw_set, HashMap::new()))]);
+
+        assert_eq!(
+            eval_info.get_duplicates(),
+            HashMap::from([("%subst%".to_string(), 2)])
+        );
+        assert_eq!(eval_info.get_cache(), expected_cache);
     }
 }

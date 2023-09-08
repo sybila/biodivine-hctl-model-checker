@@ -1,6 +1,8 @@
 //! Contains a syntax tree struct for HCTL formulae and functionality regarding the manipulation with it.
 
 use crate::preprocessing::operator_enums::*;
+use crate::preprocessing::parser::parse_hctl_tokens;
+use crate::preprocessing::tokenizer::HctlToken;
 
 use std::cmp;
 use std::cmp::Ordering;
@@ -49,19 +51,83 @@ impl Ord for HctlTreeNode {
     }
 }
 
-impl Default for HctlTreeNode {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl HctlTreeNode {
-    /// Create a default node - the `True` constant (terminal) node.
-    pub fn new() -> Self {
-        Self {
-            subform_str: "True".to_string(),
+    /// Parse `tokens` of HCTL formula into an abstract syntax tree using recursive steps.
+    /// It is recommended to not use this method for parsing, but rather choose from functions
+    /// provided in `preprocessing::parser` module.
+    pub fn new(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
+        parse_hctl_tokens(tokens)
+    }
+
+    /// Create a hybrid node from given arguments.
+    pub fn mk_hybrid_node(child: HctlTreeNode, var: String, op: HybridOp) -> HctlTreeNode {
+        HctlTreeNode {
+            subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
+            height: child.height + 1,
+            node_type: NodeType::HybridNode(op, var, Box::new(child)),
+        }
+    }
+
+    /// Create an unary node from given arguments.
+    pub fn mk_unary_node(child: HctlTreeNode, op: UnaryOp) -> HctlTreeNode {
+        HctlTreeNode {
+            subform_str: format!("({} {})", op, child.subform_str),
+            height: child.height + 1,
+            node_type: NodeType::UnaryNode(op, Box::new(child)),
+        }
+    }
+
+    /// Create a binary node from given arguments.
+    pub fn mk_binary_node(left: HctlTreeNode, right: HctlTreeNode, op: BinaryOp) -> HctlTreeNode {
+        HctlTreeNode {
+            subform_str: format!("({} {} {})", left.subform_str, op, right.subform_str),
+            height: cmp::max(left.height, right.height) + 1,
+            node_type: NodeType::BinaryNode(op, Box::new(left), Box::new(right)),
+        }
+    }
+
+    /// Create a terminal `variable` node from given arguments.
+    pub fn mk_var_node(var_name: String) -> HctlTreeNode {
+        HctlTreeNode {
+            subform_str: format!("{{{var_name}}}"),
             height: 0,
-            node_type: NodeType::TerminalNode(Atomic::True),
+            node_type: NodeType::TerminalNode(Atomic::Var(var_name)),
+        }
+    }
+
+    /// Create a terminal `proposition` node from given arguments.
+    pub fn mk_prop_node(prop_name: String) -> HctlTreeNode {
+        HctlTreeNode {
+            subform_str: prop_name.clone(),
+            height: 0,
+            node_type: NodeType::TerminalNode(Atomic::Prop(prop_name)),
+        }
+    }
+
+    /// Create a terminal `constant` node (true/false) from given arguments.
+    /// `constant` should only be "true" or "false"
+    pub fn mk_constant_node(constant_val: bool) -> HctlTreeNode {
+        if constant_val {
+            HctlTreeNode {
+                subform_str: "True".to_string(),
+                height: 0,
+                node_type: NodeType::TerminalNode(Atomic::True),
+            }
+        } else {
+            HctlTreeNode {
+                subform_str: "False".to_string(),
+                height: 0,
+                node_type: NodeType::TerminalNode(Atomic::False),
+            }
+        }
+    }
+
+    /// Create a terminal `wild-card proposition` node from given arguments.
+    pub fn mk_wild_card_node(prop_name: String) -> HctlTreeNode {
+        HctlTreeNode {
+            subform_str: format!("%{prop_name}%"),
+            height: 0,
+            node_type: NodeType::TerminalNode(Atomic::WildCardProp(prop_name)),
         }
     }
 }
@@ -71,76 +137,3 @@ impl fmt::Display for HctlTreeNode {
         write!(f, "{}", self.subform_str)
     }
 }
-
-/// Create a hybrid node from given arguments.
-pub fn create_hybrid_node(child: HctlTreeNode, var: String, op: HybridOp) -> HctlTreeNode {
-    HctlTreeNode {
-        subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
-        height: child.height + 1,
-        node_type: NodeType::HybridNode(op, var, Box::new(child)),
-    }
-}
-
-/// Create an unary node from given arguments.
-pub fn create_unary_node(child: HctlTreeNode, op: UnaryOp) -> HctlTreeNode {
-    HctlTreeNode {
-        subform_str: format!("({} {})", op, child.subform_str),
-        height: child.height + 1,
-        node_type: NodeType::UnaryNode(op, Box::new(child)),
-    }
-}
-
-/// Create a binary node from given arguments.
-pub fn create_binary_node(left: HctlTreeNode, right: HctlTreeNode, op: BinaryOp) -> HctlTreeNode {
-    HctlTreeNode {
-        subform_str: format!("({} {} {})", left.subform_str, op, right.subform_str),
-        height: cmp::max(left.height, right.height) + 1,
-        node_type: NodeType::BinaryNode(op, Box::new(left), Box::new(right)),
-    }
-}
-
-/// Create a terminal `variable` node from given arguments.
-pub fn create_var_node(var_name: String) -> HctlTreeNode {
-    HctlTreeNode {
-        subform_str: format!("{{{var_name}}}"),
-        height: 0,
-        node_type: NodeType::TerminalNode(Atomic::Var(var_name)),
-    }
-}
-
-/// Create a terminal `proposition` node from given arguments.
-pub fn create_prop_node(prop_name: String) -> HctlTreeNode {
-    HctlTreeNode {
-        subform_str: prop_name.clone(),
-        height: 0,
-        node_type: NodeType::TerminalNode(Atomic::Prop(prop_name)),
-    }
-}
-
-/// Create a terminal `constant` node (true/false) from given arguments.
-/// `constant` should only be "true" or "false"
-pub fn create_constant_node(constant_val: bool) -> HctlTreeNode {
-    if constant_val {
-        HctlTreeNode {
-            subform_str: "True".to_string(),
-            height: 0,
-            node_type: NodeType::TerminalNode(Atomic::True),
-        }
-    } else {
-        HctlTreeNode {
-            subform_str: "False".to_string(),
-            height: 0,
-            node_type: NodeType::TerminalNode(Atomic::False),
-        }
-    }
-}
-
-/// Create a terminal `wild-card proposition` node from given arguments.
-pub fn create_wild_card_node(prop_name: String) -> HctlTreeNode {
-    HctlTreeNode {
-        subform_str: format!("%{prop_name}%"),
-        height: 0,
-        node_type: NodeType::TerminalNode(Atomic::WildCardProp(prop_name)),
-    }
-}
-
