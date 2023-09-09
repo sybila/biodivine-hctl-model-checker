@@ -85,3 +85,10 @@ The operator precedence is following (the lower, the stronger):
 * hybrid operators: 8
 
 However, it is strongly recommended to use parentheses wherever possible to prevent any parsing issues.
+
+#### Wild-card properties
+
+The library also provides functions to model check extended formulae that contain so called "wild-card properties".
+These special properties are evaluated as an arbitrary (coloured) set given by the user.
+This allows to re-use already pre-computed results in subsequent computations. 
+In formulae, the syntax of these properties is `%property_name%`.
