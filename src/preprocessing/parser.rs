@@ -299,14 +299,14 @@ mod tests {
         let tree = parse_hctl_formula(valid3).unwrap();
         assert_eq!(tree.subform_str, "(Exists {x}: (Exists {y}: ((Jump {x}: ((~ {y}) & (Ax {x}))) & ((Jump {y}: (Ax {y})) & ((Ef ({x} & (Bind {z}: (Ax {z})))) & ((Ef ({y} & (Bind {z}: (Ax {z})))) & (Ax ((Ef ({x} & (Bind {z}: (Ax {z})))) ^ (Ef ({y} & (Bind {z}: (Ax {z}))))))))))))".to_string());
 
-        // also test propositions and constants
+        // also test propositions, constants, and other operators (and their parse order)
         // propositions names should not be modified, constants should be unified to True/False
-        let valid4 = "(prop1 & PROP2 | false) AU (True & 0)";
+        let valid4 = "(prop1 <=> PROP2 | false => 1) AU (True ^ 0)";
         assert!(parse_hctl_formula(valid4).is_ok());
         let tree = parse_hctl_formula(valid4).unwrap();
         assert_eq!(
             tree.subform_str,
-            "(((prop1 & PROP2) | False) Au (True & False))".to_string()
+            "((prop1 <=> ((PROP2 | False) => True)) Au (True ^ False))".to_string()
         );
 
         // all formulae must be correctly parsed also using the extended version of HCTL

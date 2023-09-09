@@ -412,6 +412,11 @@ $DivK: (!PleC & DivJ)
                 "(~(!{x}:AG EF{x})) AU (!{x}:AG EF{x})",
                 "~EG~(!{x}:AG EF{x}) & ~(~(!{x}:AG EF{x}) EU (~(!{x}:AG EF{x}) & (!{x}:AG EF{x})))",
             ),
+            // AU equivalence (where phi1 are fixed points, and phi2 the rest)
+            (
+                "(~(!{x}:AX{x})) AU (!{x}:AX{x})",
+                "~EG~(!{x}:AX{x}) & ~(~(!{x}:AX{x}) EU (~(!{x}:AX{x}) & (!{x}:AX{x})))",
+            ),
             // formulae for attractors, one is evaluated directly through optimisation
             ("!{x}: AG EF {x}", "!{x}: AG EF ({x} & {x})"),
             // formulae for fixed-points, one is evaluated directly through optimisation

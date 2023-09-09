@@ -105,6 +105,9 @@ mod tests {
             EvalContext::from_multiple_trees(&vec![syntax_tree])
         );
         assert_eq!(eval_info.get_duplicates(), expected_duplicates);
+
+        // check that cache is always initially empty
+        assert!(eval_info.get_cache().is_empty());
     }
 
     #[test]

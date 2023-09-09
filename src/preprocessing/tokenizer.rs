@@ -303,7 +303,10 @@ mod tests {
 
     #[test]
     /// Test tokenization process on several valid HCTL formulae.
+    /// Test both some important and meaningful formulae and formulae that include wide
+    /// range of operators.
     fn test_tokenize_valid_formulae() {
+        // formula for attractors
         let valid1 = "!{x}: AG EF {x}".to_string();
         let tokens1 = try_tokenize_formula(valid1).unwrap();
         assert_eq!(
@@ -316,28 +319,27 @@ mod tests {
             ]
         );
 
-        let valid2 = "AF (!{x}: (AX (~{x} & AF {x})))".to_string();
+        // formula for cyclic attractors
+        let valid2 = "!{x}: (AX (~{x} & AF {x}))".to_string();
         let tokens2 = try_tokenize_formula(valid2).unwrap();
         assert_eq!(
             tokens2,
             vec![
-                HctlToken::Unary(UnaryOp::Af),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
                 HctlToken::Tokens(vec![
-                    HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                    HctlToken::Unary(UnaryOp::Ax),
                     HctlToken::Tokens(vec![
-                        HctlToken::Unary(UnaryOp::Ax),
-                        HctlToken::Tokens(vec![
-                            HctlToken::Unary(UnaryOp::Not),
-                            HctlToken::Atom(Atomic::Var("x".to_string())),
-                            HctlToken::Binary(BinaryOp::And),
-                            HctlToken::Unary(UnaryOp::Af),
-                            HctlToken::Atom(Atomic::Var("x".to_string())),
-                        ]),
+                        HctlToken::Unary(UnaryOp::Not),
+                        HctlToken::Atom(Atomic::Var("x".to_string())),
+                        HctlToken::Binary(BinaryOp::And),
+                        HctlToken::Unary(UnaryOp::Af),
+                        HctlToken::Atom(Atomic::Var("x".to_string())),
                     ]),
                 ]),
             ]
         );
 
+        // formula for bi-stability
         let valid3 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})".to_string();
         let tokens3 = try_tokenize_formula(valid3).unwrap();
         assert_eq!(
@@ -361,21 +363,58 @@ mod tests {
                 ]),
             ]
         );
+
+        // Formula with all kinds of binary operators, and terminals, including propositions
+        // starting on A/E. Note that constants are treated as propositions at this point.
+        let valid4 = "(prop1 <=> PROP2 | false => 1) EU (0 AW A_prop ^ E_prop)".to_string();
+        let tokens4 = try_tokenize_formula(valid4).unwrap();
+        assert_eq!(
+            tokens4,
+            vec![
+                HctlToken::Tokens(vec![
+                    HctlToken::Atom(Atomic::Prop("prop1".to_string())),
+                    HctlToken::Binary(BinaryOp::Iff),
+                    HctlToken::Atom(Atomic::Prop("PROP2".to_string())),
+                    HctlToken::Binary(BinaryOp::Or),
+                    HctlToken::Atom(Atomic::Prop("false".to_string())),
+                    HctlToken::Binary(BinaryOp::Imp),
+                    HctlToken::Atom(Atomic::Prop("1".to_string())),
+                ]),
+                HctlToken::Binary(BinaryOp::Eu),
+                HctlToken::Tokens(vec![
+                    HctlToken::Atom(Atomic::Prop("0".to_string())),
+                    HctlToken::Binary(BinaryOp::Aw),
+                    HctlToken::Atom(Atomic::Prop("A_prop".to_string())),
+                    HctlToken::Binary(BinaryOp::Xor),
+                    HctlToken::Atom(Atomic::Prop("E_prop".to_string())),
+                ]),
+            ]
+        );
     }
 
     #[test]
     /// Test tokenization process on several invalid HCTL formulae.
+    /// Try to cover wide range of invalid possibilities, as well as potential frequent mistakes.
     fn test_tokenize_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EF {x<&}",
+            "!{x}: A* EF {x}",
+            "!{x}: AG E* {x}",
+            "!{x}: AG EF {}",
             "!{x AG EF {x}",
             "!{}: AG EF {x}",
+            "!EF p1",
             "{x}: AG EF {x}",
             "V{x} AG EF {x}",
             "!{x}: AG EX {x} $",
             "!{x}: # AG EF {x}",
             "!{x}: AG* EF {x}",
             "!{x}: (a EW b) =>= (c AU d)",
+            "p1 )",
+            "( p1",
+            "p1 <> p2",
+            "p1 >= p2",
+            "p1 <= p2",
         ];
 
         for formula in invalid_formulae {
@@ -387,7 +426,7 @@ mod tests {
     /// Test tokenization process on several extended HCTL formulae containing
     /// `wild-card propositions`.
     fn test_tokenize_extended_formulae() {
-        let formula1 = "(!{x}: AX {x}) & %p%";
+        let formula1 = "p & %p%";
         // tokenizer for standard HCTL should fail, for extended succeed
         assert!(try_tokenize_formula(formula1.to_string()).is_err());
         assert!(try_tokenize_extended_formula(formula1.to_string()).is_ok());
@@ -395,17 +434,13 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                HctlToken::Tokens(vec![
-                    HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
-                    HctlToken::Unary(UnaryOp::Ax),
-                    HctlToken::Atom(Atomic::Var("x".to_string())),
-                ]),
+                HctlToken::Atom(Atomic::Prop("p".to_string())),
                 HctlToken::Binary(BinaryOp::And),
                 HctlToken::Atom(Atomic::WildCardProp("p".to_string())),
             ]
         );
 
-        let formula2 = "!{x}: 3{y}: (@{x}: ~{y} & %s%) & (@{y}: %s%)";
+        let formula2 = "!{x}: (@{x}: {x} & %s%)";
         assert!(try_tokenize_formula(formula2.to_string()).is_err());
         assert!(try_tokenize_extended_formula(formula2.to_string()).is_ok());
         let tokens = try_tokenize_extended_formula(formula2.to_string()).unwrap();
@@ -413,17 +448,10 @@ mod tests {
             tokens,
             vec![
                 HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
-                HctlToken::Hybrid(HybridOp::Exists, "y".to_string()),
                 HctlToken::Tokens(vec![
                     HctlToken::Hybrid(HybridOp::Jump, "x".to_string()),
-                    HctlToken::Unary(UnaryOp::Not),
-                    HctlToken::Atom(Atomic::Var("y".to_string())),
+                    HctlToken::Atom(Atomic::Var("x".to_string())),
                     HctlToken::Binary(BinaryOp::And),
-                    HctlToken::Atom(Atomic::WildCardProp("s".to_string())),
-                ]),
-                HctlToken::Binary(BinaryOp::And),
-                HctlToken::Tokens(vec![
-                    HctlToken::Hybrid(HybridOp::Jump, "y".to_string()),
                     HctlToken::Atom(Atomic::WildCardProp("s".to_string())),
                 ]),
             ]

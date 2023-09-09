@@ -137,3 +137,34 @@ impl fmt::Display for HctlTreeNode {
         write!(f, "{}", self.subform_str)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::preprocessing::node::HctlTreeNode;
+    use crate::preprocessing::tokenizer::{try_tokenize_extended_formula, try_tokenize_formula};
+
+    #[test]
+    /// Test creation, ordering, and display of HCTL tree nodes.
+    fn test_tree_nodes() {
+        // formula containing all kinds of operators and terminals (even wild-card propositions)
+        let formula1 = "!{x}: 3{y}: (@{x}: ~{y} & %subst% & True ^ v1)".to_string();
+        // much shorter formula to generate shallower tree
+        let formula2 = "!{x}: AX {x}".to_string();
+
+        // test `new` function works
+        let tokens1 = try_tokenize_extended_formula(formula1).unwrap();
+        let tokens2 = try_tokenize_formula(formula2).unwrap();
+        let node1 = HctlTreeNode::new(&tokens1).unwrap();
+        let node2 = HctlTreeNode::new(&tokens2).unwrap();
+
+        // higher tree should be greater
+        assert!(node1 > node2);
+        assert!(node2 <= node1);
+
+        // test display
+        let node1_str = "(Bind {x}: (Exists {y}: (Jump {x}: (((~ {y}) & (%subst% & True)) ^ v1))))";
+        let node2_str = "(Bind {x}: (Ax {x}))";
+        assert_eq!(node1.to_string(), node1_str.to_string());
+        assert_eq!(node2.to_string(), node2_str.to_string());
+    }
+}

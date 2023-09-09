@@ -153,14 +153,13 @@ pub fn analyse_formula(
 
 #[cfg(test)]
 mod tests {
-    use crate::analysis::analyse_formulae;
+    use crate::analysis::{analyse_formula, analyse_formulae};
     use crate::result_print::PrintOptions;
     use biodivine_lib_param_bn::BooleanNetwork;
 
     #[test]
     /// Simple test to check whether the whole analysis runs without an error.
     fn test_analysis_run() {
-        let formulae = vec!["!{x}: AG EF {x}".to_string(), "!{x}: AF {x}".to_string()];
         let model = r"
                 $frs2:(!erk & fgfr)
                 fgfr -> frs2
@@ -176,6 +175,10 @@ mod tests {
         ";
         let bn = BooleanNetwork::try_from(model).unwrap();
 
+        let formulae = vec!["!{x}: AG EF {x}".to_string(), "!{x}: AF {x}".to_string()];
         assert!(analyse_formulae(&bn, formulae, PrintOptions::WithProgress).is_ok());
+
+        let formula = "erk & fgfr & frs2 & ~shc".to_string(); // simple to avoid long prints
+        assert!(analyse_formula(&bn, formula, PrintOptions::Exhaustive).is_ok());
     }
 }
