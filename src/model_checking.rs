@@ -154,14 +154,25 @@ pub fn model_check_formula_dirty(
 fn parse_extended_and_validate(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
+    substitution_context: &HashMap<String, GraphColoredVertices>,
 ) -> Result<Vec<HctlTreeNode>, String> {
     // parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
     for formula in formulae {
         let tree = parse_and_minimize_extended_formula(graph.as_network(), formula.as_str())?;
+
         // check that given extended symbolic graph supports enough stated variables
         if !check_hctl_var_support(graph, tree.clone()) {
             return Err("Graph does not support enough HCTL state variables".to_string());
+        }
+        // check that all occurring wild-card propositions are present in `substitution_context`
+        for wild_card_prop in collect_unique_wild_card_props(tree.clone()) {
+            if !substitution_context.contains_key(wild_card_prop.as_str()) {
+                return Err(format!(
+                    "Wild-card proposition `{}` lacks evaluation context.",
+                    wild_card_prop
+                ));
+            }
         }
         parsed_trees.push(tree);
     }
@@ -179,7 +190,7 @@ pub fn model_check_multiple_extended_formulae(
     substitution_context: HashMap<String, GraphColoredVertices>,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees and check compatibility with graph
-    let parsed_trees = parse_extended_and_validate(formulae, stg)?;
+    let parsed_trees = parse_extended_and_validate(formulae, stg, &substitution_context)?;
 
     // prepare the extended evaluation context
 
@@ -246,7 +257,7 @@ mod tests {
     use crate::mc_utils::get_extended_symbolic_graph;
     use crate::model_checking::{
         model_check_extended_formula, model_check_formula, model_check_formula_dirty,
-        model_check_formula_unsafe_ex,
+        model_check_formula_unsafe_ex, parse_extended_and_validate,
     };
     use std::collections::HashMap;
 
@@ -634,5 +645,23 @@ $DivK: (!PleC & DivJ)
             );
             assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
         }
+    }
+
+    #[test]
+    /// Test that the helper function for parsing and validating extended formulae properly
+    /// discovers errors.
+    fn test_validation_extended_context() {
+        let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
+
+        // test situation where one substitution is missing
+        let sub_context = HashMap::from([("s".to_string(), stg.mk_empty_vertices())]);
+        let formula = "%s% & EF %t%".to_string();
+        let res = parse_extended_and_validate(vec![formula], &stg, &sub_context);
+        assert!(res.is_err());
+        assert_eq!(
+            res.err().unwrap(),
+            "Wild-card proposition `t` lacks evaluation context.".to_string()
+        );
     }
 }
