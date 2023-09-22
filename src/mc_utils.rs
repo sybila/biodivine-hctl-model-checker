@@ -36,14 +36,14 @@ fn collect_unique_hctl_vars_recursive(
     mut seen_vars: HashSet<String>,
 ) -> HashSet<String> {
     match formula_tree.node_type {
-        NodeType::TerminalNode(_) => {}
-        NodeType::UnaryNode(_, child) => {
+        NodeType::Terminal(_) => {}
+        NodeType::Unary(_, child) => {
             seen_vars.extend(collect_unique_hctl_vars_recursive(
                 *child,
                 seen_vars.clone(),
             ));
         }
-        NodeType::BinaryNode(_, left, right) => {
+        NodeType::Binary(_, left, right) => {
             seen_vars.extend(collect_unique_hctl_vars_recursive(*left, seen_vars.clone()));
             seen_vars.extend(collect_unique_hctl_vars_recursive(
                 *right,
@@ -51,7 +51,7 @@ fn collect_unique_hctl_vars_recursive(
             ));
         }
         // collect variables from exist and binder nodes
-        NodeType::HybridNode(op, var_name, child) => {
+        NodeType::Hybrid(op, var_name, child) => {
             match op {
                 HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
                     seen_vars.insert(var_name); // we do not care whether insert is successful
@@ -77,18 +77,18 @@ fn collect_unique_wild_card_props_recursive(
     mut seen_props: HashSet<String>,
 ) -> HashSet<String> {
     match formula_tree.node_type {
-        NodeType::TerminalNode(atom) => {
+        NodeType::Terminal(atom) => {
             if let Atomic::WildCardProp(prop_name) = atom {
                 seen_props.insert(prop_name);
             }
         }
-        NodeType::UnaryNode(_, child) => {
+        NodeType::Unary(_, child) => {
             seen_props.extend(collect_unique_wild_card_props_recursive(
                 *child,
                 seen_props.clone(),
             ));
         }
-        NodeType::BinaryNode(_, left, right) => {
+        NodeType::Binary(_, left, right) => {
             seen_props.extend(collect_unique_wild_card_props_recursive(
                 *left,
                 seen_props.clone(),
@@ -98,7 +98,7 @@ fn collect_unique_wild_card_props_recursive(
                 seen_props.clone(),
             ));
         }
-        NodeType::HybridNode(_, _, child) => {
+        NodeType::Hybrid(_, _, child) => {
             seen_props.extend(collect_unique_wild_card_props_recursive(
                 *child,
                 seen_props.clone(),

@@ -39,7 +39,7 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
     while let Some(current_node) = heap_queue.pop() {
         // if current node is terminal, process it only if it represents the `wild-card prop`
         // other kinds of terminals are not worth to be considered and cached during eval
-        if let NodeType::TerminalNode(atom) = &current_node.node_type {
+        if let NodeType::Terminal(atom) = &current_node.node_type {
             if let Atomic::WildCardProp(_) = atom {
             } else {
                 continue;
@@ -83,15 +83,15 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
 
         // add children of current node to the heap_queue
         match &current_node.node_type {
-            NodeType::TerminalNode(_) => {}
-            NodeType::UnaryNode(_, child) => {
+            NodeType::Terminal(_) => {}
+            NodeType::Unary(_, child) => {
                 heap_queue.push(child);
             }
-            NodeType::BinaryNode(_, left, right) => {
+            NodeType::Binary(_, left, right) => {
                 heap_queue.push(left);
                 heap_queue.push(right);
             }
-            NodeType::HybridNode(_, _, child) => {
+            NodeType::Hybrid(_, _, child) => {
                 heap_queue.push(child);
             }
         }
@@ -192,7 +192,7 @@ mod tests {
     /// Compare automatically detected duplicate sub-formulae to expected ones.
     fn test_duplicates_single_simple() {
         let formula = "!{x}: 3{y}: (AX {x} & AX {y})";
-        let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
+        let expected_duplicates = HashMap::from([("(AX {var0})".to_string(), 1)]);
 
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
@@ -208,8 +208,8 @@ mod tests {
     fn test_duplicates_single_complex() {
         let formula = "(!{x}: 3{y}: ((AG EF {x} & AG EF {y}) & (EF {y}))) & (!{z}: EF {z})";
         let expected_duplicates = HashMap::from([
-            ("(Ag (Ef {var0}))".to_string(), 1),
-            ("(Ef {var0})".to_string(), 2),
+            ("(AG (EF {var0}))".to_string(), 1),
+            ("(EF {var0})".to_string(), 2),
         ]);
 
         // define any placeholder bn
@@ -230,8 +230,8 @@ mod tests {
             "!{z}: AX {z}",
         ];
         let expected_duplicates = HashMap::from([
-            ("(Ax {var0})".to_string(), 2),
-            ("(Bind {var0}: (Ax {var0}))".to_string(), 1),
+            ("(AX {var0})".to_string(), 2),
+            ("(!{var0}: (AX {var0}))".to_string(), 1),
         ]);
 
         // define any placeholder bn

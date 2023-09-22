@@ -84,7 +84,7 @@ pub fn eval_node(
     }
 
     let result = match node.node_type {
-        NodeType::TerminalNode(atom) => match atom {
+        NodeType::Terminal(atom) => match atom {
             Atomic::True => graph.mk_unit_colored_vertices(),
             Atomic::False => graph.mk_empty_vertices(),
             Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
@@ -92,7 +92,7 @@ pub fn eval_node(
             // should not be reachable, as wild-card nodes are always evaluated earlier using cache
             Atomic::WildCardProp(_) => unreachable!(),
         },
-        NodeType::UnaryNode(op, child) => match op {
+        NodeType::Unary(op, child) => match op {
             UnaryOp::Not => eval_neg(graph, &eval_node(*child, graph, eval_info, steady_states)),
             UnaryOp::Ex => eval_ex(
                 graph,
@@ -119,7 +119,7 @@ pub fn eval_node(
             ),
             UnaryOp::Ag => eval_ag(graph, &eval_node(*child, graph, eval_info, steady_states)),
         },
-        NodeType::BinaryNode(op, left, right) => {
+        NodeType::Binary(op, left, right) => {
             match op {
                 BinaryOp::And => eval_node(*left, graph, eval_info, steady_states)
                     .intersect(&eval_node(*right, graph, eval_info, steady_states)),
@@ -164,7 +164,7 @@ pub fn eval_node(
                 ),
             }
         }
-        NodeType::HybridNode(op, var, child) => match op {
+        NodeType::Hybrid(op, var, child) => match op {
             HybridOp::Bind => eval_bind(
                 graph,
                 &eval_node(*child, graph, eval_info, steady_states),
@@ -201,10 +201,10 @@ pub fn eval_node(
 /// This recognition step is used to later optimize the attractor pattern.
 fn is_attractor_pattern(node: HctlTreeNode) -> bool {
     match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match child1.node_type {
-            NodeType::UnaryNode(UnaryOp::Ag, child2) => match child2.node_type {
-                NodeType::UnaryNode(UnaryOp::Ef, child3) => match child3.node_type {
-                    NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
+        NodeType::Hybrid(HybridOp::Bind, var1, child1) => match child1.node_type {
+            NodeType::Unary(UnaryOp::Ag, child2) => match child2.node_type {
+                NodeType::Unary(UnaryOp::Ef, child3) => match child3.node_type {
+                    NodeType::Terminal(Atomic::Var(var2)) => var1 == var2,
                     _ => false,
                 },
                 _ => false,
@@ -219,9 +219,9 @@ fn is_attractor_pattern(node: HctlTreeNode) -> bool {
 /// This recognition step is used to later optimize the fixed-point pattern.
 fn is_fixed_point_pattern(node: HctlTreeNode) -> bool {
     match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match child1.node_type {
-            NodeType::UnaryNode(UnaryOp::Ax, child2) => match child2.node_type {
-                NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
+        NodeType::Hybrid(HybridOp::Bind, var1, child1) => match child1.node_type {
+            NodeType::Unary(UnaryOp::Ax, child2) => match child2.node_type {
+                NodeType::Terminal(Atomic::Var(var2)) => var1 == var2,
                 _ => false,
             },
             _ => false,
@@ -271,9 +271,9 @@ mod tests {
     #[test]
     /// Test recognition of fixed-point pattern.
     fn test_fixed_point_pattern() {
-        let tree = HctlTreeNode::mk_hybrid_node(
-            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::Ax),
-            "x".to_string(),
+        let tree = HctlTreeNode::mk_hybrid(
+            HctlTreeNode::mk_unary(HctlTreeNode::mk_var("x"), UnaryOp::Ax),
+            "x",
             HybridOp::Bind,
         );
         assert!(is_fixed_point_pattern(tree));
@@ -282,15 +282,12 @@ mod tests {
     #[test]
     /// Test recognition of attractor pattern.
     fn test_attractor_pattern() {
-        let tree = HctlTreeNode::mk_hybrid_node(
-            HctlTreeNode::mk_unary_node(
-                HctlTreeNode::mk_unary_node(
-                    HctlTreeNode::mk_var_node("x".to_string()),
-                    UnaryOp::Ef,
-                ),
+        let tree = HctlTreeNode::mk_hybrid(
+            HctlTreeNode::mk_unary(
+                HctlTreeNode::mk_unary(HctlTreeNode::mk_var("x"), UnaryOp::Ef),
                 UnaryOp::Ag,
             ),
-            "x".to_string(),
+            "x",
             HybridOp::Bind,
         );
         assert!(is_attractor_pattern(tree));

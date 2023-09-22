@@ -123,9 +123,9 @@ fn parse_1_hybrid(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
             ));
         }
         match &tokens[i] {
-            HctlToken::Hybrid(op, var) => HctlTreeNode::mk_hybrid_node(
+            HctlToken::Hybrid(op, var) => HctlTreeNode::mk_hybrid(
                 parse_1_hybrid(&tokens[(i + 1)..])?,
-                var.clone(),
+                var.as_str(),
                 op.clone(),
             ),
             _ => unreachable!(), // we already made sure that this is indeed a hybrid token
@@ -139,7 +139,7 @@ fn parse_1_hybrid(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_2_iff(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let iff_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Iff));
     Ok(if let Some(i) = iff_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_3_imp(&tokens[..i])?,
             parse_2_iff(&tokens[(i + 1)..])?,
             BinaryOp::Iff,
@@ -153,7 +153,7 @@ fn parse_2_iff(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_3_imp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let imp_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Imp));
     Ok(if let Some(i) = imp_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_4_or(&tokens[..i])?,
             parse_3_imp(&tokens[(i + 1)..])?,
             BinaryOp::Imp,
@@ -167,7 +167,7 @@ fn parse_3_imp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_4_or(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let or_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Or));
     Ok(if let Some(i) = or_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_5_xor(&tokens[..i])?,
             parse_4_or(&tokens[(i + 1)..])?,
             BinaryOp::Or,
@@ -181,7 +181,7 @@ fn parse_4_or(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_5_xor(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let xor_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Xor));
     Ok(if let Some(i) = xor_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_6_and(&tokens[..i])?,
             parse_5_xor(&tokens[(i + 1)..])?,
             BinaryOp::Xor,
@@ -195,7 +195,7 @@ fn parse_5_xor(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_6_and(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let and_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::And));
     Ok(if let Some(i) = and_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_7_binary_temp(&tokens[..i])?,
             parse_6_and(&tokens[(i + 1)..])?,
             BinaryOp::And,
@@ -210,7 +210,7 @@ fn parse_7_binary_temp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let binary_token = index_of_first_binary_temp(tokens);
     Ok(if let Some(i) = binary_token {
         match &tokens[i] {
-            HctlToken::Binary(op) => HctlTreeNode::mk_binary_node(
+            HctlToken::Binary(op) => HctlTreeNode::mk_binary(
                 parse_8_unary(&tokens[..i])?,
                 parse_7_binary_temp(&tokens[(i + 1)..])?,
                 op.clone(),
@@ -228,7 +228,7 @@ fn parse_8_unary(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     Ok(if let Some(i) = unary_token {
         match &tokens[i] {
             HctlToken::Unary(op) => {
-                HctlTreeNode::mk_unary_node(parse_8_unary(&tokens[(i + 1)..])?, op.clone())
+                HctlTreeNode::mk_unary(parse_8_unary(&tokens[(i + 1)..])?, op.clone())
             }
             _ => unreachable!(), // we already made sure that this is indeed an unary token
         }
@@ -248,18 +248,18 @@ fn parse_9_terminal_and_parentheses(tokens: &[HctlToken]) -> Result<HctlTreeNode
             match &tokens[0] {
                 HctlToken::Atom(Atomic::Prop(name)) => {
                     return if name == "true" || name == "True" || name == "1" {
-                        Ok(HctlTreeNode::mk_constant_node(true))
+                        Ok(HctlTreeNode::mk_constant(true))
                     } else if name == "false" || name == "False" || name == "0" {
-                        Ok(HctlTreeNode::mk_constant_node(false))
+                        Ok(HctlTreeNode::mk_constant(false))
                     } else {
-                        Ok(HctlTreeNode::mk_prop_node(name.clone()))
+                        Ok(HctlTreeNode::mk_prop(name.as_str()))
                     }
                 }
                 HctlToken::Atom(Atomic::Var(name)) => {
-                    return Ok(HctlTreeNode::mk_var_node(name.clone()))
+                    return Ok(HctlTreeNode::mk_var(name.as_str()))
                 }
                 HctlToken::Atom(Atomic::WildCardProp(name)) => {
-                    return Ok(HctlTreeNode::mk_wild_card_node(name.clone()))
+                    return Ok(HctlTreeNode::mk_wild_card(name.as_str()))
                 }
                 // recursively solve sub-formulae in parentheses
                 HctlToken::Tokens(inner) => return parse_hctl_tokens(inner),
@@ -283,21 +283,20 @@ mod tests {
         let valid1 = "!{x}: AG EF {x}";
         assert!(parse_hctl_formula(valid1).is_ok());
         let tree = parse_hctl_formula(valid1).unwrap();
-        assert_eq!(tree.subform_str, "(Bind {x}: (Ag (Ef {x})))".to_string());
+        assert_eq!(tree.subform_str, "(!{x}: (AG (EF {x})))".to_string());
 
         let valid2 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})";
         assert!(parse_hctl_formula(valid2).is_ok());
         let tree = parse_hctl_formula(valid2).unwrap();
         assert_eq!(
             tree.subform_str,
-            "(Bind {x}: (Exists {y}: ((Jump {x}: ((~ {y}) & (Ax {x}))) & (Jump {y}: (Ax {y})))))"
-                .to_string()
+            "(!{x}: (3{y}: ((@{x}: ((~ {y}) & (AX {x}))) & (@{y}: (AX {y})))))".to_string()
         );
 
         let valid3 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))";
         assert!(parse_hctl_formula(valid3).is_ok());
         let tree = parse_hctl_formula(valid3).unwrap();
-        assert_eq!(tree.subform_str, "(Exists {x}: (Exists {y}: ((Jump {x}: ((~ {y}) & (Ax {x}))) & ((Jump {y}: (Ax {y})) & ((Ef ({x} & (Bind {z}: (Ax {z})))) & ((Ef ({y} & (Bind {z}: (Ax {z})))) & (Ax ((Ef ({x} & (Bind {z}: (Ax {z})))) ^ (Ef ({y} & (Bind {z}: (Ax {z}))))))))))))".to_string());
+        assert_eq!(tree.subform_str, "(3{x}: (3{y}: ((@{x}: ((~ {y}) & (AX {x}))) & ((@{y}: (AX {y})) & ((EF ({x} & (!{z}: (AX {z})))) & ((EF ({y} & (!{z}: (AX {z})))) & (AX ((EF ({x} & (!{z}: (AX {z})))) ^ (EF ({y} & (!{z}: (AX {z}))))))))))))".to_string());
 
         // also test propositions, constants, and other operators (and their parse order)
         // propositions names should not be modified, constants should be unified to True/False
@@ -306,7 +305,7 @@ mod tests {
         let tree = parse_hctl_formula(valid4).unwrap();
         assert_eq!(
             tree.subform_str,
-            "((prop1 <=> ((PROP2 | False) => True)) Au (True ^ False))".to_string()
+            "((prop1 <=> ((PROP2 | False) => True)) AU (True ^ False))".to_string()
         );
 
         // all formulae must be correctly parsed also using the extended version of HCTL
@@ -320,17 +319,17 @@ mod tests {
     /// Test parsing of several valid HCTL formulae against expected results.
     fn compare_parser_with_expected() {
         let formula = "(false & p1)";
-        let expected_tree = HctlTreeNode::mk_binary_node(
-            HctlTreeNode::mk_constant_node(false),
-            HctlTreeNode::mk_prop_node("p1".to_string()),
+        let expected_tree = HctlTreeNode::mk_binary(
+            HctlTreeNode::mk_constant(false),
+            HctlTreeNode::mk_prop("p1"),
             BinaryOp::And,
         );
         assert_eq!(parse_hctl_formula(formula).unwrap(), expected_tree);
 
         let formula = "!{x}: (AX {x})";
-        let expected_tree = HctlTreeNode::mk_hybrid_node(
-            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::Ax),
-            "x".to_string(),
+        let expected_tree = HctlTreeNode::mk_hybrid(
+            HctlTreeNode::mk_unary(HctlTreeNode::mk_var("x"), UnaryOp::Ax),
+            "x",
             HybridOp::Bind,
         );
         assert_eq!(parse_hctl_formula(formula).unwrap(), expected_tree);
@@ -368,7 +367,7 @@ mod tests {
         let tree = parse_extended_formula(formula).unwrap();
         assert_eq!(
             tree.subform_str,
-            "((Bind {x}: (Ag (Ef {x}))) & %p%)".to_string()
+            "((!{x}: (AG (EF {x}))) & %p%)".to_string()
         );
 
         let formula = "!{x}: 3{y}: (@{x}: ~{y} & %s%) & (@{y}: %s%)";
@@ -377,7 +376,7 @@ mod tests {
         let tree = parse_extended_formula(formula).unwrap();
         assert_eq!(
             tree.subform_str,
-            "(Bind {x}: (Exists {y}: ((Jump {x}: ((~ {y}) & %s%)) & (Jump {y}: %s%))))".to_string()
+            "(!{x}: (3{y}: ((@{x}: ((~ {y}) & %s%)) & (@{y}: %s%))))".to_string()
         );
     }
 }
