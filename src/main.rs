@@ -7,14 +7,13 @@
 //!
 
 use biodivine_hctl_model_checker::analysis::analyse_formulae;
-use biodivine_hctl_model_checker::preprocessing::read_inputs::{
-    load_and_parse_bn_model, load_formulae,
-};
+use biodivine_hctl_model_checker::preprocessing::read_inputs::load_formulae;
 use biodivine_hctl_model_checker::result_print::PrintOptions;
 
 use clap::builder::PossibleValuesParser;
 use clap::Parser;
 
+use biodivine_lib_param_bn::BooleanNetwork;
 use std::path::Path;
 
 /// Structure to collect CLI arguments
@@ -56,7 +55,7 @@ fn main() {
 
     // read the model and formulae
     let formulae = load_formulae(args.formulae_path.as_str());
-    let maybe_bn = load_and_parse_bn_model(args.model_format.as_str(), args.model_path.as_str());
+    let maybe_bn = BooleanNetwork::try_from_file(args.model_path.as_str());
     if maybe_bn.is_err() {
         println!("Model does not have correct format");
         return;
