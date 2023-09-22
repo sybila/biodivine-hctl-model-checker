@@ -4,13 +4,16 @@
 use crate::evaluation::canonization::{get_canonical, get_canonical_and_mapping};
 use crate::preprocessing::node::{HctlTreeNode, NodeType};
 
+use crate::preprocessing::operator_enums::Atomic;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
 /// Check if there are some duplicate subtrees in a given formula syntax tree.
 /// This function uses canonization and thus recognizes duplicates with differently named
 /// variables (e.g., `AX {y}` and `AX {z}`).
 /// Return the CANONICAL versions of duplicate sub-formulae + the number of their appearances.
-/// Note that terminal nodes (props, vars, constants) are not considered.
+///
+/// Note that except for wild-card properties, most of the terminal nodes (props, vars, constants)
+/// are not considered.
 pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> HashMap<String, i32> {
     // go through each tree from top, use height to compare only the nodes with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
@@ -34,10 +37,13 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
 
     // because we are traversing trees, we dont care about cycles
     while let Some(current_node) = heap_queue.pop() {
-        // lets stop the process when we hit the first terminal node
-        // terminals are not worth to mark as duplicates and use them for caching
-        if current_node.height == 0 {
-            break;
+        // if current node is terminal, process it only if it represents the `wild-card prop`
+        // other kinds of terminals are not worth to be considered and cached during eval
+        if let NodeType::TerminalNode(atom) = &current_node.node_type {
+            if let Atomic::WildCardProp(_) = atom {
+            } else {
+                continue;
+            }
         }
 
         let mut skip = false;
@@ -45,6 +51,7 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
             get_canonical_and_mapping(current_node.subform_str.clone());
 
         // only mark duplicates with at max 1 variable (to not cause var name collisions during caching)
+        // todo: extend this for any number of variables
         if (last_height == current_node.height) & (renaming.len() <= 1) {
             // if we have saved some nodes of the same height, compare them with the current one
             for other_canonical_string in same_height_canonical_strings.clone() {
@@ -62,13 +69,13 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
                 }
             }
 
-            // do not traverse subtree of the duplicate later (will be cached during eval)
+            // do not traverse subtree of the duplicate later (whole node is cached during eval)
             if skip {
                 continue;
             }
             same_height_canonical_strings.insert(current_subform_canonical);
         } else {
-            // we got node from lower level, so we empty the set of nodes to compare
+            // we continue with node from lower level, so we empty the set of nodes to compare
             last_height = current_node.height;
             same_height_canonical_strings.clear();
             same_height_canonical_strings.insert(get_canonical(current_node.subform_str.clone()));
@@ -175,20 +182,22 @@ mod tests {
     use crate::evaluation::mark_duplicate_subform::{
         mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
     };
-    use crate::preprocessing::parser::parse_and_minimize_hctl_formula;
+    use crate::preprocessing::parser::{
+        parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula,
+    };
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
     #[test]
     /// Compare automatically detected duplicate sub-formulae to expected ones.
     fn test_duplicates_single_simple() {
-        let formula = "!{x}: 3{y}: (AX {x} & AX {y})".to_string();
+        let formula = "!{x}: 3{y}: (AX {x} & AX {y})";
         let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
 
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
-        let tree = parse_and_minimize_hctl_formula(&bn, formula.as_str()).unwrap();
+        let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
 
         assert_eq!(duplicates, expected_duplicates);
@@ -197,8 +206,7 @@ mod tests {
     #[test]
     /// Compare automatically detected duplicate sub-formulae to expected ones.
     fn test_duplicates_single_complex() {
-        let formula =
-            "(!{x}: 3{y}: ((AG EF {x} & AG EF {y}) & (EF {y}))) & (!{z}: EF {z})".to_string();
+        let formula = "(!{x}: 3{y}: ((AG EF {x} & AG EF {y}) & (EF {y}))) & (!{z}: EF {z})";
         let expected_duplicates = HashMap::from([
             ("(Ag (Ef {var0}))".to_string(), 1),
             ("(Ef {var0})".to_string(), 2),
@@ -207,7 +215,7 @@ mod tests {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
 
-        let tree = parse_and_minimize_hctl_formula(&bn, formula.as_str()).unwrap();
+        let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);
     }
@@ -217,9 +225,9 @@ mod tests {
     /// Use multiple input formulae.
     fn test_duplicates_multiple() {
         let formulae = vec![
-            "!{x}: 3{y}: (AX {x} & AX {y})".to_string(),
-            "!{x}: (AX {x})".to_string(),
-            "!{z}: AX {z}".to_string(),
+            "!{x}: 3{y}: (AX {x} & AX {y})",
+            "!{x}: (AX {x})",
+            "!{z}: AX {z}",
         ];
         let expected_duplicates = HashMap::from([
             ("(Ax {var0})".to_string(), 2),
@@ -231,11 +239,25 @@ mod tests {
 
         let mut trees = Vec::new();
         for formula in formulae {
-            let tree = parse_and_minimize_hctl_formula(&bn, formula.as_str()).unwrap();
+            let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
             trees.push(tree);
         }
         let duplicates = mark_duplicates_canonized_multiple(&trees);
 
+        assert_eq!(duplicates, expected_duplicates);
+    }
+
+    #[test]
+    /// Test that wild-card propositions are also detected correctly (opposed to other terminals).
+    fn test_duplicates_wild_cards() {
+        // define a placeholder bn
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+
+        let formula = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%) & v1 & v1";
+        let expected_duplicates = HashMap::from([("%subst%".to_string(), 1)]);
+
+        let tree = parse_and_minimize_extended_formula(&bn, formula).unwrap();
+        let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);
     }
 }

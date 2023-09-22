@@ -18,6 +18,8 @@ This includes properties like stability, bi-stability, attractors, or oscillator
 To run the model checker, you will need the Rust compiler.
 We recommend following the instructions on [rustlang.org](https://www.rust-lang.org/learn/get-started).
 
+If you are not familiar with Rust, there are also Python bindings for most of the important functionality in [AEON.py](https://github.com/sybila/biodivine-aeon-py).
+
 ## Functionality
 
 This repository encompasses the CLI model-checking tool, and the model-checking library.
@@ -85,3 +87,10 @@ The operator precedence is following (the lower, the stronger):
 * hybrid operators: 8
 
 However, it is strongly recommended to use parentheses wherever possible to prevent any parsing issues.
+
+#### Wild-card properties
+
+The library also provides functions to model check extended formulae that contain so called "wild-card propositions".
+These special propositions are evaluated as an arbitrary (coloured) set given by the user.
+This allows the re-use of already pre-computed results in subsequent computations. 
+In formulae, the syntax of these propositions is `%property_name%`.

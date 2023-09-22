@@ -2,7 +2,7 @@
 
 use crate::aeon::scc_computation::compute_attractor_states;
 use crate::evaluation::canonization::get_canonical_and_mapping;
-use crate::evaluation::eval_info::EvalInfo;
+use crate::evaluation::eval_context::EvalContext;
 use crate::evaluation::hctl_operators_evaluation::*;
 use crate::evaluation::low_level_operations::substitute_hctl_var;
 use crate::preprocessing::node::{HctlTreeNode, NodeType};
@@ -20,7 +20,7 @@ use std::collections::HashMap;
 pub fn eval_node(
     node: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
-    eval_info: &mut EvalInfo,
+    eval_info: &mut EvalContext,
     steady_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
@@ -89,6 +89,8 @@ pub fn eval_node(
             Atomic::False => graph.mk_empty_vertices(),
             Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
             Atomic::Prop(name) => eval_prop(graph, &name),
+            // should not be reachable, as wild-card nodes are always evaluated earlier using cache
+            Atomic::WildCardProp(_) => unreachable!(),
         },
         NodeType::UnaryNode(op, child) => match op {
             UnaryOp::Not => eval_neg(graph, &eval_node(*child, graph, eval_info, steady_states)),
@@ -269,8 +271,8 @@ mod tests {
     #[test]
     /// Test recognition of fixed-point pattern.
     fn test_fixed_point_pattern() {
-        let tree = create_hybrid(
-            create_unary(create_var_node("x".to_string()), UnaryOp::Ax),
+        let tree = HctlTreeNode::mk_hybrid_node(
+            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::Ax),
             "x".to_string(),
             HybridOp::Bind,
         );
@@ -280,9 +282,12 @@ mod tests {
     #[test]
     /// Test recognition of attractor pattern.
     fn test_attractor_pattern() {
-        let tree = create_hybrid(
-            create_unary(
-                create_unary(create_var_node("x".to_string()), UnaryOp::Ef),
+        let tree = HctlTreeNode::mk_hybrid_node(
+            HctlTreeNode::mk_unary_node(
+                HctlTreeNode::mk_unary_node(
+                    HctlTreeNode::mk_var_node("x".to_string()),
+                    UnaryOp::Ef,
+                ),
                 UnaryOp::Ag,
             ),
             "x".to_string(),
