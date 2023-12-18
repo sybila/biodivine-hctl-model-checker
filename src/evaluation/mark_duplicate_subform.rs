@@ -12,9 +12,12 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 /// variables (e.g., `AX {y}` and `AX {z}`).
 /// Return the CANONICAL versions of duplicate sub-formulae + the number of their appearances.
 ///
-/// Note that except for wild-card properties, most of the terminal nodes (props, vars, constants)
+/// Note that except for wild-card properties, the terminal nodes (props, vars, constants)
 /// are not considered.
 pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> HashMap<String, i32> {
+    // TODO: check if addition of restricted var domains does not break things
+    // TODO: we must check that duplicates share var domains (in case that they contain free vars)
+
     // go through each tree from top, use height to compare only the nodes with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
 
@@ -91,7 +94,7 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
                 heap_queue.push(left);
                 heap_queue.push(right);
             }
-            NodeType::HybridNode(_, _, child) => {
+            NodeType::HybridNode(_, _, _, child) => {
                 heap_queue.push(child);
             }
         }

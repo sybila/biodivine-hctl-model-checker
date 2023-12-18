@@ -87,7 +87,10 @@ pub fn eval_node(
         NodeType::TerminalNode(atom) => match atom {
             Atomic::True => graph.mk_unit_colored_vertices(),
             Atomic::False => graph.mk_empty_colored_vertices(),
-            Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
+            Atomic::Var(name) => {
+                // TODO: somehow add check if `var formula` doesnt already have domain in the cache
+                eval_hctl_var(graph, name.as_str())
+            }
             Atomic::Prop(name) => eval_prop(graph, &name),
             // should not be reachable, as wild-card nodes are always evaluated earlier using cache
             Atomic::WildCardProp(_) => unreachable!(),
@@ -164,28 +167,33 @@ pub fn eval_node(
                 ),
             }
         }
-        NodeType::HybridNode(op, var, child) => match op {
-            HybridOp::Bind => eval_bind(
-                graph,
-                &eval_node(*child, graph, eval_info, steady_states),
-                var.as_str(),
-            ),
-            HybridOp::Jump => eval_jump(
-                graph,
-                &eval_node(*child, graph, eval_info, steady_states),
-                var.as_str(),
-            ),
-            HybridOp::Exists => eval_exists(
-                graph,
-                &eval_node(*child, graph, eval_info, steady_states),
-                var.as_str(),
-            ),
-            HybridOp::Forall => eval_forall(
-                graph,
-                &eval_node(*child, graph, eval_info, steady_states),
-                var.as_str(),
-            ),
-        },
+        NodeType::HybridNode(op, var, domain, child) => {
+            if domain.is_some() {
+                // TODO: somehow add `var formula` evaluated at restricted domain to the cache
+            }
+            match op {
+                HybridOp::Bind => eval_bind(
+                    graph,
+                    &eval_node(*child, graph, eval_info, steady_states),
+                    var.as_str(),
+                ),
+                HybridOp::Jump => eval_jump(
+                    graph,
+                    &eval_node(*child, graph, eval_info, steady_states),
+                    var.as_str(),
+                ),
+                HybridOp::Exists => eval_exists(
+                    graph,
+                    &eval_node(*child, graph, eval_info, steady_states),
+                    var.as_str(),
+                ),
+                HybridOp::Forall => eval_forall(
+                    graph,
+                    &eval_node(*child, graph, eval_info, steady_states),
+                    var.as_str(),
+                ),
+            }
+        }
     };
 
     // save result to cache if needed
@@ -201,7 +209,7 @@ pub fn eval_node(
 /// This recognition step is used to later optimize the attractor pattern.
 fn is_attractor_pattern(node: HctlTreeNode) -> bool {
     match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match child1.node_type {
+        NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match child1.node_type {
             NodeType::UnaryNode(UnaryOp::Ag, child2) => match child2.node_type {
                 NodeType::UnaryNode(UnaryOp::Ef, child3) => match child3.node_type {
                     NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
@@ -219,7 +227,7 @@ fn is_attractor_pattern(node: HctlTreeNode) -> bool {
 /// This recognition step is used to later optimize the fixed-point pattern.
 fn is_fixed_point_pattern(node: HctlTreeNode) -> bool {
     match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, child1) => match child1.node_type {
+        NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match child1.node_type {
             NodeType::UnaryNode(UnaryOp::Ax, child2) => match child2.node_type {
                 NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
                 _ => false,
@@ -274,6 +282,7 @@ mod tests {
         let tree = HctlTreeNode::mk_hybrid_node(
             HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::Ax),
             "x".to_string(),
+            None,
             HybridOp::Bind,
         );
         assert!(is_fixed_point_pattern(tree));
@@ -291,6 +300,7 @@ mod tests {
                 UnaryOp::Ag,
             ),
             "x".to_string(),
+            None,
             HybridOp::Bind,
         );
         assert!(is_attractor_pattern(tree));

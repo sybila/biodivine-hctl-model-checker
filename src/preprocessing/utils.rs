@@ -57,12 +57,12 @@ pub fn check_props_and_rename_vars(
             Ok(HctlTreeNode::mk_binary_node(node1, node2, op))
         }
         // hybrid nodes are more complicated
-        NodeType::HybridNode(op, var, child) => {
+        NodeType::HybridNode(op, var, domain, child) => {
             // if we hit binder or exist, we are adding its new var name to dict & stack
             // no need to do this for jump, jump is not quantifier
             match op {
                 HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
-                    // check that var is not already quantified
+                    // check that var is not already quantified (we dont allow that)
                     if mapping_dict.contains_key(var.as_str()) {
                         return Err(format!(
                             "Variable {var} is quantified several times in one sub-formula"
@@ -84,7 +84,12 @@ pub fn check_props_and_rename_vars(
 
             // rename the variable in the node
             let renamed_var = mapping_dict.get(var.as_str()).unwrap();
-            Ok(HctlTreeNode::mk_hybrid_node(node, renamed_var.clone(), op))
+            Ok(HctlTreeNode::mk_hybrid_node(
+                node,
+                renamed_var.clone(),
+                domain,
+                op,
+            ))
         }
     };
 }

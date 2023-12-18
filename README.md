@@ -8,9 +8,9 @@
 
 # Symbolic model checker for logic HCTL written in RUST
 
-This repository contains the Rust implementation of the symbolic model checker for hybrid logic HCTL. 
-The method is focused on the analysis of (partially specified) Boolean networks. 
-In particular, it allows to check for any behavioural hypotheses expressible in HCTL on large, non-trivial networks. 
+This repository contains the Rust implementation of the symbolic model checker for hybrid logic HCTL.
+The method is focused on the analysis of (partially specified) Boolean networks.
+In particular, it allows to check for any behavioural hypotheses expressible in HCTL on large, non-trivial networks.
 This includes properties like stability, bi-stability, attractors, or oscillatory behaviour.
 
 ## Prerequisites
@@ -92,5 +92,14 @@ However, it is strongly recommended to use parentheses wherever possible to prev
 
 The library also provides functions to model check extended formulae that contain so called "wild-card propositions".
 These special propositions are evaluated as an arbitrary (coloured) set given by the user.
-This allows the re-use of already pre-computed results in subsequent computations. 
+This allows the re-use of already pre-computed results in subsequent computations.
 In formulae, the syntax of these propositions is `%property_name%`.
+
+#### Restricting domains of variables
+
+You can directly restrict a domain of any quantified variable in a following manner:
+* `!{x} in %domain%:`
+
+The domain is treated similar as a "wild-card proposition" (see above).
+During the computation, the user then provides an arbitrary (coloured) set that will be used as the domain for the variable.
+This directly restricts the domain of every `{x}` encountered during bottom-up computation.

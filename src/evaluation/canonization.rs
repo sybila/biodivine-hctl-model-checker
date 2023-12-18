@@ -15,6 +15,8 @@ pub fn canonize_subform(
     mut canonical: String,
     mut stack_len: i32,
 ) -> (Peekable<Chars>, String, HashMap<String, String>, i32) {
+    // TODO check if addition of restricted var domains does not break things
+
     while let Some(ch) = subform_chars.next() {
         let mut should_return = false;
         match ch {
@@ -44,8 +46,12 @@ pub fn canonize_subform(
                     }
                     var_name.push(name_char);
                 }
-                // skip ':'
-                subform_chars.next();
+                // skip potential description of a domain of the variable, until and including ':'
+                for name_char in subform_chars.by_ref() {
+                    if name_char == ':' {
+                        break;
+                    }
+                }
                 // insert new mapping to dict and push it all to canonical string
                 mapping_dict.insert(var_name.clone(), format!("var{stack_len}"));
                 canonical.push_str(format!("{ch}{{var{stack_len}}}:").as_str());

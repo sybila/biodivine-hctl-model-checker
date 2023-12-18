@@ -9,11 +9,16 @@ use std::str::Chars;
 /// Enum of all possible tokens occurring in a HCTL formula string.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum HctlToken {
-    Unary(UnaryOp),           // Unary operators: '~','EX','AX','EF','AF','EG','AG'
-    Binary(BinaryOp),         // Binary operators: '&','|','^','=>','<=>','EU','AU','EW','AW'
-    Hybrid(HybridOp, String), // Hybrid operator and its variable: '!', '@', '3', 'V'
-    Atom(Atomic),             // Proposition, variable, or 'true'/'false' constant
-    Tokens(Vec<HctlToken>),   // A block of tokens inside parentheses
+    /// Unary operators: '~','EX','AX','EF','AF','EG','AG'.
+    Unary(UnaryOp),
+    /// Binary operators: '&','|','^','=>','<=>','EU','AU','EW','AW'.
+    Binary(BinaryOp),
+    /// Hybrid operator (and its variable, and optional domain): '!', '@', '3', 'V'.
+    Hybrid(HybridOp, String, Option<String>),
+    /// Proposition, variable, 'true'/'false' constants, wild-card property.
+    Atom(Atomic),
+    /// A block of tokens inside parentheses.
+    Tokens(Vec<HctlToken>),
 }
 
 /// Try to tokenize given HCTL formula string.
@@ -119,25 +124,28 @@ fn try_tokenize_recursive(
             }
             '!' => {
                 // we will collect the variable name via inside helper function
-                let name = collect_var_from_operator(input_chars, '!')?;
-                output.push(HctlToken::Hybrid(HybridOp::Bind, name));
-            }
-            '@' => {
-                // we will collect the variable name via inside helper function
-                let name = collect_var_from_operator(input_chars, '@')?;
-                output.push(HctlToken::Hybrid(HybridOp::Jump, name));
+                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '!')?;
+                output.push(HctlToken::Hybrid(HybridOp::Bind, name, domain));
             }
             // "3" can be either exist quantifier or part of some proposition
             '3' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
-                let name = collect_var_from_operator(input_chars, '3')?;
-                output.push(HctlToken::Hybrid(HybridOp::Exists, name));
+                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '3')?;
+                output.push(HctlToken::Hybrid(HybridOp::Exists, name, domain));
             }
             // "V" can be either forall quantifier or part of some proposition
             'V' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
-                let name = collect_var_from_operator(input_chars, 'V')?;
-                output.push(HctlToken::Hybrid(HybridOp::Forall, name));
+                let (name, domain) = collect_var_and_dom_from_operator(input_chars, 'V')?;
+                output.push(HctlToken::Hybrid(HybridOp::Forall, name, domain));
+            }
+            '@' => {
+                // we will collect the variable name via inside helper function
+                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '@')?;
+                if domain.is_some() {
+                    return Err("Cannot specify domain after '@'.".to_string());
+                }
+                output.push(HctlToken::Hybrid(HybridOp::Jump, name, None));
             }
             ')' => {
                 return if !top_level {
@@ -228,10 +236,10 @@ fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
 
 /// Retrieve the name of the variable bound by a hybrid operator.
 /// Operator character is consumed by caller and is given as input for error msg purposes.
-fn collect_var_from_operator(
+fn collect_var_and_dom_from_operator(
     input_chars: &mut Peekable<Chars>,
     operator: char,
-) -> Result<String, String> {
+) -> Result<(String, Option<String>), String> {
     // there might be few spaces first
     let _ = input_chars.take_while(|c| c.is_whitespace());
     // now collect the variable name itself- it is in the form {var_name} for now
@@ -248,10 +256,24 @@ fn collect_var_from_operator(
     }
     let _ = input_chars.take_while(|c| c.is_whitespace());
 
+    let mut domain = None;
+    if Some(&'%') == input_chars.peek() {
+        input_chars.next();
+        let domain_name = collect_name(input_chars)?;
+        if domain_name.is_empty() {
+            return Err("Variable's domain name can't be empty.".to_string());
+        }
+        domain = Some(domain_name);
+        if Some('%') != input_chars.next() {
+            return Err("Expected '%'.".to_string());
+        }
+        let _ = input_chars.take_while(|c| c.is_whitespace());
+    }
+
     if Some(':') != input_chars.next() {
         return Err("Expected ':'.".to_string());
     }
-    Ok(name)
+    Ok((name, domain))
 }
 
 impl fmt::Display for HctlToken {
@@ -266,7 +288,8 @@ impl fmt::Display for HctlToken {
             HctlToken::Binary(BinaryOp::Imp) => write!(f, "=>"),
             HctlToken::Binary(BinaryOp::Iff) => write!(f, "<=>"),
             HctlToken::Binary(c) => write!(f, "{c:?}"), // binary temporal
-            HctlToken::Hybrid(op, var) => write!(f, "{op:?} {{{var}}}:"),
+            HctlToken::Hybrid(op, var, None) => write!(f, "{op:?} {{{var}}}:"),
+            HctlToken::Hybrid(op, var, Some(dom)) => write!(f, "{op:?} {{{var}}} in %{dom}%:"),
             HctlToken::Atom(Atomic::Prop(name)) => write!(f, "{name}"),
             HctlToken::Atom(Atomic::Var(name)) => write!(f, "{{{name}}}"),
             HctlToken::Atom(Atomic::WildCardProp(name)) => write!(f, "%{name}%"),
@@ -312,7 +335,7 @@ mod tests {
         assert_eq!(
             tokens1,
             vec![
-                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
                 HctlToken::Unary(UnaryOp::Ag),
                 HctlToken::Unary(UnaryOp::Ef),
                 HctlToken::Atom(Atomic::Var("x".to_string())),
@@ -325,7 +348,7 @@ mod tests {
         assert_eq!(
             tokens2,
             vec![
-                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
                 HctlToken::Tokens(vec![
                     HctlToken::Unary(UnaryOp::Ax),
                     HctlToken::Tokens(vec![
@@ -345,10 +368,10 @@ mod tests {
         assert_eq!(
             tokens3,
             vec![
-                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
-                HctlToken::Hybrid(HybridOp::Exists, "y".to_string()),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
+                HctlToken::Hybrid(HybridOp::Exists, "y".to_string(), None),
                 HctlToken::Tokens(vec![
-                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string()),
+                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string(), None),
                     HctlToken::Unary(UnaryOp::Not),
                     HctlToken::Atom(Atomic::Var("y".to_string())),
                     HctlToken::Binary(BinaryOp::And),
@@ -357,7 +380,7 @@ mod tests {
                 ]),
                 HctlToken::Binary(BinaryOp::And),
                 HctlToken::Tokens(vec![
-                    HctlToken::Hybrid(HybridOp::Jump, "y".to_string()),
+                    HctlToken::Hybrid(HybridOp::Jump, "y".to_string(), None),
                     HctlToken::Unary(UnaryOp::Ax),
                     HctlToken::Atom(Atomic::Var("y".to_string())),
                 ]),
@@ -447,9 +470,9 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
                 HctlToken::Tokens(vec![
-                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string()),
+                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string(), None),
                     HctlToken::Atom(Atomic::Var("x".to_string())),
                     HctlToken::Binary(BinaryOp::And),
                     HctlToken::Atom(Atomic::WildCardProp("s".to_string())),

@@ -51,7 +51,7 @@ fn collect_unique_hctl_vars_recursive(
             ));
         }
         // collect variables from exist and binder nodes
-        NodeType::HybridNode(op, var_name, child) => {
+        NodeType::HybridNode(op, var_name, _, child) => {
             match op {
                 HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
                     seen_vars.insert(var_name); // we do not care whether insert is successful
@@ -98,7 +98,7 @@ fn collect_unique_wild_card_props_recursive(
                 seen_props.clone(),
             ));
         }
-        NodeType::HybridNode(_, _, child) => {
+        NodeType::HybridNode(_, _, _, child) => {
             seen_props.extend(collect_unique_wild_card_props_recursive(
                 *child,
                 seen_props.clone(),

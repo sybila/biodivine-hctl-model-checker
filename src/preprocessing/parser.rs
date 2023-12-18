@@ -62,7 +62,7 @@ pub fn parse_and_minimize_extended_formula(
 
 /// Predicate for whether given token represents hybrid operator.
 fn is_hybrid(token: &HctlToken) -> bool {
-    matches!(token, HctlToken::Hybrid(_, _))
+    matches!(token, HctlToken::Hybrid(..))
 }
 
 /// Predicate for whether given token represents temporal binary operator.
@@ -114,16 +114,17 @@ fn parse_1_hybrid(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let hybrid_token = index_of_first_hybrid(tokens);
     Ok(if let Some(i) = hybrid_token {
         // perform check that hybrid operator is not preceded by other type of operators
-        if i > 0 && !matches!(&tokens[i - 1], HctlToken::Hybrid(_, _)) {
+        if i > 0 && !matches!(&tokens[i - 1], HctlToken::Hybrid(..)) {
             return Err(format!(
                 "Hybrid operator can't be directly preceded by {}.",
                 &tokens[i - 1]
             ));
         }
         match &tokens[i] {
-            HctlToken::Hybrid(op, var) => HctlTreeNode::mk_hybrid_node(
+            HctlToken::Hybrid(op, var, domain) => HctlTreeNode::mk_hybrid_node(
                 parse_1_hybrid(&tokens[(i + 1)..])?,
                 var.clone(),
+                domain.clone(),
                 op.clone(),
             ),
             _ => unreachable!(), // we already made sure that this is indeed a hybrid token
@@ -329,6 +330,7 @@ mod tests {
         let expected_tree = HctlTreeNode::mk_hybrid_node(
             HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::Ax),
             "x".to_string(),
+            None,
             HybridOp::Bind,
         );
         assert_eq!(parse_hctl_formula(formula).unwrap(), expected_tree);

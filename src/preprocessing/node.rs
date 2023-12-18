@@ -11,10 +11,14 @@ use std::fmt;
 /// Enum of possible node types in a HCTL formula tree.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum NodeType {
+    /// Leaf nodes with atomic sub-formulas.
     TerminalNode(Atomic),
+    /// Unary nodes with unary operation and a single child.
     UnaryNode(UnaryOp, Box<HctlTreeNode>),
+    /// Binary nodes with binary operation and two children.
     BinaryNode(BinaryOp, Box<HctlTreeNode>, Box<HctlTreeNode>),
-    HybridNode(HybridOp, String, Box<HctlTreeNode>),
+    /// Hybrid nodes with hybrid operation, variable name, optional variable domain, and a child.
+    HybridNode(HybridOp, String, Option<String>, Box<HctlTreeNode>),
 }
 
 /// Structure for a HCTL formula syntax tree.
@@ -60,11 +64,16 @@ impl HctlTreeNode {
     }
 
     /// Create a hybrid node from given arguments.
-    pub fn mk_hybrid_node(child: HctlTreeNode, var: String, op: HybridOp) -> HctlTreeNode {
+    pub fn mk_hybrid_node(
+        child: HctlTreeNode,
+        var: String,
+        domain: Option<String>,
+        op: HybridOp,
+    ) -> HctlTreeNode {
         HctlTreeNode {
             subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
             height: child.height + 1,
-            node_type: NodeType::HybridNode(op, var, Box::new(child)),
+            node_type: NodeType::HybridNode(op, var, domain, Box::new(child)),
         }
     }
 
