@@ -179,12 +179,13 @@ fn parse_extended_and_validate(
     Ok(parsed_trees)
 }
 
-/// Perform the model checking for list of `extended` HCTL formulae on a given transition `graph`.
+/// Perform the model checking for list of `extended` HCTL formulae on a given transition `graph`,
+/// but do not sanitize the results.
 /// Return the resulting sets of colored vertices (in the same order as input formulae).
 /// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
 ///
 /// The `substitution context` is a mapping determining how `wild-card propositions` are evaluated.
-pub fn model_check_multiple_extended_formulae(
+pub fn model_check_multiple_extended_formulae_dirty(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
     substitution_context: HashMap<String, GraphColoredVertices>,
@@ -211,6 +212,21 @@ pub fn model_check_multiple_extended_formulae(
             &self_loop_states,
         ));
     }
+    Ok(results)
+}
+
+/// Perform the model checking for list of `extended` HCTL formulae on a given transition `graph`.
+/// Return the resulting sets of colored vertices (in the same order as input formulae).
+/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+///
+/// The `substitution context` is a mapping determining how `wild-card propositions` are evaluated.
+pub fn model_check_multiple_extended_formulae(
+    formulae: Vec<String>,
+    stg: &SymbolicAsyncGraph,
+    substitution_context: HashMap<String, GraphColoredVertices>,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    let results =
+        model_check_multiple_extended_formulae_dirty(formulae, stg, substitution_context)?;
 
     // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
     let sanitized_results: Vec<GraphColoredVertices> = results
@@ -230,6 +246,21 @@ pub fn model_check_extended_formula(
     substitution_context: HashMap<String, GraphColoredVertices>,
 ) -> Result<GraphColoredVertices, String> {
     let result = model_check_multiple_extended_formulae(vec![formula], stg, substitution_context)?;
+    Ok(result[0].clone())
+}
+
+/// Perform the model checking for a given `extended` HCTL formula on a given transition `graph`,
+/// but do not sanitize the results.
+/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+///
+/// The `substitution context` is a mapping determining how `wild-card propositions` are evaluated.
+pub fn model_check_extended_formula_dirty(
+    formula: String,
+    stg: &SymbolicAsyncGraph,
+    substitution_context: HashMap<String, GraphColoredVertices>,
+) -> Result<GraphColoredVertices, String> {
+    let result =
+        model_check_multiple_extended_formulae_dirty(vec![formula], stg, substitution_context)?;
     Ok(result[0].clone())
 }
 
