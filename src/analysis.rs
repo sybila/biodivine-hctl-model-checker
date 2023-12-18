@@ -9,6 +9,7 @@ use crate::result_print::*;
 
 use biodivine_lib_param_bn::BooleanNetwork;
 
+use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use std::collections::HashMap;
 use std::time::SystemTime;
 
@@ -33,6 +34,7 @@ pub fn analyse_formulae(
     print_if_allowed(format!("Read {} HCTL formulae.", formulae.len()), print_op);
     print_if_allowed("-----".to_string(), print_op);
 
+    let plain_context = SymbolicContext::new(bn).unwrap();
     for (i, formula) in formulae.iter().enumerate() {
         print_if_allowed(format!("Original formula n.{}: {formula}", i + 1), print_op);
         let tree = parse_hctl_formula(formula.as_str())?;
@@ -41,7 +43,8 @@ pub fn analyse_formulae(
             print_op,
         );
 
-        let modified_tree = check_props_and_rename_vars(tree, HashMap::new(), String::new(), bn)?;
+        let modified_tree =
+            check_props_and_rename_vars(tree, HashMap::new(), String::new(), &plain_context)?;
         let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone()).len();
         print_if_allowed(
             format!("Modified version:     {}", modified_tree.subform_str),
@@ -60,7 +63,7 @@ pub fn analyse_formulae(
     print_if_allowed(
         format!(
             "Loaded BN model with {} components and {} parameters.",
-            graph.as_network().num_vars(),
+            graph.num_vars(),
             graph.symbolic_context().num_parameter_variables()
         ),
         print_op,

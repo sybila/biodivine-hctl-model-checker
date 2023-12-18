@@ -21,7 +21,7 @@ pub fn get_extended_symbolic_graph(
     let context = SymbolicContext::with_extra_state_variables(bn, &map_num_vars)?;
     let unit = context.mk_constant(true);
 
-    SymbolicAsyncGraph::with_custom_context(bn.clone(), context, unit)
+    SymbolicAsyncGraph::with_custom_context(bn, context, unit)
 }
 
 /// Compute the set of all uniquely named HCTL variables in the formula tree.
@@ -113,7 +113,7 @@ fn collect_unique_wild_card_props_recursive(
 /// There must be `num_hctl_vars` extra symbolic BDD vars for each BN variable.
 pub fn check_hctl_var_support(stg: &SymbolicAsyncGraph, hctl_syntactic_tree: HctlTreeNode) -> bool {
     let num_hctl_vars = collect_unique_hctl_vars(hctl_syntactic_tree).len();
-    for bn_var in stg.as_network().variables() {
+    for bn_var in stg.variables() {
         if num_hctl_vars > stg.symbolic_context().extra_state_variables(bn_var).len() {
             return false;
         }
@@ -134,6 +134,7 @@ mod tests {
 
     use biodivine_lib_param_bn::BooleanNetwork;
 
+    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
     use std::collections::{HashMap, HashSet};
 
     #[test]
@@ -156,10 +157,11 @@ mod tests {
 
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
         // and for tree with minimized number of renamed state vars
         let modified_tree =
-            check_props_and_rename_vars(tree, HashMap::new(), String::new(), &bn).unwrap();
+            check_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).unwrap();
         let expected_vars =
             HashSet::from_iter(vec!["x".to_string(), "xx".to_string(), "xxx".to_string()]);
         assert_eq!(collect_unique_hctl_vars(modified_tree), expected_vars);
@@ -181,10 +183,11 @@ mod tests {
     fn test_check_hctl_var_support() {
         // define any placeholder bn and stg with enough variables
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
         // formula with 3 variables
         let formula = "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))";
-        let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
+        let tree = parse_and_minimize_hctl_formula(&ctx, formula).unwrap();
 
         // the stg that supports the same amount variables as the formula (3)
         let stg = get_extended_symbolic_graph(&bn, 3).unwrap();

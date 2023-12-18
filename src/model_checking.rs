@@ -93,7 +93,7 @@ fn parse_hctl_and_validate(
     // parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
     for formula in formulae {
-        let tree = parse_and_minimize_hctl_formula(graph.as_network(), formula.as_str())?;
+        let tree = parse_and_minimize_hctl_formula(graph.symbolic_context(), formula.as_str())?;
         // check that given extended symbolic graph supports enough stated variables
         if !check_hctl_var_support(graph, tree.clone()) {
             return Err("Graph does not support enough HCTL state variables".to_string());
@@ -159,7 +159,7 @@ fn parse_extended_and_validate(
     // parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
     for formula in formulae {
-        let tree = parse_and_minimize_extended_formula(graph.as_network(), formula.as_str())?;
+        let tree = parse_and_minimize_extended_formula(graph.symbolic_context(), formula.as_str())?;
 
         // check that given extended symbolic graph supports enough stated variables
         if !check_hctl_var_support(graph, tree.clone()) {
@@ -248,7 +248,12 @@ pub fn model_check_formula_unsafe_ex(
 
     let mut eval_info = EvalContext::from_single_tree(&tree);
     // do not consider self-loops during EX computation (UNSAFE optimisation)
-    let result = eval_node(tree, graph, &mut eval_info, &graph.mk_empty_vertices());
+    let result = eval_node(
+        tree,
+        graph,
+        &mut eval_info,
+        &graph.mk_empty_colored_vertices(),
+    );
     Ok(result)
 }
 
@@ -655,7 +660,7 @@ $DivK: (!PleC & DivJ)
         let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
 
         // test situation where one substitution is missing
-        let sub_context = HashMap::from([("s".to_string(), stg.mk_empty_vertices())]);
+        let sub_context = HashMap::from([("s".to_string(), stg.mk_empty_colored_vertices())]);
         let formula = "%s% & EF %t%".to_string();
         let res = parse_extended_and_validate(vec![formula], &stg, &sub_context);
         assert!(res.is_err());

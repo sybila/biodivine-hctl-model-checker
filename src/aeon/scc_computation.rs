@@ -19,7 +19,7 @@ pub fn compute_attractor_states(
         graph,
         &universe,
         &active_variables,
-        graph.mk_empty_vertices(),
+        graph.mk_empty_colored_vertices(),
     )
 }
 

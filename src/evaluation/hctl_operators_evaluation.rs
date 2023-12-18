@@ -43,7 +43,10 @@ pub fn eval_xor(
 /// Note that validity of formula's propositions are checked beforehand.
 pub fn eval_prop(graph: &SymbolicAsyncGraph, name: &str) -> GraphColoredVertices {
     // propositions are checked during preproc, and must be valid network variables
-    let network_variable = graph.as_network().as_graph().find_variable(name).unwrap();
+    let network_variable = graph
+        .symbolic_context()
+        .find_network_variable(name)
+        .unwrap();
 
     GraphColoredVertices::new(
         graph
@@ -155,7 +158,7 @@ pub fn eval_eu_saturated(
     let mut done = false;
     while !done {
         done = true;
-        for var in graph.as_network().variables().rev() {
+        for var in graph.variables().rev() {
             let update = phi1.intersect(&graph.var_pre(var, &result)).minus(&result);
             if !update.is_empty() {
                 result = result.union(&update);
@@ -184,7 +187,7 @@ pub fn eval_eg(
     self_loop_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     let mut old_set = phi.clone();
-    let mut new_set = graph.mk_empty_vertices();
+    let mut new_set = graph.mk_empty_colored_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();
@@ -230,7 +233,7 @@ pub fn eval_au(
     self_loop_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     let mut old_set = phi2.clone();
-    let mut new_set = graph.mk_empty_vertices();
+    let mut new_set = graph.mk_empty_colored_vertices();
 
     while old_set != new_set {
         new_set = old_set.clone();

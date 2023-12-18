@@ -57,13 +57,10 @@ pub(crate) fn print_results_full(
     // first print general summarizing information
     summarize_results(formula, results, start_time);
 
-    let network = graph.as_network();
     for valuation in results.vertices().materialize().iter() {
         // print either colored (green/red) variable literals in conjunction
         if show_names {
-            let variable_name_strings = network
-                .variables()
-                .map(|id| network.get_variable_name(id).to_string());
+            let variable_name_strings = graph.variables().map(|id| graph.get_variable_name(id));
 
             let mut stdout = StandardStream::stdout(ColorChoice::Always);
             for (i, var) in variable_name_strings.enumerate() {

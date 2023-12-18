@@ -185,6 +185,7 @@ mod tests {
     use crate::preprocessing::parser::{
         parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula,
     };
+    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
@@ -196,8 +197,9 @@ mod tests {
 
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
-        let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
+        let tree = parse_and_minimize_hctl_formula(&ctx, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
 
         assert_eq!(duplicates, expected_duplicates);
@@ -214,8 +216,9 @@ mod tests {
 
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
-        let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
+        let tree = parse_and_minimize_hctl_formula(&ctx, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);
     }
@@ -236,10 +239,11 @@ mod tests {
 
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
         let mut trees = Vec::new();
         for formula in formulae {
-            let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
+            let tree = parse_and_minimize_hctl_formula(&ctx, formula).unwrap();
             trees.push(tree);
         }
         let duplicates = mark_duplicates_canonized_multiple(&trees);
@@ -252,11 +256,12 @@ mod tests {
     fn test_duplicates_wild_cards() {
         // define a placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
         let formula = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%) & v1 & v1";
         let expected_duplicates = HashMap::from([("%subst%".to_string(), 1)]);
 
-        let tree = parse_and_minimize_extended_formula(&bn, formula).unwrap();
+        let tree = parse_and_minimize_extended_formula(&ctx, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);
     }

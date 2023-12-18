@@ -2,9 +2,7 @@
 
 use crate::preprocessing::node::*;
 use crate::preprocessing::operator_enums::{Atomic, HybridOp};
-
-use biodivine_lib_param_bn::BooleanNetwork;
-
+use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use std::collections::HashMap;
 
 /// Checks that all vars in formula are quantified (exactly once) and props are valid BN variables.
@@ -14,7 +12,7 @@ pub fn check_props_and_rename_vars(
     orig_node: HctlTreeNode,
     mut mapping_dict: HashMap<String, String>,
     mut last_used_name: String,
-    bn: &BooleanNetwork,
+    ctx: &SymbolicContext,
 ) -> Result<HctlTreeNode, String> {
     // If we find hybrid node with binder or exist, we add new var-name to rename_dict and stack (x, xx, xxx...)
     // After we leave this binder/exist, we remove its var from rename_dict
@@ -32,11 +30,11 @@ pub fn check_props_and_rename_vars(
             }
             Atomic::Prop(name) => {
                 // check that proposition corresponds to valid BN variable
-                let network_variable = bn.as_graph().find_variable(name);
-                if network_variable.is_none() {
-                    return Err(format!("There is no network variable named {name}."));
+                if ctx.find_network_variable(name).is_none() {
+                    Err(format!("There is no network variable named {name}."))
+                } else {
+                    Ok(orig_node)
                 }
-                Ok(orig_node)
             }
             // constants or wild-card propositions are always considered fine
             _ => return Ok(orig_node),
@@ -44,7 +42,7 @@ pub fn check_props_and_rename_vars(
         // just dive one level deeper for unary nodes, and rename string
         NodeType::UnaryNode(op, child) => {
             let node =
-                check_props_and_rename_vars(*child, mapping_dict, last_used_name.clone(), bn)?;
+                check_props_and_rename_vars(*child, mapping_dict, last_used_name.clone(), ctx)?;
             Ok(HctlTreeNode::mk_unary_node(node, op))
         }
         // just dive deeper for binary nodes, and rename string
@@ -53,9 +51,9 @@ pub fn check_props_and_rename_vars(
                 *left,
                 mapping_dict.clone(),
                 last_used_name.clone(),
-                bn,
+                ctx,
             )?;
-            let node2 = check_props_and_rename_vars(*right, mapping_dict, last_used_name, bn)?;
+            let node2 = check_props_and_rename_vars(*right, mapping_dict, last_used_name, ctx)?;
             Ok(HctlTreeNode::mk_binary_node(node1, node2, op))
         }
         // hybrid nodes are more complicated
@@ -81,7 +79,7 @@ pub fn check_props_and_rename_vars(
                 *child,
                 mapping_dict.clone(),
                 last_used_name.clone(),
-                bn,
+                ctx,
             )?;
 
             // rename the variable in the node
@@ -98,6 +96,7 @@ mod tests {
         parse_extended_formula, parse_hctl_formula,
     };
     use crate::preprocessing::utils::check_props_and_rename_vars;
+    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
@@ -106,9 +105,10 @@ mod tests {
     fn test_state_var_minimization(formula: &str, formula_minimized: &str) {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
         // automatically modify the original formula via preprocessing step
-        let tree = parse_and_minimize_hctl_formula(&bn, formula).unwrap();
+        let tree = parse_and_minimize_hctl_formula(&ctx, formula).unwrap();
 
         // get expected tree using the (same) formula with already manually minimized vars
         let tree_minimized = parse_hctl_formula(formula_minimized).unwrap();
@@ -144,12 +144,13 @@ mod tests {
     fn test_state_var_minimization_with_wild_cards() {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
         let formula = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%)";
         // same formula with already minimized vars
         let formula_minimized = "!{x}: 3{xx}: (@{x}: ~{xx} & %subst%) & (@{xx}: %subst%)";
 
-        let tree = parse_and_minimize_extended_formula(&bn, formula).unwrap();
+        let tree = parse_and_minimize_extended_formula(&ctx, formula).unwrap();
         // get expected tree using the (same) formula with already manually minimized vars
         let tree_minimized = parse_extended_formula(formula_minimized).unwrap();
         assert_eq!(tree_minimized, tree);
@@ -160,12 +161,13 @@ mod tests {
     fn test_check_vars_error_1() {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
         // define and parse formula with free variable
         let formula = "AX {x}";
         let tree = parse_hctl_formula(formula).unwrap();
 
-        assert!(check_props_and_rename_vars(tree, HashMap::new(), String::new(), &bn).is_err());
+        assert!(check_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
     }
 
     #[test]
@@ -173,12 +175,13 @@ mod tests {
     fn test_check_vars_error_2() {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
         // define and parse formula with two variables
         let formula = "!{x}: !{x}: AX {x}";
         let tree = parse_hctl_formula(formula).unwrap();
 
-        assert!(check_props_and_rename_vars(tree, HashMap::new(), String::new(), &bn).is_err());
+        assert!(check_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
     }
 
     #[test]
@@ -186,11 +189,12 @@ mod tests {
     fn test_check_props_error_1() {
         // define a placeholder bn with only 1 prop v1
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let ctx = SymbolicContext::new(&bn).unwrap();
 
         // define and parse formula with invalid proposition
         let formula = "AX invalid_proposition";
         let tree = parse_hctl_formula(formula).unwrap();
 
-        assert!(check_props_and_rename_vars(tree, HashMap::new(), String::new(), &bn).is_err());
+        assert!(check_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
     }
 }

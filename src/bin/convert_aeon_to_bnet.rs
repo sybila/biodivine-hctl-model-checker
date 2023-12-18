@@ -31,7 +31,11 @@ fn flatten_update_function(network: &mut BooleanNetwork, variable: VariableId) {
         let function = function.clone(); // Clone necessary for borrow checking.
         flatten_fn_update(network, &function)
     } else {
-        let regulators = network.regulators(variable);
+        let regulators = network
+            .regulators(variable)
+            .into_iter()
+            .map(FnUpdate::mk_var)
+            .collect::<Vec<_>>();
         let name = format!("{}_", network.get_variable_name(variable));
         explode_function(network, &regulators, name)
     };
@@ -59,7 +63,7 @@ fn flatten_fn_update(network: &mut BooleanNetwork, update: &FnUpdate) -> FnUpdat
 
 fn explode_function(
     network: &mut BooleanNetwork,
-    regulators: &[VariableId],
+    regulators: &[FnUpdate],
     name_prefix: String,
 ) -> FnUpdate {
     if regulators.is_empty() {
@@ -68,12 +72,12 @@ fn explode_function(
             parameter.unwrap_or_else(|| network.add_parameter(name_prefix.as_str(), 0).unwrap());
         FnUpdate::Param(parameter, Vec::new())
     } else {
-        let regulator = regulators[0];
+        let regulator = regulators[0].clone();
         let true_branch = explode_function(network, &regulators[1..], format!("{name_prefix}1"));
         let false_branch = explode_function(network, &regulators[1..], format!("{name_prefix}0"));
-        let var = FnUpdate::Var(regulator);
-        var.clone()
+        regulator
+            .clone()
             .implies(true_branch)
-            .and(var.negation().implies(false_branch))
+            .and(regulator.negation().implies(false_branch))
     }
 }

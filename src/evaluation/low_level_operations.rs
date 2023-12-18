@@ -14,7 +14,6 @@ fn create_comparator(
     other_hctl_var_name_opt: Option<&str>,
 ) -> GraphColoredVertices {
     // TODO: merge both branches to not repeat code
-    let reg_graph = graph.as_network().as_graph();
     let mut comparator = graph.mk_unit_colored_vertices().as_bdd().clone();
 
     // HCTL variables are named x, xx, xxx, ...
@@ -26,8 +25,8 @@ fn create_comparator(
         // HCTL variables are named x, xx, xxx, ...
         let other_hctl_var_id = other_hctl_var_name.len() - 1; // len of var codes its index
 
-        for network_var_id in reg_graph.variables() {
-            let network_var_name = reg_graph.get_variable_name(network_var_id);
+        for network_var_id in graph.variables() {
+            let network_var_name = graph.get_variable_name(network_var_id);
 
             // extra BDD vars are called "{network_variable}_extra_{i}"
             let hctl_var1_component_name = format!("{network_var_name}_extra_{hctl_var_id}");
@@ -46,13 +45,13 @@ fn create_comparator(
     } else {
         // do comparator between network vars and a HCTL variable
 
-        for network_var_id in reg_graph.variables() {
-            let network_var_name = reg_graph.get_variable_name(network_var_id);
+        for network_var_id in graph.variables() {
+            let network_var_name = graph.get_variable_name(network_var_id);
             let hctl_component_name = format!("{network_var_name}_extra_{hctl_var_id}");
             let bdd_network_var = graph
                 .symbolic_context()
                 .bdd_variable_set()
-                .mk_var_by_name(network_var_name);
+                .mk_var_by_name(network_var_name.as_str());
             let bdd_hctl_component = graph
                 .symbolic_context()
                 .bdd_variable_set()
@@ -97,7 +96,7 @@ pub fn project_out_hctl_var(
 
     // collect all BDD vars that encode the HCTL var
     let mut bdd_vars_to_project: Vec<BddVariable> = Vec::new();
-    for network_var in graph.as_network().as_graph().variables() {
+    for network_var in graph.variables() {
         let extra_vars = graph.symbolic_context().extra_state_variables(network_var);
         bdd_vars_to_project.push(*extra_vars.get(hctl_var_id).unwrap());
     }

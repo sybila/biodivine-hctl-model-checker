@@ -86,7 +86,7 @@ pub fn eval_node(
     let result = match node.node_type {
         NodeType::TerminalNode(atom) => match atom {
             Atomic::True => graph.mk_unit_colored_vertices(),
-            Atomic::False => graph.mk_empty_vertices(),
+            Atomic::False => graph.mk_empty_colored_vertices(),
             Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
             Atomic::Prop(name) => eval_prop(graph, &name),
             // should not be reachable, as wild-card nodes are always evaluated earlier using cache

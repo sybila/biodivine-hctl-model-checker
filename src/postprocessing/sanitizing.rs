@@ -11,7 +11,9 @@ pub fn sanitize_colored_vertices(
     stg: &SymbolicAsyncGraph,
     colored_vertices: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    let canonical_bn = stg.as_network();
+    let canonical_bn = stg.as_network().unwrap_or_else(|| {
+        panic!("Cannot normalize STG with no associated network.");
+    });
     let canonical_context = SymbolicContext::new(canonical_bn).unwrap();
     let sanitized_result_bdd = canonical_context
         .transfer_from(colored_vertices.as_bdd(), stg.symbolic_context())
@@ -23,7 +25,9 @@ pub fn sanitize_colored_vertices(
 /// that were used for representing HCTL state-variables. At the moment, we remove all symbolic
 /// variables.
 pub fn sanitize_colors(stg: &SymbolicAsyncGraph, colors: &GraphColors) -> GraphColors {
-    let canonical_bn = stg.as_network();
+    let canonical_bn = stg.as_network().unwrap_or_else(|| {
+        panic!("Cannot normalize STG with no associated network.");
+    });
     let canonical_context = SymbolicContext::new(canonical_bn).unwrap();
     let sanitized_result_bdd = canonical_context
         .transfer_from(colors.as_bdd(), stg.symbolic_context())
@@ -35,7 +39,9 @@ pub fn sanitize_colors(stg: &SymbolicAsyncGraph, colors: &GraphColors) -> GraphC
 /// that were used for representing HCTL state-variables. At the moment, we remove all symbolic
 /// variables.
 pub fn sanitize_vertices(stg: &SymbolicAsyncGraph, vertices: &GraphVertices) -> GraphVertices {
-    let canonical_bn = stg.as_network();
+    let canonical_bn = stg.as_network().unwrap_or_else(|| {
+        panic!("Cannot normalize STG with no associated network.");
+    });
     let canonical_context = SymbolicContext::new(canonical_bn).unwrap();
     let sanitized_result_bdd = canonical_context
         .transfer_from(vertices.as_bdd(), stg.symbolic_context())
@@ -63,7 +69,7 @@ mod tests {
     #[test]
     fn test_sanitize() {
         let bn = BooleanNetwork::try_from_bnet(MODEL).unwrap();
-        let canonical_stg = SymbolicAsyncGraph::new(bn.clone()).unwrap();
+        let canonical_stg = SymbolicAsyncGraph::new(&bn).unwrap();
         let extended_stg = get_extended_symbolic_graph(&bn, 1).unwrap();
 
         let fp_canonical = compute_steady_states(&canonical_stg);
