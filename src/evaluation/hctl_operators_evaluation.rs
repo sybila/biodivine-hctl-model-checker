@@ -61,6 +61,17 @@ pub fn eval_hctl_var(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> GraphCo
     create_comparator_var_state(graph, hctl_var_name)
 }
 
+/// Evaluate atomic sub-formula with only a HCTL variable that has its domain restricted by the
+/// `domain` set.
+pub fn eval_restricted_hctl_var(
+    graph: &SymbolicAsyncGraph,
+    hctl_var_name: &str,
+    domain: &GraphColoredVertices
+) -> GraphColoredVertices {
+    let comparator = create_comparator_var_state(graph, hctl_var_name);
+    comparator.intersect(domain)
+}
+
 /// Evaluate binder operator - does intersection with comparator and projects out hctl var.
 pub fn eval_bind(
     graph: &SymbolicAsyncGraph,
