@@ -1,7 +1,7 @@
 //! Contains operations to sanitize bdds of their additional symbolic variables,
 //! making them compatible with remaining biodivine libraries.
 use biodivine_lib_param_bn::symbolic_async_graph::{
-    GraphColoredVertices, GraphColors, GraphVertices, SymbolicAsyncGraph, SymbolicContext,
+    GraphColoredVertices, GraphColors, GraphVertices, SymbolicAsyncGraph,
 };
 
 /// Sanitize underlying BDD of a given coloured state set by removing the symbolic variables
@@ -11,10 +11,7 @@ pub fn sanitize_colored_vertices(
     stg: &SymbolicAsyncGraph,
     colored_vertices: &GraphColoredVertices,
 ) -> GraphColoredVertices {
-    let canonical_bn = stg.as_network().unwrap_or_else(|| {
-        panic!("Cannot normalize STG with no associated network.");
-    });
-    let canonical_context = SymbolicContext::new(canonical_bn).unwrap();
+    let canonical_context = stg.symbolic_context().as_canonical_context();
     let sanitized_result_bdd = canonical_context
         .transfer_from(colored_vertices.as_bdd(), stg.symbolic_context())
         .unwrap();
@@ -25,10 +22,7 @@ pub fn sanitize_colored_vertices(
 /// that were used for representing HCTL state-variables. At the moment, we remove all symbolic
 /// variables.
 pub fn sanitize_colors(stg: &SymbolicAsyncGraph, colors: &GraphColors) -> GraphColors {
-    let canonical_bn = stg.as_network().unwrap_or_else(|| {
-        panic!("Cannot normalize STG with no associated network.");
-    });
-    let canonical_context = SymbolicContext::new(canonical_bn).unwrap();
+    let canonical_context = stg.symbolic_context().as_canonical_context();
     let sanitized_result_bdd = canonical_context
         .transfer_from(colors.as_bdd(), stg.symbolic_context())
         .unwrap();
@@ -39,10 +33,7 @@ pub fn sanitize_colors(stg: &SymbolicAsyncGraph, colors: &GraphColors) -> GraphC
 /// that were used for representing HCTL state-variables. At the moment, we remove all symbolic
 /// variables.
 pub fn sanitize_vertices(stg: &SymbolicAsyncGraph, vertices: &GraphVertices) -> GraphVertices {
-    let canonical_bn = stg.as_network().unwrap_or_else(|| {
-        panic!("Cannot normalize STG with no associated network.");
-    });
-    let canonical_context = SymbolicContext::new(canonical_bn).unwrap();
+    let canonical_context = stg.symbolic_context().as_canonical_context();
     let sanitized_result_bdd = canonical_context
         .transfer_from(vertices.as_bdd(), stg.symbolic_context())
         .unwrap();
