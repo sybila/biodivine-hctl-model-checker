@@ -493,6 +493,12 @@ $DivK: (!PleC & DivJ)
                 "~(3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}))",
                 "V{x}: V{y}: (@{x}: {y} | ~(!{z}: AX {z})) | (@{y}: ~(!{z}: AX {z}))",
             ),
+            // binder and forall equivalence v1
+            ("!{x}: AG EF {x}", "V{x}: ({x} => (AG EF {x}))"),
+            // binder and forall equivalence v2
+            ("!{x}: AX {x}", "V{x}: ({x} => (AX {x}))"),
+            // binder and forall equivalence v3
+            ("!{x}: AF {x}", "V{x}: ({x} => (AF {x}))"),
         ];
 
         for (formula1, formula2) in equivalent_formulae_pairs {
