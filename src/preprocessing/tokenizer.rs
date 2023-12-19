@@ -124,24 +124,24 @@ fn try_tokenize_recursive(
             }
             '!' => {
                 // we will collect the variable name via inside helper function
-                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '!')?;
+                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '!', parse_wild_cards)?;
                 output.push(HctlToken::Hybrid(HybridOp::Bind, name, domain));
             }
             // "3" can be either exist quantifier or part of some proposition
             '3' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
-                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '3')?;
+                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '3', parse_wild_cards)?;
                 output.push(HctlToken::Hybrid(HybridOp::Exists, name, domain));
             }
             // "V" can be either forall quantifier or part of some proposition
             'V' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
-                let (name, domain) = collect_var_and_dom_from_operator(input_chars, 'V')?;
+                let (name, domain) = collect_var_and_dom_from_operator(input_chars, 'V', parse_wild_cards)?;
                 output.push(HctlToken::Hybrid(HybridOp::Forall, name, domain));
             }
             '@' => {
                 // we will collect the variable name via inside helper function
-                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '@')?;
+                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '@', false)?;
                 if domain.is_some() {
                     return Err("Cannot specify domain after '@'.".to_string());
                 }
@@ -151,7 +151,7 @@ fn try_tokenize_recursive(
                 return if !top_level {
                     Ok(output)
                 } else {
-                    Err("Unexpected ')'.".to_string())
+                    Err("Unexpected ')' without opening counterpart.".to_string())
                 }
             }
             '(' => {
@@ -167,7 +167,7 @@ fn try_tokenize_recursive(
                 }
                 output.push(HctlToken::Atom(Atomic::Var(name)));
                 if Some('}') != input_chars.next() {
-                    return Err("Expected '}'.".to_string());
+                    return Err("Expected '}' without opening counterpart.".to_string());
                 }
             }
             // wild-card proposition name
@@ -178,7 +178,7 @@ fn try_tokenize_recursive(
                 }
                 output.push(HctlToken::Atom(Atomic::WildCardProp(name)));
                 if Some('%') != input_chars.next() {
-                    return Err("Expected '%'.".to_string());
+                    return Err("Expected '%' after wild-card proposition name.".to_string());
                 }
             }
             // proposition name or constant
@@ -194,7 +194,18 @@ fn try_tokenize_recursive(
     if top_level {
         Ok(output)
     } else {
-        Err("Expected ')'.".to_string())
+        Err("Expected ')' to previously encountered opening counterpart.".to_string())
+    }
+}
+
+/// Check all whitespaces at the front of the iterator.
+fn skip_whitespaces(chars: &mut Peekable<Chars>) {
+    while let Some(&c) = chars.peek() {
+        if c.is_whitespace() {
+            chars.next(); // Skip the whitespace character
+        } else {
+            break; // Stop skipping when a non-whitespace character is found
+        }
     }
 }
 
@@ -224,7 +235,7 @@ fn is_valid_temp_op(option_char: Option<&char>) -> bool {
 fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     let mut name = Vec::new();
     while let Some(c) = input_chars.peek() {
-        if c.is_whitespace() || !is_valid_in_name(*c) {
+        if !is_valid_in_name(*c) {
             break;
         } else {
             name.push(*c);
@@ -234,14 +245,17 @@ fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     Ok(name.into_iter().collect())
 }
 
-/// Retrieve the name of the variable bound by a hybrid operator.
+/// Retrieve the name of the variable, and optional name for the domain, bound by a hybrid operator.
 /// Operator character is consumed by caller and is given as input for error msg purposes.
+///
+/// Domains are allowed (but not required) only if `parse_domains` is true.
 fn collect_var_and_dom_from_operator(
     input_chars: &mut Peekable<Chars>,
     operator: char,
+    parse_domains: bool,
 ) -> Result<(String, Option<String>), String> {
     // there might be few spaces first
-    let _ = input_chars.take_while(|c| c.is_whitespace());
+    skip_whitespaces(input_chars);
     // now collect the variable name itself- it is in the form {var_name} for now
     if Some('{') != input_chars.next() {
         return Err(format!("Expected '{{' after '{operator}'."));
@@ -250,28 +264,42 @@ fn collect_var_and_dom_from_operator(
     if name.is_empty() {
         return Err("Variable name can't be empty.".to_string());
     }
-
+    println!("idddkdkdkd{:?}", input_chars.peek());
     if Some('}') != input_chars.next() {
-        return Err("Expected '}'.".to_string());
+        return Err(format!("Expected '}}' after variable name (in '{operator}' segment)."));
     }
-    let _ = input_chars.take_while(|c| c.is_whitespace());
+    skip_whitespaces(input_chars);
 
     let mut domain = None;
-    if Some(&'%') == input_chars.peek() {
-        input_chars.next();
-        let domain_name = collect_name(input_chars)?;
-        if domain_name.is_empty() {
-            return Err("Variable's domain name can't be empty.".to_string());
-        }
-        domain = Some(domain_name);
-        if Some('%') != input_chars.next() {
-            return Err("Expected '%'.".to_string());
-        }
-        let _ = input_chars.take_while(|c| c.is_whitespace());
-    }
+    if parse_domains {
+        // there are 2 options:
+        // a) domain is specified and thus relevant chars form "in %domain%:"
+        // b) domain is not specified and thus next char must be ":"
+        if let Some('i') = input_chars.peek() {
+            // the "in" part
+            input_chars.next();
+            if Some('n') != input_chars.next() {
+                return Err("Expected 'n' after 'i' (in domain specification).".to_string());
+            }
+            skip_whitespaces(input_chars);
 
+            // the "%domain%" part
+            if Some('%') != input_chars.next() {
+                return Err("Expected '%' before domain name.".to_string());
+            }
+            let domain_name = collect_name(input_chars)?;
+            if domain_name.is_empty() {
+                return Err("Variable's domain name can't be empty.".to_string());
+            }
+            domain = Some(domain_name);
+            if Some('%') != input_chars.next() {
+                return Err("Expected '%' after domain name.".to_string());
+            }
+            skip_whitespaces(input_chars);
+        }
+    }
     if Some(':') != input_chars.next() {
-        return Err("Expected ':'.".to_string());
+        return Err(format!("Expected ':' after segment of hybrid operator '{operator}'."));
     }
     Ok((name, domain))
 }
