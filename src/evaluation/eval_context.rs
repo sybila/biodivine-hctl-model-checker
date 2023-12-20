@@ -16,6 +16,9 @@ pub struct EvalContext {
     pub duplicates: HashMap<String, i32>,
     /// Cached sub-formulae and their result + corresponding mapping of variable renaming
     pub cache: HashMap<String, (GraphColoredVertices, HashMap<String, String>)>,
+    /// Similar to cache, but this time just mapping the name of var domain to the raw set.
+    /// Var domain bdd must not depend on any symbolic variables, thus needs no renaming.
+    pub var_domains: HashMap<String, GraphColoredVertices>,
 }
 
 impl EvalContext {
@@ -24,6 +27,7 @@ impl EvalContext {
         EvalContext {
             duplicates,
             cache: HashMap::new(),
+            var_domains: HashMap::new(),
         }
     }
 
@@ -32,6 +36,7 @@ impl EvalContext {
         EvalContext {
             duplicates: mark_duplicates_canonized_single(tree),
             cache: HashMap::new(),
+            var_domains: HashMap::new(),
         }
     }
 
@@ -40,6 +45,7 @@ impl EvalContext {
         EvalContext {
             duplicates: mark_duplicates_canonized_multiple(trees),
             cache: HashMap::new(),
+            var_domains: HashMap::new(),
         }
     }
 
@@ -53,15 +59,28 @@ impl EvalContext {
         self.cache.clone()
     }
 
-    /// Extend the standard evaluation context with "pre-computed cache" regarding wild-card nodes.
+    /// Get the var_domains field containing the cached domain names and the raw sets.
+    pub fn get_var_domains(&self) -> HashMap<String, GraphColoredVertices> {
+        self.var_domains.clone()
+    }
+
+    /// Extend the standard evaluation context with two kinds of "pre-computed cache" regarding
+    /// wild-cards.
+    ///
+    /// `subst_context_properties` describes context of classical `wild-card properties` and is put
+    /// directly to the `cache` field.
+    ///
+    /// `subst_context_domains` describes context of `variable domains` and is put into the
+    /// `var_domains` field.
     pub fn extend_context_with_wild_cards(
         &mut self,
-        substitution_context: HashMap<String, GraphColoredVertices>,
+        subst_context_properties: &HashMap<String, GraphColoredVertices>,
+        subst_context_domains: &HashMap<String, GraphColoredVertices>,
     ) {
-        // For each `wild-card proposition` in `substitution_context`, increment its duplicate
+        // For each `wild-card proposition` in `subst_context_properties`, increment its duplicate
         // counter. That way, the first occurrence will also be treated as duplicate and taken from
         // cache directly.
-        for (prop_name, raw_set) in substitution_context.into_iter() {
+        for (prop_name, raw_set) in subst_context_properties.iter() {
             // we dont have to compute canonical sub-formula, because there are no HCTL variables
             let sub_formula = format!("%{}%", prop_name);
             if self.duplicates.contains_key(sub_formula.as_str()) {
@@ -75,7 +94,14 @@ impl EvalContext {
 
             // Add the raw sets directly to the cache to be used during evaluation.
             // The mapping for var renaming is empty, because there are no HCTL vars.
-            self.cache.insert(sub_formula, (raw_set, HashMap::new()));
+            self.cache
+                .insert(sub_formula, (raw_set.clone(), HashMap::new()));
+        }
+
+        // For each `domain` in `subst_context_domains`, just put it inside domains.
+        for (domain_name, raw_set) in subst_context_domains.iter() {
+            self.var_domains
+                .insert(domain_name.clone(), raw_set.clone());
         }
     }
 }
@@ -111,13 +137,13 @@ mod tests {
     }
 
     #[test]
-    /// Test extension of the EvalContext with "pre-computed cache" regarding wild-card nodes.
+    /// Test extension of the EvalContext with "pre-computed cache" regarding wild-card nodes and var domains.
     fn test_eval_context_extension() {
         // prepare placeholder BN and STG
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
-        let formula = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%)";
+        let formula = "!{x} in %domain1%: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%)";
         let syntax_tree = parse_extended_formula(formula).unwrap();
         let mut eval_info = EvalContext::from_single_tree(&syntax_tree);
 
@@ -126,16 +152,22 @@ mod tests {
             HashMap::from([("%subst%".to_string(), 1)])
         );
         assert_eq!(eval_info.get_cache(), HashMap::new());
+        assert_eq!(eval_info.get_var_domains(), HashMap::new());
 
-        let raw_set = stg.mk_unit_colored_vertices();
-        let substitution_context = HashMap::from([("subst".to_string(), raw_set.clone())]);
-        eval_info.extend_context_with_wild_cards(substitution_context);
-        let expected_cache = HashMap::from([("%subst%".to_string(), (raw_set, HashMap::new()))]);
+        let raw_set_1 = stg.mk_unit_colored_vertices();
+        let raw_set_2 = stg.mk_empty_colored_vertices();
+        let subst_context_props = HashMap::from([("subst".to_string(), raw_set_1.clone())]);
+        let subst_context_domains = HashMap::from([("domain1".to_string(), raw_set_2.clone())]);
+
+        eval_info.extend_context_with_wild_cards(&subst_context_props, &subst_context_domains);
+        let expected_cache = HashMap::from([("%subst%".to_string(), (raw_set_1, HashMap::new()))]);
+        let expected_domains = HashMap::from([("domain1".to_string(), raw_set_2)]);
 
         assert_eq!(
             eval_info.get_duplicates(),
             HashMap::from([("%subst%".to_string(), 2)])
         );
         assert_eq!(eval_info.get_cache(), expected_cache);
+        assert_eq!(eval_info.get_var_domains(), expected_domains);
     }
 }

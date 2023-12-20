@@ -102,4 +102,9 @@ You can directly restrict a domain of any quantified variable in a following man
 
 The domain is treated similar as a "wild-card proposition" (see above).
 During the computation, the user then provides an arbitrary (coloured) set that will be used as the domain for the variable.
-This directly restricts the domain of every `{x}` encountered during bottom-up computation.
+This directly restricts the domain of every `{x}` encountered during bottom-up computation (makes formula more readable and speeds up the computation).
+
+The following equivalences hold:
+* `!{x} in %A%: phi` = `!{x}: %A% & phi`
+* `3{x} in %A%: @{x}: phi` = `3{x}: @{x}: %A% & phi`
+* `V{x} in %A%: @{x}: phi` = `V{x}: @{x}: %A% => phi`

@@ -4,7 +4,9 @@ use crate::aeon::scc_computation::compute_attractor_states;
 use crate::evaluation::canonization::get_canonical_and_mapping;
 use crate::evaluation::eval_context::EvalContext;
 use crate::evaluation::hctl_operators_evaluation::*;
-use crate::evaluation::low_level_operations::substitute_hctl_var;
+use crate::evaluation::low_level_operations::{
+    compute_valid_domain_for_var, restrict_stg_unit_bdd, substitute_hctl_var,
+};
 use crate::preprocessing::node::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::*;
 
@@ -15,12 +17,14 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, Symboli
 use std::collections::HashMap;
 
 /// Recursively evaluate the formula represented by a sub-tree `node` on the given `graph`.
-/// Uses pre-computed set of `duplicate` sub-formulae to allow for caching.
+///
+/// `eval_context` holds the current version additional data used for optimization, such as
+/// pre-computed set of `duplicate` sub-formulae and corresponding `cache` set.
 /// The `steady_states` are needed to include self-loops in computing predecessors.
 pub fn eval_node(
     node: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
-    eval_info: &mut EvalContext,
+    eval_context: &mut EvalContext,
     steady_states: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
@@ -29,26 +33,29 @@ pub fn eval_node(
     // get canonized form of this sub-formula, and mapping of how vars are canonized
     let (canonized_form, renaming) = get_canonical_and_mapping(node.subform_str.clone());
 
-    if eval_info.duplicates.contains_key(canonized_form.as_str()) {
-        if eval_info.cache.contains_key(canonized_form.as_str()) {
+    if eval_context
+        .duplicates
+        .contains_key(canonized_form.as_str())
+    {
+        if eval_context.cache.contains_key(canonized_form.as_str()) {
             // decrement number of duplicates left
-            *eval_info
+            *eval_context
                 .duplicates
                 .get_mut(canonized_form.as_str())
                 .unwrap() -= 1;
 
             // get cached result, but it might be using differently named state-variables
             // so we might have to rename them later
-            let (mut result, result_renaming) = eval_info
+            let (mut result, result_renaming) = eval_context
                 .cache
                 .get(canonized_form.as_str())
                 .unwrap()
                 .clone();
 
             // if we already visited all of the duplicates, lets delete the cached value
-            if eval_info.duplicates[canonized_form.as_str()] == 0 {
-                eval_info.duplicates.remove(canonized_form.as_str());
-                eval_info.cache.remove(canonized_form.as_str());
+            if eval_context.duplicates[canonized_form.as_str()] == 0 {
+                eval_context.duplicates.remove(canonized_form.as_str());
+                eval_context.cache.remove(canonized_form.as_str());
             }
 
             // since we are working with canonical cache, we might need to rename vars in result bdd
@@ -72,7 +79,7 @@ pub fn eval_node(
     if is_attractor_pattern(node.clone()) {
         let result = compute_attractor_states(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
-            eval_info
+            eval_context
                 .cache
                 .insert(canonized_form, (result.clone(), renaming));
         }
@@ -87,122 +94,167 @@ pub fn eval_node(
         NodeType::TerminalNode(atom) => match atom {
             Atomic::True => graph.mk_unit_colored_vertices(),
             Atomic::False => graph.mk_empty_colored_vertices(),
-            Atomic::Var(name) => {
-                // TODO: somehow add check if `var formula` doesnt already have domain in the cache
-                eval_hctl_var(graph, name.as_str())
-            }
+            Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
             Atomic::Prop(name) => eval_prop(graph, &name),
             // should not be reachable, as wild-card nodes are always evaluated earlier using cache
             Atomic::WildCardProp(_) => unreachable!(),
         },
         NodeType::UnaryNode(op, child) => match op {
-            UnaryOp::Not => eval_neg(graph, &eval_node(*child, graph, eval_info, steady_states)),
+            UnaryOp::Not => eval_neg(
+                graph,
+                &eval_node(*child, graph, eval_context, steady_states),
+            ),
             UnaryOp::Ex => eval_ex(
                 graph,
-                &eval_node(*child, graph, eval_info, steady_states),
+                &eval_node(*child, graph, eval_context, steady_states),
                 steady_states,
             ),
             UnaryOp::Ax => eval_ax(
                 graph,
-                &eval_node(*child, graph, eval_info, steady_states),
+                &eval_node(*child, graph, eval_context, steady_states),
                 steady_states,
             ),
-            UnaryOp::Ef => {
-                eval_ef_saturated(graph, &eval_node(*child, graph, eval_info, steady_states))
-            }
+            UnaryOp::Ef => eval_ef_saturated(
+                graph,
+                &eval_node(*child, graph, eval_context, steady_states),
+            ),
             UnaryOp::Af => eval_af(
                 graph,
-                &eval_node(*child, graph, eval_info, steady_states),
+                &eval_node(*child, graph, eval_context, steady_states),
                 steady_states,
             ),
             UnaryOp::Eg => eval_eg(
                 graph,
-                &eval_node(*child, graph, eval_info, steady_states),
+                &eval_node(*child, graph, eval_context, steady_states),
                 steady_states,
             ),
-            UnaryOp::Ag => eval_ag(graph, &eval_node(*child, graph, eval_info, steady_states)),
+            UnaryOp::Ag => eval_ag(
+                graph,
+                &eval_node(*child, graph, eval_context, steady_states),
+            ),
         },
         NodeType::BinaryNode(op, left, right) => {
             match op {
-                BinaryOp::And => eval_node(*left, graph, eval_info, steady_states)
-                    .intersect(&eval_node(*right, graph, eval_info, steady_states)),
-                BinaryOp::Or => eval_node(*left, graph, eval_info, steady_states)
-                    .union(&eval_node(*right, graph, eval_info, steady_states)),
+                BinaryOp::And => eval_node(*left, graph, eval_context, steady_states)
+                    .intersect(&eval_node(*right, graph, eval_context, steady_states)),
+                BinaryOp::Or => eval_node(*left, graph, eval_context, steady_states)
+                    .union(&eval_node(*right, graph, eval_context, steady_states)),
                 BinaryOp::Xor => eval_xor(
                     graph,
-                    &eval_node(*left, graph, eval_info, steady_states),
-                    &eval_node(*right, graph, eval_info, steady_states),
+                    &eval_node(*left, graph, eval_context, steady_states),
+                    &eval_node(*right, graph, eval_context, steady_states),
                 ),
                 BinaryOp::Imp => eval_imp(
                     graph,
-                    &eval_node(*left, graph, eval_info, steady_states),
-                    &eval_node(*right, graph, eval_info, steady_states),
+                    &eval_node(*left, graph, eval_context, steady_states),
+                    &eval_node(*right, graph, eval_context, steady_states),
                 ),
                 BinaryOp::Iff => eval_equiv(
                     graph,
-                    &eval_node(*left, graph, eval_info, steady_states),
-                    &eval_node(*right, graph, eval_info, steady_states),
+                    &eval_node(*left, graph, eval_context, steady_states),
+                    &eval_node(*right, graph, eval_context, steady_states),
                 ),
                 BinaryOp::Eu => eval_eu_saturated(
                     graph,
-                    &eval_node(*left, graph, eval_info, steady_states),
-                    &eval_node(*right, graph, eval_info, steady_states),
+                    &eval_node(*left, graph, eval_context, steady_states),
+                    &eval_node(*right, graph, eval_context, steady_states),
                 ),
                 BinaryOp::Au => eval_au(
                     graph,
-                    &eval_node(*left, graph, eval_info, steady_states),
-                    &eval_node(*right, graph, eval_info, steady_states),
+                    &eval_node(*left, graph, eval_context, steady_states),
+                    &eval_node(*right, graph, eval_context, steady_states),
                     steady_states,
                 ),
                 BinaryOp::Ew => eval_ew(
                     graph,
-                    &eval_node(*left, graph, eval_info, steady_states),
-                    &eval_node(*right, graph, eval_info, steady_states),
+                    &eval_node(*left, graph, eval_context, steady_states),
+                    &eval_node(*right, graph, eval_context, steady_states),
                     steady_states,
                 ),
                 BinaryOp::Aw => eval_aw(
                     graph,
-                    &eval_node(*left, graph, eval_info, steady_states),
-                    &eval_node(*right, graph, eval_info, steady_states),
+                    &eval_node(*left, graph, eval_context, steady_states),
+                    &eval_node(*right, graph, eval_context, steady_states),
                 ),
             }
         }
-        NodeType::HybridNode(op, var, domain, child) => {
-            if domain.is_some() {
-                // TODO: somehow add `var formula` evaluated at restricted domain to the cache
-            }
-            match op {
-                HybridOp::Bind => eval_bind(
-                    graph,
-                    &eval_node(*child, graph, eval_info, steady_states),
-                    var.as_str(),
-                ),
-                HybridOp::Jump => eval_jump(
-                    graph,
-                    &eval_node(*child, graph, eval_info, steady_states),
-                    var.as_str(),
-                ),
-                HybridOp::Exists => eval_exists(
-                    graph,
-                    &eval_node(*child, graph, eval_info, steady_states),
-                    var.as_str(),
-                ),
-                HybridOp::Forall => eval_forall(
-                    graph,
-                    &eval_node(*child, graph, eval_info, steady_states),
-                    var.as_str(),
-                ),
-            }
+        NodeType::HybridNode(op, var, maybe_domain, child) => {
+            // two different options depending on if the quantified variable has restricted domain
+            return match maybe_domain {
+                None => {
+                    eval_hybrid_node(graph, graph, eval_context, steady_states, op, var, *child)
+                }
+                Some(domain) => {
+                    // get a domain set from EvalContext, can use unwrap as it is previously checked
+                    let domain_set = eval_context.var_domains.get(domain.as_str()).unwrap();
+                    // restrict the var domain in unit BDD of the graph
+                    let var_domain = compute_valid_domain_for_var(graph, domain_set, var.as_str());
+                    let restricted_graph = restrict_stg_unit_bdd(graph, &var_domain);
+                    eval_hybrid_node(
+                        graph,
+                        &restricted_graph,
+                        eval_context,
+                        steady_states,
+                        op,
+                        var,
+                        *child,
+                    )
+                }
+            };
         }
     };
 
     // save result to cache if needed
     if save_to_cache {
-        eval_info
+        eval_context
             .cache
             .insert(canonized_form, (result.clone(), renaming));
     }
     result
+}
+
+/// Wrapper to recursively evaluate the formula represented by a sub-tree beginning at hybrid node
+/// specified by its `operator`, `variable` and `child_node`.
+///
+/// `graph` gives the context for evaluating the operator itself, while `graph_to_propagate` should
+/// be used to evaluate the successors of the node. The two graphs might be the same. Having two
+/// distinct versions allows to evaluate the sub-tree on a different graph with smaller unit bdd,
+/// thus limiting the validity domain of the `variable`.
+///
+/// `eval_context` holds the current version additional data used for optimization, such as
+/// pre-computed set of `duplicate` sub-formulae and corresponding `cache` set.
+/// The `steady_states` are needed to include self-loops in computing predecessors.
+fn eval_hybrid_node(
+    graph: &SymbolicAsyncGraph,
+    graph_to_propagate: &SymbolicAsyncGraph,
+    eval_info: &mut EvalContext,
+    steady_states: &GraphColoredVertices,
+    operator: HybridOp,
+    variable: String,
+    child_node: HctlTreeNode,
+) -> GraphColoredVertices {
+    match operator {
+        HybridOp::Bind => eval_bind(
+            graph,
+            &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
+            variable.as_str(),
+        ),
+        HybridOp::Jump => eval_jump(
+            graph,
+            &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
+            variable.as_str(),
+        ),
+        HybridOp::Exists => eval_exists(
+            graph,
+            &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
+            variable.as_str(),
+        ),
+        HybridOp::Forall => eval_forall(
+            graph,
+            &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
+            variable.as_str(),
+        ),
+    }
 }
 
 /// Check whether a node represents the formula pattern for attractors `!{x}: AG EF {x}`.
@@ -239,7 +291,7 @@ fn is_fixed_point_pattern(node: HctlTreeNode) -> bool {
 }
 
 /// Wrapper for the computation of steady states.
-/// Steady states are used for explicitly adding self-loops during the EX computation
+/// Steady states are used for explicitly adding self-loops during the EX computation.
 /// Can also be used as optimised procedure for formula `!{x}: AX {x}`.
 pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     FixedPoints::symbolic(graph, &graph.mk_unit_colored_vertices())

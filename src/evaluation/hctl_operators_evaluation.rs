@@ -61,17 +61,6 @@ pub fn eval_hctl_var(graph: &SymbolicAsyncGraph, hctl_var_name: &str) -> GraphCo
     create_comparator_var_state(graph, hctl_var_name)
 }
 
-/// Evaluate atomic sub-formula with only a HCTL variable that has its domain restricted by the
-/// `domain` set.
-pub fn eval_restricted_hctl_var(
-    graph: &SymbolicAsyncGraph,
-    hctl_var_name: &str,
-    domain: &GraphColoredVertices
-) -> GraphColoredVertices {
-    let comparator = create_comparator_var_state(graph, hctl_var_name);
-    comparator.intersect(domain)
-}
-
 /// Evaluate binder operator - does intersection with comparator and projects out hctl var.
 pub fn eval_bind(
     graph: &SymbolicAsyncGraph,
@@ -113,7 +102,7 @@ pub fn eval_jump(
     let intersection = comparator.intersect(phi);
 
     // now lets project out the bdd vars coding variables from the Boolean network
-    project_out_state_vars(graph, intersection)
+    project_out_bn_vars(graph, &intersection)
 }
 
 /// Evaluate EX operator by computing predecessors, but adds self-loops to steady states.

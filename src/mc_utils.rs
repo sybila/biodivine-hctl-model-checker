@@ -67,15 +67,22 @@ fn collect_unique_hctl_vars_recursive(
     seen_vars
 }
 
-/// Compute the set of all uniquely named `wild-card propositions` in the formula tree.
-pub fn collect_unique_wild_card_props(formula_tree: HctlTreeNode) -> HashSet<String> {
-    collect_unique_wild_card_props_recursive(formula_tree, HashSet::new())
+/// Compute the set of all uniquely named `wild-card propositions` and the set of all
+/// `variable domains` in the formula tree.
+pub fn collect_unique_wild_cards(formula_tree: HctlTreeNode) -> (HashSet<String>, HashSet<String>) {
+    let mut wild_card_props = HashSet::new();
+    let mut var_domains = HashSet::new();
+    collect_unique_wild_cards_recursive(formula_tree, &mut wild_card_props, &mut var_domains);
+    (wild_card_props, var_domains)
 }
 
-fn collect_unique_wild_card_props_recursive(
+/// Recursive fn to compute the set of all uniquely named `wild-card propositions` in the
+/// formula tree.
+fn collect_unique_wild_cards_recursive(
     formula_tree: HctlTreeNode,
-    mut seen_props: HashSet<String>,
-) -> HashSet<String> {
+    seen_props: &mut HashSet<String>,
+    seen_domains: &mut HashSet<String>,
+) {
     match formula_tree.node_type {
         NodeType::TerminalNode(atom) => {
             if let Atomic::WildCardProp(prop_name) = atom {
@@ -83,29 +90,20 @@ fn collect_unique_wild_card_props_recursive(
             }
         }
         NodeType::UnaryNode(_, child) => {
-            seen_props.extend(collect_unique_wild_card_props_recursive(
-                *child,
-                seen_props.clone(),
-            ));
+            collect_unique_wild_cards_recursive(*child, seen_props, seen_domains);
         }
         NodeType::BinaryNode(_, left, right) => {
-            seen_props.extend(collect_unique_wild_card_props_recursive(
-                *left,
-                seen_props.clone(),
-            ));
-            seen_props.extend(collect_unique_wild_card_props_recursive(
-                *right,
-                seen_props.clone(),
-            ));
+            collect_unique_wild_cards_recursive(*left, seen_props, seen_domains);
+            collect_unique_wild_cards_recursive(*right, seen_props, seen_domains);
         }
-        NodeType::HybridNode(_, _, _, child) => {
-            seen_props.extend(collect_unique_wild_card_props_recursive(
-                *child,
-                seen_props.clone(),
-            ));
+        NodeType::HybridNode(_, _, optional_domain, child) => {
+            if let Some(domain) = optional_domain {
+                seen_domains.insert(domain);
+            }
+
+            collect_unique_wild_cards_recursive(*child, seen_props, seen_domains);
         }
     }
-    seen_props
 }
 
 /// Check that extended symbolic graph's BDD supports enough extra variables for the evaluation of
@@ -124,7 +122,7 @@ pub fn check_hctl_var_support(stg: &SymbolicAsyncGraph, hctl_syntactic_tree: Hct
 #[cfg(test)]
 mod tests {
     use crate::mc_utils::{
-        check_hctl_var_support, collect_unique_hctl_vars, collect_unique_wild_card_props,
+        check_hctl_var_support, collect_unique_hctl_vars, collect_unique_wild_cards,
         get_extended_symbolic_graph,
     };
     use crate::preprocessing::parser::{
@@ -168,18 +166,22 @@ mod tests {
     }
 
     #[test]
-    /// Test collecting wild-card propositions from extended HCTL formulae.
-    fn test_wild_card_prop_collecting() {
-        let formula = "!{x}: 3{y}: (@{x}: ~{y} & %A% & %B%) & (@{y}: %A% & %C%)";
+    /// Test collecting wild-card propositions and var domains from extended HCTL formulae.
+    fn test_wild_card_collecting() {
+        let formula = "!{x} in %dom1%: 3{y}: (@{x}: ~{y} & %A% & %B%) & (@{y}: %A% & %C%)";
         let tree = parse_extended_formula(formula).unwrap();
 
-        let expected_vars =
+        let expected_props =
             HashSet::from_iter(vec!["A".to_string(), "B".to_string(), "C".to_string()]);
-        assert_eq!(collect_unique_wild_card_props(tree.clone()), expected_vars);
+        let expected_domains = HashSet::from_iter(vec!["dom1".to_string()]);
+        let (props, domains) = collect_unique_wild_cards(tree.clone());
+        assert_eq!(props, expected_props);
+        assert_eq!(domains, expected_domains);
     }
 
     #[test]
-    /// Test collecting wild-card propositions from extended HCTL formulae.
+    /// Test asserting that given extended STG supports enough symbolic variables to allow for
+    /// evaluation of given HCTL formulae.
     fn test_check_hctl_var_support() {
         // define any placeholder bn and stg with enough variables
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();

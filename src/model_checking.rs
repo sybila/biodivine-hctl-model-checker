@@ -154,7 +154,8 @@ pub fn model_check_formula_dirty(
 fn parse_extended_and_validate(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
-    substitution_context: &HashMap<String, GraphColoredVertices>,
+    subst_context_props: &HashMap<String, GraphColoredVertices>,
+    subst_context_domains: &HashMap<String, GraphColoredVertices>,
 ) -> Result<Vec<HctlTreeNode>, String> {
     // parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
@@ -165,12 +166,23 @@ fn parse_extended_and_validate(
         if !check_hctl_var_support(graph, tree.clone()) {
             return Err("Graph does not support enough HCTL state variables".to_string());
         }
-        // check that all occurring wild-card propositions are present in `substitution_context`
-        for wild_card_prop in collect_unique_wild_card_props(tree.clone()) {
-            if !substitution_context.contains_key(wild_card_prop.as_str()) {
+
+        let (wild_card_props, var_domains) = collect_unique_wild_cards(tree.clone());
+        // check that all occurring wild-card props are present in `substitution_context`
+        for wild_card in wild_card_props {
+            if !subst_context_props.contains_key(wild_card.as_str()) {
                 return Err(format!(
-                    "Wild-card proposition `{}` lacks evaluation context.",
-                    wild_card_prop
+                    "Wild-card prop `{}` lacks evaluation context.",
+                    wild_card
+                ));
+            }
+        }
+        // check that all occurring wild-card props are present in `substitution_context`
+        for var_domain in var_domains {
+            if !subst_context_domains.contains_key(var_domain.as_str()) {
+                return Err(format!(
+                    "Var domain `{}` lacks evaluation context.",
+                    var_domain
                 ));
             }
         }
@@ -184,21 +196,25 @@ fn parse_extended_and_validate(
 /// Return the resulting sets of colored vertices (in the same order as input formulae).
 /// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
 ///
-/// The `substitution context` is a mapping determining how `wild-card propositions` are evaluated.
+/// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
+/// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
+/// Bdds of both must only depend on BN variables and colours, not on their symbolic variables.
 pub fn model_check_multiple_extended_formulae_dirty(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
-    substitution_context: HashMap<String, GraphColoredVertices>,
+    subst_context_props: &HashMap<String, GraphColoredVertices>,
+    subst_context_domains: &HashMap<String, GraphColoredVertices>,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees and check compatibility with graph
-    let parsed_trees = parse_extended_and_validate(formulae, stg, &substitution_context)?;
+    let parsed_trees =
+        parse_extended_and_validate(formulae, stg, subst_context_props, subst_context_domains)?;
 
     // prepare the extended evaluation context
 
     // 1) find normal duplicate sub-formulae throughout all formulae + initiate caching structures
     let mut eval_info = EvalContext::from_multiple_trees(&parsed_trees);
     // 2) extended the cache with given substitution context for wild-card nodes
-    eval_info.extend_context_with_wild_cards(substitution_context);
+    eval_info.extend_context_with_wild_cards(subst_context_props, subst_context_domains);
     // 3) pre-compute compute states with self-loops which will be needed during eval
     let self_loop_states = compute_steady_states(stg);
 
@@ -219,14 +235,21 @@ pub fn model_check_multiple_extended_formulae_dirty(
 /// Return the resulting sets of colored vertices (in the same order as input formulae).
 /// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
 ///
-/// The `substitution context` is a mapping determining how `wild-card propositions` are evaluated.
+/// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
+/// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
+/// Bdds of both must only depend on BN variables and colours, not on their symbolic variables.
 pub fn model_check_multiple_extended_formulae(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
-    substitution_context: HashMap<String, GraphColoredVertices>,
+    subst_context_props: &HashMap<String, GraphColoredVertices>,
+    subst_context_domains: &HashMap<String, GraphColoredVertices>,
 ) -> Result<Vec<GraphColoredVertices>, String> {
-    let results =
-        model_check_multiple_extended_formulae_dirty(formulae, stg, substitution_context)?;
+    let results = model_check_multiple_extended_formulae_dirty(
+        formulae,
+        stg,
+        subst_context_props,
+        subst_context_domains,
+    )?;
 
     // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
     let sanitized_results: Vec<GraphColoredVertices> = results
@@ -239,13 +262,21 @@ pub fn model_check_multiple_extended_formulae(
 /// Perform the model checking for a given `extended` HCTL formula on a given transition `graph`.
 /// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
 ///
-/// The `substitution context` is a mapping determining how `wild-card propositions` are evaluated.
+/// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
+/// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
+/// Bdds of both must only depend on BN variables and colours, not on their symbolic variables.
 pub fn model_check_extended_formula(
     formula: String,
     stg: &SymbolicAsyncGraph,
-    substitution_context: HashMap<String, GraphColoredVertices>,
+    subst_context_props: &HashMap<String, GraphColoredVertices>,
+    subst_context_domains: &HashMap<String, GraphColoredVertices>,
 ) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_extended_formulae(vec![formula], stg, substitution_context)?;
+    let result = model_check_multiple_extended_formulae(
+        vec![formula],
+        stg,
+        subst_context_props,
+        subst_context_domains,
+    )?;
     Ok(result[0].clone())
 }
 
@@ -253,14 +284,21 @@ pub fn model_check_extended_formula(
 /// but do not sanitize the results.
 /// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
 ///
-/// The `substitution context` is a mapping determining how `wild-card propositions` are evaluated.
+/// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
+/// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
+/// Bdds of both must only depend on BN variables and colours, not on their symbolic variables.
 pub fn model_check_extended_formula_dirty(
     formula: String,
     stg: &SymbolicAsyncGraph,
-    substitution_context: HashMap<String, GraphColoredVertices>,
+    subst_context_props: &HashMap<String, GraphColoredVertices>,
+    subst_context_domains: &HashMap<String, GraphColoredVertices>,
 ) -> Result<GraphColoredVertices, String> {
-    let result =
-        model_check_multiple_extended_formulae_dirty(vec![formula], stg, substitution_context)?;
+    let result = model_check_multiple_extended_formulae_dirty(
+        vec![formula],
+        stg,
+        subst_context_props,
+        subst_context_domains,
+    )?;
     Ok(result[0].clone())
 }
 
@@ -590,8 +628,11 @@ $DivK: (!PleC & DivJ)
         let result_v1 = model_check_formula(formula_v1, &stg).unwrap();
         // use 'dirty' version to avoid sanitation (for BDD to retain all symbolic vars)
         let result_sub = model_check_formula_dirty(sub_formula, &stg).unwrap();
-        let context = HashMap::from([("s".to_string(), result_sub)]);
-        let result_v2 = model_check_extended_formula(formula_v2, &stg, context).unwrap();
+        let context_props = HashMap::from([("s".to_string(), result_sub)]);
+        let context_domains = HashMap::new();
+        let result_v2 =
+            model_check_extended_formula(formula_v2, &stg, &context_props, &context_domains)
+                .unwrap();
         assert!(result_v1.as_bdd().iff(result_v2.as_bdd()).is_true());
 
         // 2) second test, disjunction substituted
@@ -602,8 +643,11 @@ $DivK: (!PleC & DivJ)
         let result_v1 = model_check_formula(formula_v1, &stg).unwrap();
         // use 'dirty' version to avoid sanitation (for BDD to retain all symbolic vars)
         let result_sub = model_check_formula_dirty(sub_formula, &stg).unwrap();
-        let context = HashMap::from([("s".to_string(), result_sub)]);
-        let result_v2 = model_check_extended_formula(formula_v2, &stg, context).unwrap();
+        let context_props = HashMap::from([("s".to_string(), result_sub)]);
+        let context_domains = HashMap::new();
+        let result_v2 =
+            model_check_extended_formula(formula_v2, &stg, &context_props, &context_domains)
+                .unwrap();
         assert!(result_v1.as_bdd().iff(result_v2.as_bdd()).is_true());
     }
 
@@ -625,24 +669,46 @@ $DivK: (!PleC & DivJ)
         let substitution_formula = "(!{z}: AX {z})";
         // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
         let raw_set = model_check_formula_dirty(substitution_formula.to_string(), &stg).unwrap();
-        let context = HashMap::from([("subst".to_string(), raw_set)]);
+        let context_props = HashMap::from([("subst".to_string(), raw_set)]);
+        let context_domains = HashMap::new();
 
         let formula1_v2 = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%)";
         let formula2_v2 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & %subst%) & EF ({y} & %subst%) & AX (EF ({x} & %subst%) ^ EF ({y} & %subst%))";
-        let result1_v2 =
-            model_check_extended_formula(formula1_v2.to_string(), &stg, context.clone()).unwrap();
-        let result2_v2 =
-            model_check_extended_formula(formula2_v2.to_string(), &stg, context).unwrap();
+        let result1_v2 = model_check_extended_formula(
+            formula1_v2.to_string(),
+            &stg,
+            &context_props,
+            &context_domains,
+        )
+        .unwrap();
+        let result2_v2 = model_check_extended_formula(
+            formula2_v2.to_string(),
+            &stg,
+            &context_props,
+            &context_domains,
+        )
+        .unwrap();
 
         assert!(result1.as_bdd().iff(result1_v2.as_bdd()).is_true());
         assert!(result2.as_bdd().iff(result2_v2.as_bdd()).is_true());
 
         // also double check that running "extended" evaluation on the original formula (without
         // wild-card propositions) is the same as running the standard variant
-        let result1_v2 =
-            model_check_extended_formula(formula1.to_string(), &stg, HashMap::new()).unwrap();
-        let result2_v2 =
-            model_check_extended_formula(formula2.to_string(), &stg, HashMap::new()).unwrap();
+        let empty_context = HashMap::new();
+        let result1_v2 = model_check_extended_formula(
+            formula1.to_string(),
+            &stg,
+            &empty_context,
+            &empty_context,
+        )
+        .unwrap();
+        let result2_v2 = model_check_extended_formula(
+            formula2.to_string(),
+            &stg,
+            &empty_context,
+            &empty_context,
+        )
+        .unwrap();
         assert!(result1.as_bdd().iff(result1_v2.as_bdd()).is_true());
         assert!(result2.as_bdd().iff(result2_v2.as_bdd()).is_true());
     }
@@ -658,6 +724,79 @@ $DivK: (!PleC & DivJ)
         test_model_check_extended_formulae(bn1);
         test_model_check_extended_formulae(bn2);
         test_model_check_extended_formulae(bn3);
+    }
+
+    #[test]
+    /// Test evaluation of extended HCTL formulae, in which `wild-card properties` can
+    /// represent already pre-computed results. Use all 3 pre-defined models.
+    fn test_model_check_with_domains_all_models() {
+        // the 3 predefined models
+        let bn1 = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
+        let bn2 = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
+        let bn3 = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+        let bns = [bn1, bn2, bn3];
+
+        // the random combination of each models props
+        let expressions = [
+            "DivJ & DivK & DivL & CckA & PleC",
+            "v_Cdc20 & v_CycB & v_Cdh1 & v_UbcH10 & v_Rb",
+            "Cdc25 & Cdc2_Cdc13 & Cdc2_Cdc13_A & PP",
+        ];
+
+        for i in 1..bns.len() {
+            let stg = get_extended_symbolic_graph(&bns[i], 2).unwrap();
+            let expression = expressions[i];
+
+            // first define and evaluate the equivalent formulae without domains
+
+            let formula_exist = format!("3{{x}}: @{{x}}: ({expression} & (AG EF {{x}}))");
+            let formula_forall = format!("V{{x}}: @{{x}}: ({expression} => (AG EF {{x}}))");
+            let formula_bind = format!("!{{x}}: ({expression} & (AG EF {{x}}))");
+            let result_exist = model_check_formula(formula_exist.to_string(), &stg).unwrap();
+            let result_forall = model_check_formula(formula_forall.to_string(), &stg).unwrap();
+            let result_bind = model_check_formula(formula_bind.to_string(), &stg).unwrap();
+
+            // now precompute domain for the variable substitute it directly
+            let formula_exist_w_domain = format!("3{{x}} in %domain%: @{{x}}: (AG EF {{x}})");
+            let formula_forall_w_domain = format!("3{{x}} in %domain%: @{{x}}: (AG EF {{x}})");
+            let formula_bind_w_domain = format!("!{{x}} in %domain%: @{{x}}: (AG EF {{x}})");
+            // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
+            let domain_set = model_check_formula_dirty(expression.to_string(), &stg).unwrap();
+            let context_props = HashMap::new();
+            let context_domains = HashMap::from([("domain".to_string(), domain_set)]);
+
+            let result_exist_v2 = model_check_extended_formula(
+                formula_exist_w_domain,
+                &stg,
+                &context_props,
+                &context_domains,
+            )
+            .unwrap();
+            let result_forall_v2 = model_check_extended_formula(
+                formula_forall_w_domain,
+                &stg,
+                &context_props,
+                &context_domains,
+            )
+            .unwrap();
+            let result_bind_v2 = model_check_extended_formula(
+                formula_bind_w_domain,
+                &stg,
+                &context_props,
+                &context_domains,
+            )
+            .unwrap();
+
+            assert!(result_exist
+                .as_bdd()
+                .iff(result_exist_v2.as_bdd())
+                .is_true());
+            assert!(result_forall
+                .as_bdd()
+                .iff(result_forall_v2.as_bdd())
+                .is_true());
+            assert!(result_bind.as_bdd().iff(result_bind_v2.as_bdd()).is_true());
+        }
     }
 
     #[test]
@@ -688,16 +827,39 @@ $DivK: (!PleC & DivJ)
     /// discovers errors.
     fn test_validation_extended_context() {
         let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // test situation where one substitution is missing
-        let sub_context = HashMap::from([("s".to_string(), stg.mk_empty_colored_vertices())]);
+        let sub_context_props = HashMap::from([("s".to_string(), stg.mk_empty_colored_vertices())]);
+        let sub_context_domains = HashMap::new();
         let formula = "%s% & EF %t%".to_string();
-        let res = parse_extended_and_validate(vec![formula], &stg, &sub_context);
+        let res = parse_extended_and_validate(
+            vec![formula],
+            &stg,
+            &sub_context_props,
+            &sub_context_domains,
+        );
         assert!(res.is_err());
         assert_eq!(
             res.err().unwrap(),
-            "Wild-card proposition `t` lacks evaluation context.".to_string()
+            "Wild-card prop `t` lacks evaluation context.".to_string()
+        );
+
+        // test situation where one domain is missing
+        let sub_context_props = HashMap::new();
+        let sub_context_domains =
+            HashMap::from([("a".to_string(), stg.mk_empty_colored_vertices())]);
+        let formula = "!{x} in %a%: !{y} in %b%: AX {x}".to_string();
+        let res = parse_extended_and_validate(
+            vec![formula],
+            &stg,
+            &sub_context_props,
+            &sub_context_domains,
+        );
+        assert!(res.is_err());
+        assert_eq!(
+            res.err().unwrap(),
+            "Var domain `b` lacks evaluation context.".to_string()
         );
     }
 }
