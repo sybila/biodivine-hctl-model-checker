@@ -225,6 +225,14 @@ fn parse_7_binary_temp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_8_unary(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let unary_token = index_of_first_unary(tokens);
     Ok(if let Some(i) = unary_token {
+        // perform check that unary operator is not directly preceded by some atomic sub-formula
+        if i > 0 && matches!(&tokens[i - 1], HctlToken::Atom(..)) {
+            return Err(format!(
+                "Unary operator can't be directly preceded by {}.",
+                &tokens[i - 1]
+            ));
+        }
+
         match &tokens[i] {
             HctlToken::Unary(op) => {
                 HctlTreeNode::mk_unary_node(parse_8_unary(&tokens[(i + 1)..])?, op.clone())
@@ -341,6 +349,8 @@ mod tests {
     fn test_parse_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EK {x}",
+            "!{x}: p q",
+            "!{x}: p q AG {x}",
             "!{x}: AG F {x}",
             "!{x}: AG EU {x}",
             "!{x}: TU EK {x}",
