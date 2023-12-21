@@ -46,15 +46,13 @@ pub fn canonize_subform(
                     }
                     var_name.push(name_char);
                 }
-                // skip potential description of a domain of the variable, until and including ':'
-                for name_char in subform_chars.by_ref() {
-                    if name_char == ':' {
-                        break;
-                    }
-                }
+
+                // the rest of the quantifier-related characters (domain restriction, or ':') are
+                // handled as everything else in following iterations
+
                 // insert new mapping to dict and push it all to canonical string
                 mapping_dict.insert(var_name.clone(), format!("var{stack_len}"));
-                canonical.push_str(format!("{ch}{{var{stack_len}}}:").as_str());
+                canonical.push_str(format!("{ch}{{var{stack_len}}}").as_str());
                 stack_len += 1;
             }
             // rename existing var to canonical form, or handle free variables
@@ -94,7 +92,6 @@ pub fn canonize_subform(
     (subform_chars, canonical, mapping_dict, stack_len)
 }
 
-#[allow(dead_code)]
 /// Returns string of the semantically same sub-formula, but with "canonized" var names.
 /// It is used in the process of marking duplicate sub-formulae and caching.
 pub fn get_canonical(subform_string: String) -> String {
@@ -228,6 +225,26 @@ mod tests {
         assert_eq!(
             get_canonical_and_mapping(sub_formula2.to_string()),
             (sub_formula_canonized.to_string(), renaming2)
+        );
+    }
+
+    #[test]
+    /// Compare automatically canonized formulas that contains wild-card properties and restricted
+    /// var domains to the expected result.
+    fn test_canonization_var_domains() {
+        let formula = "(!{x}in%d1%:({x}&%p1%))";
+        let formula_canonized = "(!{var0}in%d1%:({var0}&%p1%))";
+
+        assert_eq!(
+            get_canonical(formula.to_string()),
+            formula_canonized.to_string()
+        );
+
+        // mappings of variable names between formulae and the canonized version
+        let renaming1 = HashMap::from([("x".to_string(), "var0".to_string())]);
+        assert_eq!(
+            get_canonical_and_mapping(formula.to_string()),
+            (formula_canonized.to_string(), renaming1)
         );
     }
 }

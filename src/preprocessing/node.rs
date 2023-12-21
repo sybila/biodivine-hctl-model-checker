@@ -70,8 +70,16 @@ impl HctlTreeNode {
         domain: Option<String>,
         op: HybridOp,
     ) -> HctlTreeNode {
+        let domain_string = if domain.is_some() {
+            format!(" in %{}%", domain.clone().unwrap())
+        } else {
+            String::new()
+        };
         HctlTreeNode {
-            subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
+            subform_str: format!(
+                "({} {{{}}}{}: {})",
+                op, var, domain_string, child.subform_str
+            ),
             height: child.height + 1,
             node_type: NodeType::HybridNode(op, var, domain, Box::new(child)),
         }
