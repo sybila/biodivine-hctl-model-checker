@@ -187,6 +187,18 @@ pub fn eval_node(
                 Some(domain) => {
                     // get a domain set from EvalContext, can use unwrap as it is previously checked
                     let domain_set = eval_context.var_domains.get(domain.as_str()).unwrap();
+
+                    // check edge case of an empty domain (in that case we cannot restrict the domain,
+                    // there would be an error)
+                    if domain_set.is_empty() {
+                        return match op {
+                            HybridOp::Bind => graph.mk_empty_colored_vertices(),
+                            HybridOp::Exists => graph.mk_empty_colored_vertices(),
+                            // forall
+                            _ => graph.mk_unit_colored_vertices(),
+                        };
+                    }
+
                     // restrict the var domain in unit BDD of the graph
                     let var_domain = compute_valid_domain_for_var(graph, domain_set, var.as_str());
                     let restricted_graph = restrict_stg_unit_bdd(graph, &var_domain);

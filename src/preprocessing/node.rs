@@ -4,6 +4,8 @@ use crate::preprocessing::operator_enums::*;
 use crate::preprocessing::parser::parse_hctl_tokens;
 use crate::preprocessing::tokenizer::HctlToken;
 
+use rand::prelude::StdRng;
+use rand::{RngCore, SeedableRng};
 use std::cmp;
 use std::fmt;
 
@@ -120,6 +122,44 @@ impl HctlTreeNode {
             formula_str: format!("%{prop_name}%"),
             height: 0,
             node_type: NodeType::TerminalNode(Atomic::WildCardProp(prop_name)),
+        }
+    }
+
+    /// Create a new random tree containing Boolean operations and propositions. The `tree_height`
+    /// is the number of levels in the tree (so the number of leaves will be `2^tree_height`).
+    pub fn new_random_boolean(
+        tree_height: u8,
+        propositions: &Vec<String>,
+        seed: u64,
+    ) -> HctlTreeNode {
+        let num_props = propositions.len() as u32;
+        let mut rand = StdRng::seed_from_u64(seed);
+
+        if tree_height == 1 {
+            let prop_index = rand.next_u32() % num_props;
+            let prop = propositions.get(prop_index as usize).unwrap();
+            return HctlTreeNode::mk_prop_node(prop.clone());
+        }
+
+        let binary_op = match rand.next_u32() % 5 {
+            0 => BinaryOp::And,
+            1 => BinaryOp::Or,
+            2 => BinaryOp::Xor,
+            3 => BinaryOp::Imp,
+            _ => BinaryOp::Iff,
+        };
+
+        let binary_node = HctlTreeNode::mk_binary_node(
+            HctlTreeNode::new_random_boolean(tree_height - 1, propositions, rand.next_u64()),
+            HctlTreeNode::new_random_boolean(tree_height - 1, propositions, rand.next_u64()),
+            binary_op,
+        );
+
+        let negate = rand.next_u32() % 2 == 0;
+        if negate {
+            HctlTreeNode::mk_unary_node(binary_node, UnaryOp::Not)
+        } else {
+            binary_node
         }
     }
 }

@@ -331,11 +331,12 @@ mod tests {
     use crate::mc_utils::get_extended_symbolic_graph;
     use crate::model_checking::{
         model_check_extended_formula, model_check_formula, model_check_formula_dirty,
-        model_check_formula_unsafe_ex, parse_extended_and_validate,
+        model_check_formula_unsafe_ex, model_check_tree_dirty, parse_extended_and_validate,
     };
     use std::collections::HashMap;
 
     use crate::postprocessing::sanitizing::sanitize_colored_vertices;
+    use crate::preprocessing::node::HctlTreeNode;
     use biodivine_lib_param_bn::BooleanNetwork;
 
     // model FISSION-YEAST-2008
@@ -732,76 +733,103 @@ $DivK: (!PleC & DivJ)
         test_model_check_extended_formulae(bn3);
     }
 
+    fn make_random_boolean_trees(num: u64, height: u8, bn: &BooleanNetwork) -> Vec<HctlTreeNode> {
+        let props: Vec<String> = bn
+            .variables()
+            .map(|var_id| bn.get_variable_name(var_id).clone())
+            .collect();
+
+        (0..num)
+            .map(|seed| HctlTreeNode::new_random_boolean(height, &props, seed))
+            .collect()
+    }
+
     #[test]
-    /// Test evaluation of extended HCTL formulae, in which `wild-card properties` can
-    /// represent already pre-computed results. Use all 3 pre-defined models.
+    /// Test evaluation of extended HCTL formulae with restricted domains of quantified vars.
+    /// Use all 3 pre-defined models.
     fn test_model_check_with_domains_all_models() {
         // the 3 predefined models
         let bn1 = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
         let bn2 = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
         let bn3 = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let bns = [bn1, bn2, bn3];
+
+        let num_test_trees = 2;
+        let height_test_trees = 4;
 
         // the random combination of each models props
-        let expressions = [
-            "DivJ & DivK & DivL & CckA & PleC",
-            "v_Cdc20 & v_CycB & v_Cdh1 & v_UbcH10 & v_Rb",
-            "Cdc25 & Cdc2_Cdc13 & Cdc2_Cdc13_A & PP",
+        let random_boolean_trees = [
+            make_random_boolean_trees(num_test_trees, height_test_trees, &bn1),
+            make_random_boolean_trees(num_test_trees, height_test_trees, &bn2),
+            make_random_boolean_trees(num_test_trees, height_test_trees, &bn3),
         ];
 
+        let bns = [bn1, bn2, bn3];
         for i in 1..bns.len() {
             let stg = get_extended_symbolic_graph(&bns[i], 2).unwrap();
-            let expression = expressions[i];
 
-            // first define and evaluate the equivalent formulae without domains
+            for tree in random_boolean_trees[i].clone() {
+                // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
+                let raw_set = model_check_tree_dirty(tree, &stg).unwrap();
 
-            let formula_exist = format!("3{{x}}: @{{x}}: ({expression} & (AG EF {{x}}))");
-            let formula_forall = format!("V{{x}}: @{{x}}: ({expression} => (AG EF {{x}}))");
-            let formula_bind = format!("!{{x}}: ({expression} & (AG EF {{x}}))");
-            let result_exist = model_check_formula(formula_exist.to_string(), &stg).unwrap();
-            let result_forall = model_check_formula(formula_forall.to_string(), &stg).unwrap();
-            let result_bind = model_check_formula(formula_bind.to_string(), &stg).unwrap();
+                let formulae_pairs = [
+                    ("3{x}:@{x}:%s% & (AG EF {x})", "3{x} in %s%:@{x}:AG EF {x}"),
+                    ("V{x}: @{x}:%s% =>(AG EF {x})", "V{x} in %s%:@{x}:AG EF {x}"),
+                    ("!{x}: %s% & (AG EF {x})", "!{x} in %s%: AG EF {x}"),
+                ];
 
-            // now precompute domain for the variable substitute it directly
-            let formula_exist_w_domain = format!("3{{x}} in %domain%: @{{x}}: (AG EF {{x}})");
-            let formula_forall_w_domain = format!("3{{x}} in %domain%: @{{x}}: (AG EF {{x}})");
-            let formula_bind_w_domain = format!("!{{x}} in %domain%: @{{x}}: (AG EF {{x}})");
-            // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
-            let domain_set = model_check_formula_dirty(expression.to_string(), &stg).unwrap();
-            let context_props = HashMap::new();
-            let context_domains = HashMap::from([("domain".to_string(), domain_set)]);
+                for (f, domain_f) in formulae_pairs {
+                    // eval the variant without domain first
+                    let ctx_props = HashMap::from([("s".to_string(), raw_set.clone())]);
+                    let ctx_doms = HashMap::new();
+                    let res =
+                        model_check_extended_formula(f.to_string(), &stg, &ctx_props, &ctx_doms)
+                            .unwrap();
 
-            let result_exist_v2 = model_check_extended_formula(
-                formula_exist_w_domain,
+                    let ctx_props = HashMap::new();
+                    let ctx_doms = HashMap::from([("s".to_string(), raw_set.clone())]);
+                    let res_v2 = model_check_extended_formula(
+                        domain_f.to_string(),
+                        &stg,
+                        &ctx_props,
+                        &ctx_doms,
+                    )
+                    .unwrap();
+
+                    assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
+                }
+            }
+        }
+    }
+
+    #[test]
+    /// Test evaluation of extended HCTL formulae, with an empty domain.
+    fn test_model_check_empty_domain() {
+        let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
+
+        let formulae_pairs = [
+            ("3{x}: @{x}: false & (AX {x})", "3{x} in %s%: @{x}: AX {x}"),
+            ("V{x}: @{x}: false => (AX {x})", "V{x} in %s%: @{x}: AX {x}"),
+            ("!{x}: false & (AX {x})", "!{x} in %s%: (AX {x})"),
+        ];
+
+        let empty_set = stg.mk_empty_colored_vertices();
+        let context_domains = HashMap::from([("s".to_string(), empty_set)]);
+        let context_props = HashMap::new();
+
+        for (f, domain_f) in formulae_pairs {
+            // eval the variant without domain first
+            let res = model_check_formula(f.to_string(), &stg).unwrap();
+
+            let res_v2 = model_check_extended_formula(
+                domain_f.to_string(),
                 &stg,
                 &context_props,
                 &context_domains,
             )
             .unwrap();
-            let result_forall_v2 = model_check_extended_formula(
-                formula_forall_w_domain,
-                &stg,
-                &context_props,
-                &context_domains,
-            )
-            .unwrap();
-            let result_bind_v2 = model_check_extended_formula(
-                formula_bind_w_domain,
-                &stg,
-                &context_props,
-                &context_domains,
-            )
-            .unwrap();
 
-            assert!(result_exist
-                .as_bdd()
-                .iff(result_exist_v2.as_bdd())
-                .is_true());
-            assert!(result_forall
-                .as_bdd()
-                .iff(result_forall_v2.as_bdd())
-                .is_true());
-            assert!(result_bind.as_bdd().iff(result_bind_v2.as_bdd()).is_true());
+            assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
         }
     }
 
