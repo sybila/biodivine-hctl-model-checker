@@ -20,7 +20,7 @@ pub enum NodeType {
 /// Structure for a HCTL formula syntax tree.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct HctlTreeNode {
-    pub subform_str: String,
+    pub formula_str: String,
     pub height: i32,
     pub node_type: NodeType,
 }
@@ -51,6 +51,7 @@ impl Ord for HctlTreeNode {
     }
 }
 
+/// Generating new instances of `HctlTreeNode`.
 impl HctlTreeNode {
     /// Parse `tokens` of HCTL formula into an abstract syntax tree using recursive steps.
     /// It is recommended to not use this method for parsing, but rather choose from functions
@@ -62,7 +63,7 @@ impl HctlTreeNode {
     /// Create a hybrid node from given arguments.
     pub fn mk_hybrid_node(child: HctlTreeNode, var: String, op: HybridOp) -> HctlTreeNode {
         HctlTreeNode {
-            subform_str: format!("({} {{{}}}: {})", op, var, child.subform_str),
+            formula_str: format!("({op}{{{var}}}: {child})"),
             height: child.height + 1,
             node_type: NodeType::HybridNode(op, var, Box::new(child)),
         }
@@ -70,8 +71,13 @@ impl HctlTreeNode {
 
     /// Create an unary node from given arguments.
     pub fn mk_unary_node(child: HctlTreeNode, op: UnaryOp) -> HctlTreeNode {
+        let subform_str = if matches!(op, UnaryOp::Not) {
+            format!("({op}{child})")
+        } else {
+            format!("({op} {child})")
+        };
         HctlTreeNode {
-            subform_str: format!("({} {})", op, child.subform_str),
+            formula_str: subform_str,
             height: child.height + 1,
             node_type: NodeType::UnaryNode(op, Box::new(child)),
         }
@@ -80,7 +86,7 @@ impl HctlTreeNode {
     /// Create a binary node from given arguments.
     pub fn mk_binary_node(left: HctlTreeNode, right: HctlTreeNode, op: BinaryOp) -> HctlTreeNode {
         HctlTreeNode {
-            subform_str: format!("({} {} {})", left.subform_str, op, right.subform_str),
+            formula_str: format!("({left} {op} {right})"),
             height: cmp::max(left.height, right.height) + 1,
             node_type: NodeType::BinaryNode(op, Box::new(left), Box::new(right)),
         }
@@ -89,7 +95,7 @@ impl HctlTreeNode {
     /// Create a terminal `variable` node from given arguments.
     pub fn mk_var_node(var_name: String) -> HctlTreeNode {
         HctlTreeNode {
-            subform_str: format!("{{{var_name}}}"),
+            formula_str: format!("{{{var_name}}}"),
             height: 0,
             node_type: NodeType::TerminalNode(Atomic::Var(var_name)),
         }
@@ -98,7 +104,7 @@ impl HctlTreeNode {
     /// Create a terminal `proposition` node from given arguments.
     pub fn mk_prop_node(prop_name: String) -> HctlTreeNode {
         HctlTreeNode {
-            subform_str: prop_name.clone(),
+            formula_str: prop_name.clone(),
             height: 0,
             node_type: NodeType::TerminalNode(Atomic::Prop(prop_name)),
         }
@@ -109,13 +115,13 @@ impl HctlTreeNode {
     pub fn mk_constant_node(constant_val: bool) -> HctlTreeNode {
         if constant_val {
             HctlTreeNode {
-                subform_str: "True".to_string(),
+                formula_str: "True".to_string(),
                 height: 0,
                 node_type: NodeType::TerminalNode(Atomic::True),
             }
         } else {
             HctlTreeNode {
-                subform_str: "False".to_string(),
+                formula_str: "False".to_string(),
                 height: 0,
                 node_type: NodeType::TerminalNode(Atomic::False),
             }
@@ -125,16 +131,22 @@ impl HctlTreeNode {
     /// Create a terminal `wild-card proposition` node from given arguments.
     pub fn mk_wild_card_node(prop_name: String) -> HctlTreeNode {
         HctlTreeNode {
-            subform_str: format!("%{prop_name}%"),
+            formula_str: format!("%{prop_name}%"),
             height: 0,
             node_type: NodeType::TerminalNode(Atomic::WildCardProp(prop_name)),
         }
     }
 }
 
+impl HctlTreeNode {
+    pub fn as_str(&self) -> &str {
+        self.formula_str.as_str()
+    }
+}
+
 impl fmt::Display for HctlTreeNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.subform_str)
+        write!(f, "{}", self.formula_str)
     }
 }
 
@@ -162,8 +174,8 @@ mod tests {
         assert!(node2 <= node1);
 
         // test display
-        let node1_str = "(Bind {x}: (Exists {y}: (Jump {x}: (((~ {y}) & (%subst% & True)) ^ v1))))";
-        let node2_str = "(Bind {x}: (Ax {x}))";
+        let node1_str = "(!{x}: (3{y}: (@{x}: (((~{y}) & (%subst% & True)) ^ v1))))";
+        let node2_str = "(!{x}: (AX {x}))";
         assert_eq!(node1.to_string(), node1_str.to_string());
         assert_eq!(node2.to_string(), node2_str.to_string());
     }

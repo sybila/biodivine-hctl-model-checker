@@ -38,18 +38,12 @@ pub fn analyse_formulae(
     for (i, formula) in formulae.iter().enumerate() {
         print_if_allowed(format!("Original formula n.{}: {formula}", i + 1), print_op);
         let tree = parse_hctl_formula(formula.as_str())?;
-        print_if_allowed(
-            format!("Parsed version:       {}", tree.subform_str),
-            print_op,
-        );
+        print_if_allowed(format!("Parsed version:       {tree}"), print_op);
 
         let modified_tree =
             check_props_and_rename_vars(tree, HashMap::new(), String::new(), &plain_context)?;
         let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone()).len();
-        print_if_allowed(
-            format!("Modified version:     {}", modified_tree.subform_str),
-            print_op,
-        );
+        print_if_allowed(format!("Modified version:     {modified_tree}"), print_op);
         print_if_allowed("-----".to_string(), print_op);
 
         parsed_trees.push(modified_tree);
