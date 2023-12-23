@@ -5,11 +5,10 @@ use crate::preprocessing::parser::parse_hctl_tokens;
 use crate::preprocessing::tokenizer::HctlToken;
 
 use std::cmp;
-use std::cmp::Ordering;
 use std::fmt;
 
 /// Enum of possible node types in a HCTL formula tree.
-#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum NodeType {
     /// Leaf nodes with atomic sub-formulas.
     TerminalNode(Atomic),
@@ -27,32 +26,6 @@ pub struct HctlTreeNode {
     pub subform_str: String,
     pub height: i32,
     pub node_type: NodeType,
-}
-
-/// Nodes are ordered by their height.
-impl PartialOrd for HctlTreeNode {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.height.cmp(&other.height))
-    }
-    fn lt(&self, other: &Self) -> bool {
-        self.height.lt(&other.height)
-    }
-    fn le(&self, other: &Self) -> bool {
-        self.height.le(&other.height)
-    }
-    fn gt(&self, other: &Self) -> bool {
-        self.height.gt(&other.height)
-    }
-    fn ge(&self, other: &Self) -> bool {
-        self.height.ge(&other.height)
-    }
-}
-
-/// Nodes are ordered by their height.
-impl Ord for HctlTreeNode {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.height.cmp(&other.height)
-    }
 }
 
 impl HctlTreeNode {
@@ -173,10 +146,6 @@ mod tests {
         let tokens2 = try_tokenize_formula(formula2).unwrap();
         let node1 = HctlTreeNode::new(&tokens1).unwrap();
         let node2 = HctlTreeNode::new(&tokens2).unwrap();
-
-        // higher tree should be greater
-        assert!(node1 > node2);
-        assert!(node2 <= node1);
 
         // test display
         let node1_str = "(Bind {x}: (Exists {y}: (Jump {x}: (((~ {y}) & (%subst% & True)) ^ v1))))";

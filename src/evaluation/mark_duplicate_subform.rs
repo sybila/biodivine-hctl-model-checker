@@ -8,10 +8,12 @@ use std::cmp::Ordering;
 use crate::preprocessing::operator_enums::Atomic;
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
 
-/// Structure that holds a sub-tree and information about domains for all free HCTL variables in
-/// that subtree (if they are specified).
+/// Structure that holds a combination of a subtree and information about domains for all the free
+/// HCTL variables in that subtree (if they are specified).
 ///
-/// The domains are needed if we are to compare two subtrees with free variables for equivalence.
+/// This structure enables to compare the trees (by their height) and is made to put the trees to
+/// a HashSet (HashMap). The variable domains are needed if we are to compare two subtrees with
+/// free variables for equivalence.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct NodeWithDomains<'a> {
     subtree: &'a HctlTreeNode,
@@ -34,26 +36,26 @@ impl NodeWithDomains<'_> {
 /// `NodeWithDomains` objects are ordered by the height of their subtrees.
 impl PartialOrd for NodeWithDomains<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.subtree.cmp(other.subtree))
+        Some(self.subtree.height.cmp(&other.subtree.height))
     }
     fn lt(&self, other: &Self) -> bool {
-        self.subtree.lt(other.subtree)
+        self.subtree.height.lt(&other.subtree.height)
     }
     fn le(&self, other: &Self) -> bool {
-        self.subtree.le(other.subtree)
+        self.subtree.height.le(&other.subtree.height)
     }
     fn gt(&self, other: &Self) -> bool {
-        self.subtree.gt(other.subtree)
+        self.subtree.height.gt(&other.subtree.height)
     }
     fn ge(&self, other: &Self) -> bool {
-        self.subtree.ge(other.subtree)
+        self.subtree.height.ge(&other.subtree.height)
     }
 }
 
 /// Nodes are ordered by their height.
 impl Ord for NodeWithDomains<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.subtree.cmp(other.subtree)
+        self.subtree.height.cmp(&other.subtree.height)
     }
 }
 
