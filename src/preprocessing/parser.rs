@@ -69,10 +69,10 @@ fn is_hybrid(token: &HctlToken) -> bool {
 fn is_binary_temporal(token: &HctlToken) -> bool {
     matches!(
         token,
-        HctlToken::Binary(BinaryOp::Eu)
-            | HctlToken::Binary(BinaryOp::Au)
-            | HctlToken::Binary(BinaryOp::Ew)
-            | HctlToken::Binary(BinaryOp::Aw)
+        HctlToken::Binary(BinaryOp::EU)
+            | HctlToken::Binary(BinaryOp::AU)
+            | HctlToken::Binary(BinaryOp::EW)
+            | HctlToken::Binary(BinaryOp::AW)
     )
 }
 
@@ -288,32 +288,27 @@ mod tests {
     /// Also check that the formula is saved correctly in the tree root.
     fn test_parse_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}";
-        assert!(parse_hctl_formula(valid1).is_ok());
         let tree = parse_hctl_formula(valid1).unwrap();
-        assert_eq!(tree.subform_str, "(Bind {x}: (Ag (Ef {x})))".to_string());
+        assert_eq!(tree.as_str(), "(!{x}: (AG (EF {x})))");
 
         let valid2 = "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})";
-        assert!(parse_hctl_formula(valid2).is_ok());
         let tree = parse_hctl_formula(valid2).unwrap();
         assert_eq!(
-            tree.subform_str,
-            "(Bind {x}: (Exists {y}: ((Jump {x}: ((~ {y}) & (Ax {x}))) & (Jump {y}: (Ax {y})))))"
-                .to_string()
+            tree.as_str(),
+            "(!{x}: (3{y}: ((@{x}: ((~{y}) & (AX {x}))) & (@{y}: (AX {y})))))",
         );
 
         let valid3 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))";
-        assert!(parse_hctl_formula(valid3).is_ok());
         let tree = parse_hctl_formula(valid3).unwrap();
-        assert_eq!(tree.subform_str, "(Exists {x}: (Exists {y}: ((Jump {x}: ((~ {y}) & (Ax {x}))) & ((Jump {y}: (Ax {y})) & ((Ef ({x} & (Bind {z}: (Ax {z})))) & ((Ef ({y} & (Bind {z}: (Ax {z})))) & (Ax ((Ef ({x} & (Bind {z}: (Ax {z})))) ^ (Ef ({y} & (Bind {z}: (Ax {z}))))))))))))".to_string());
+        assert_eq!(tree.as_str(), "(3{x}: (3{y}: ((@{x}: ((~{y}) & (AX {x}))) & ((@{y}: (AX {y})) & ((EF ({x} & (!{z}: (AX {z})))) & ((EF ({y} & (!{z}: (AX {z})))) & (AX ((EF ({x} & (!{z}: (AX {z})))) ^ (EF ({y} & (!{z}: (AX {z}))))))))))))");
 
         // also test propositions, constants, and other operators (and their parse order)
         // propositions names should not be modified, constants should be unified to True/False
         let valid4 = "(prop1 <=> PROP2 | false => 1) AU (True ^ 0)";
-        assert!(parse_hctl_formula(valid4).is_ok());
         let tree = parse_hctl_formula(valid4).unwrap();
         assert_eq!(
-            tree.subform_str,
-            "((prop1 <=> ((PROP2 | False) => True)) Au (True ^ False))".to_string()
+            tree.as_str(),
+            "((prop1 <=> ((PROP2 | False) => True)) AU (True ^ False))"
         );
 
         // all formulae must be correctly parsed also using the extended version of HCTL
@@ -321,6 +316,40 @@ mod tests {
         assert!(parse_extended_formula(valid2).is_ok());
         assert!(parse_extended_formula(valid3).is_ok());
         assert!(parse_extended_formula(valid4).is_ok());
+    }
+
+    #[test]
+    fn test_parse_operator_priority() {
+        assert_eq!(
+            "(((((~a) ^ ((~b) & (~c))) | (~d)) => (~e)) <=> (~f))",
+            parse_hctl_formula("~a ^ ~b & ~c | ~d => ~e <=> ~f")
+                .unwrap()
+                .as_str()
+        )
+    }
+
+    #[test]
+    fn test_parse_operator_associativity() {
+        assert_eq!(
+            "(a & (b & c))",
+            parse_hctl_formula("a & b & c").unwrap().as_str()
+        );
+        assert_eq!(
+            "(a | (b | c))",
+            parse_hctl_formula("a | b | c").unwrap().as_str()
+        );
+        assert_eq!(
+            "(a ^ (b ^ c))",
+            parse_hctl_formula("a ^ b ^ c").unwrap().as_str()
+        );
+        assert_eq!(
+            "(a => (b => c))",
+            parse_hctl_formula("a => b => c").unwrap().as_str()
+        );
+        assert_eq!(
+            "(a <=> (b <=> c))",
+            parse_hctl_formula("a <=> b <=> c").unwrap().as_str()
+        );
     }
 
     #[test]
@@ -336,7 +365,7 @@ mod tests {
 
         let formula = "!{x}: (AX {x})";
         let expected_tree = HctlTreeNode::mk_hybrid_node(
-            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::Ax),
+            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::AX),
             "x".to_string(),
             None,
             HybridOp::Bind,
@@ -376,18 +405,15 @@ mod tests {
         assert!(parse_hctl_formula(formula).is_err());
         assert!(parse_extended_formula(formula).is_ok());
         let tree = parse_extended_formula(formula).unwrap();
-        assert_eq!(
-            tree.subform_str,
-            "((Bind {x}: (Ag (Ef {x}))) & %p%)".to_string()
-        );
+        assert_eq!(tree.as_str(), "((!{x}: (AG (EF {x}))) & %p%)");
 
         let formula = "!{x}: 3{y}: (@{x}: ~{y} & %s%) & (@{y}: %s%)";
         assert!(parse_hctl_formula(formula).is_err());
         assert!(parse_extended_formula(formula).is_ok());
         let tree = parse_extended_formula(formula).unwrap();
         assert_eq!(
-            tree.subform_str,
-            "(Bind {x}: (Exists {y}: ((Jump {x}: ((~ {y}) & %s%)) & (Jump {y}: %s%))))".to_string()
+            tree.as_str(),
+            "(!{x}: (3{y}: ((@{x}: ((~{y}) & %s%)) & (@{y}: %s%))))"
         );
     }
 }

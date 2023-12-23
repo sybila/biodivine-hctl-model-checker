@@ -6,12 +6,12 @@ use std::fmt;
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum UnaryOp {
     Not, // '~'
-    Ex,  // 'EX'
-    Ax,  // 'AX'
-    Ef,  // 'EF'
-    Af,  // 'AF'
-    Eg,  // 'EG'
-    Ag,  // 'AG'
+    EX,  // 'EX'
+    AX,  // 'AX'
+    EF,  // 'EF'
+    AF,  // 'AF'
+    EG,  // 'EG'
+    AG,  // 'AG'
 }
 
 /// Enum for all possible binary operators occurring in a HCTL formula string.
@@ -22,10 +22,10 @@ pub enum BinaryOp {
     Xor, // '^'
     Imp, // '=>'
     Iff, // '<=>'
-    Eu,  // 'EU'
-    Au,  // 'AU'
-    Ew,  // 'EW'
-    Aw,  // 'AW'
+    EU,  // 'EU'
+    AU,  // 'AU'
+    EW,  // 'EW'
+    AW,  // 'AW'
 }
 
 /// Enum for all possible hybrid operators occurring in a HCTL formula string.
@@ -53,6 +53,7 @@ impl fmt::Display for UnaryOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             UnaryOp::Not => write!(f, "~"),
+            // temporal operators are displayed as they are
             c => write!(f, "{c:?}"),
         }
     }
@@ -66,6 +67,7 @@ impl fmt::Display for BinaryOp {
             BinaryOp::Xor => write!(f, "^"),
             BinaryOp::Imp => write!(f, "=>"),
             BinaryOp::Iff => write!(f, "<=>"),
+            // temporal operators are displayed as they are
             c => write!(f, "{c:?}"),
         }
     }
@@ -73,8 +75,12 @@ impl fmt::Display for BinaryOp {
 
 impl fmt::Display for HybridOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let op = self;
-        write!(f, "{op:?}")
+        match self {
+            HybridOp::Bind => write!(f, "!"),
+            HybridOp::Exists => write!(f, "3"),
+            HybridOp::Forall => write!(f, "V"),
+            HybridOp::Jump => write!(f, "@"),
+        }
     }
 }
 

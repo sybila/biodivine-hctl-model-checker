@@ -106,7 +106,7 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
         let mut skip_sub_tree = false; // we will skip traversing of duplicate sub-trees
                                        // get canonical substring and corresponding variable renaming map
         let (current_formula, renaming) =
-            get_canonical_and_mapping(current_node.subtree.subform_str.clone());
+            get_canonical_and_mapping(current_node.subtree.to_string());
 
         // we only mark duplicate formulae with at max 1 variable (to not cause var name collisions during caching)
         // todo: extend this for any number of variables
@@ -136,7 +136,7 @@ pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> Has
             last_height = current_node.subtree.height;
             same_height_formulae.clear();
             same_height_formulae.insert((
-                get_canonical(current_node.subtree.subform_str.clone()),
+                get_canonical(current_node.subtree.to_string()),
                 current_node.domains.clone(),
             ));
         }
@@ -171,79 +171,6 @@ pub fn mark_duplicates_canonized_single(root_node: &HctlTreeNode) -> HashMap<Str
     mark_duplicates_canonized_multiple(&vec![root_node.clone()])
 }
 
-/*
-/// DEPRECATED VERSION THAT DOES NOT UTILIZE CANONIZATION, USE THE VERSION ABOVE
-/// Check if there are some duplicate subtrees in the given syntax tree
-/// Save the (raw) duplicate sub-formulae + the number of their appearances
-/// This version does not consider canonical forms! - only recognizes fully identical duplicates
-/// Note that terminal nodes (props, vars, constants) are not considered
-pub fn mark_duplicates_deprecated(root_node: &HctlTreeNode) -> HashMap<String, i32> {
-    // go through the nodes from top, use height to compare only those with the same level
-    // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
-    let mut duplicates: HashMap<String, i32> = HashMap::new();
-    let mut heap_queue: BinaryHeap<&HctlTreeNode> = BinaryHeap::new();
-
-    let mut last_height = root_node.height.clone();
-    let mut same_height_node_strings: HashSet<String> = HashSet::new();
-    heap_queue.push(root_node);
-
-    // because we are traversing a tree, we dont care about cycles
-    while let Some(current_node) = heap_queue.pop() {
-        //println!("{}", current_node.subform_str.as_str());
-
-        // lets stop the process when we hit the first terminal node
-        // terminals are not worth to mark as duplicates and use them for caching
-        if current_node.height == 0 {
-            break;
-        }
-
-        let mut skip = false;
-        if last_height == current_node.height {
-            // if we have saved some nodes of the same height, compare them with the current one
-            for other_node_string in same_height_node_strings.clone() {
-                if other_node_string == current_node.subform_str.as_str() {
-                    if duplicates.contains_key(current_node.subform_str.as_str()) {
-                        duplicates
-                            .insert(current_node.subform_str.clone(), duplicates[&current_node.subform_str] + 1);
-                    } else {
-                        duplicates.insert(current_node.subform_str.clone(), 1);
-                    }
-                    skip = true; // skip the descendants of the duplicate current_node
-                    break;
-                }
-            }
-
-            // do not traverse subtree of the duplicate later (will be cached during eval)
-            if skip {
-                continue;
-            }
-            same_height_node_strings.insert(current_node.subform_str.clone());
-        } else {
-            // we got node from lower level, so we empty the set of nodes to compare
-            last_height = current_node.height;
-            same_height_node_strings.clear();
-            same_height_node_strings.insert(current_node.subform_str.clone());
-        }
-
-        // add children of current_node to the heap_queue
-        match &current_node.node_type {
-            NodeType::TerminalNode(_) => {}
-            NodeType::UnaryNode(_, child) => {
-                heap_queue.push(child);
-            }
-            NodeType::BinaryNode(_, left, right) => {
-                heap_queue.push(left);
-                heap_queue.push(right);
-            }
-            NodeType::HybridNode(_, _, child) => {
-                heap_queue.push(child);
-            }
-        }
-    }
-    duplicates
-}
- */
-
 #[cfg(test)]
 mod tests {
     use crate::evaluation::mark_duplicate_subform::{
@@ -260,7 +187,7 @@ mod tests {
     /// Compare automatically detected duplicate sub-formulae to expected ones.
     fn test_duplicates_single_simple() {
         let formula = "!{x}: 3{y}: (AX {x} & AX {y})";
-        let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
+        let expected_duplicates = HashMap::from([("(AX {var0})".to_string(), 1)]);
 
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
@@ -277,8 +204,8 @@ mod tests {
     fn test_duplicates_single_complex() {
         let formula = "(!{x}: 3{y}: ((AG EF {x} & AG EF {y}) & (EF {y}))) & (!{z}: EF {z})";
         let expected_duplicates = HashMap::from([
-            ("(Ag (Ef {var0}))".to_string(), 1),
-            ("(Ef {var0})".to_string(), 2),
+            ("(AG (EF {var0}))".to_string(), 1),
+            ("(EF {var0})".to_string(), 2),
         ]);
 
         // define any placeholder bn
@@ -300,8 +227,8 @@ mod tests {
             "!{z}: AX {z}",
         ];
         let expected_duplicates = HashMap::from([
-            ("(Ax {var0})".to_string(), 2),
-            ("(Bind {var0}: (Ax {var0}))".to_string(), 1),
+            ("(AX {var0})".to_string(), 2),
+            ("(!{var0}: (AX {var0}))".to_string(), 1),
         ]);
 
         // define any placeholder bn
@@ -343,14 +270,14 @@ mod tests {
         // example to recognize the whole quantified sub-formulas with the same domains as duplicate
         let formula = "(!{x} in %d1%: AX {x}) & AX (!{x} in %d1%: AX {x}) & v1";
         let expected_duplicates =
-            HashMap::from([("(Bind {var0} in %d1%: (Ax {var0}))".to_string(), 1)]);
+            HashMap::from([("(!{var0} in %d1%: (AX {var0}))".to_string(), 1)]);
         let tree = parse_and_minimize_extended_formula(&ctx, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);
 
         // example to recognize the sub-formulas with free vars with the same domains as duplicate
         let formula = "(!{x} in %d1%: v1 & AX {x}) & AX (!{x} in %d1%: AX {x})";
-        let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
+        let expected_duplicates = HashMap::from([("(AX {var0})".to_string(), 1)]);
         let tree = parse_and_minimize_extended_formula(&ctx, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);

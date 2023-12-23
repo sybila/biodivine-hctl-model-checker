@@ -31,7 +31,7 @@ pub fn eval_node(
     let mut save_to_cache = false;
 
     // get canonized form of this sub-formula, and mapping of how vars are canonized
-    let (canonized_form, renaming) = get_canonical_and_mapping(node.subform_str.clone());
+    let (canonized_form, renaming) = get_canonical_and_mapping(node.to_string());
 
     if eval_context
         .duplicates
@@ -104,31 +104,31 @@ pub fn eval_node(
                 graph,
                 &eval_node(*child, graph, eval_context, steady_states),
             ),
-            UnaryOp::Ex => eval_ex(
+            UnaryOp::EX => eval_ex(
                 graph,
                 &eval_node(*child, graph, eval_context, steady_states),
                 steady_states,
             ),
-            UnaryOp::Ax => eval_ax(
+            UnaryOp::AX => eval_ax(
                 graph,
                 &eval_node(*child, graph, eval_context, steady_states),
                 steady_states,
             ),
-            UnaryOp::Ef => eval_ef_saturated(
+            UnaryOp::EF => eval_ef_saturated(
                 graph,
                 &eval_node(*child, graph, eval_context, steady_states),
             ),
-            UnaryOp::Af => eval_af(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                steady_states,
-            ),
-            UnaryOp::Eg => eval_eg(
+            UnaryOp::AF => eval_af(
                 graph,
                 &eval_node(*child, graph, eval_context, steady_states),
                 steady_states,
             ),
-            UnaryOp::Ag => eval_ag(
+            UnaryOp::EG => eval_eg(
+                graph,
+                &eval_node(*child, graph, eval_context, steady_states),
+                steady_states,
+            ),
+            UnaryOp::AG => eval_ag(
                 graph,
                 &eval_node(*child, graph, eval_context, steady_states),
             ),
@@ -154,24 +154,24 @@ pub fn eval_node(
                     &eval_node(*left, graph, eval_context, steady_states),
                     &eval_node(*right, graph, eval_context, steady_states),
                 ),
-                BinaryOp::Eu => eval_eu_saturated(
+                BinaryOp::EU => eval_eu_saturated(
                     graph,
                     &eval_node(*left, graph, eval_context, steady_states),
                     &eval_node(*right, graph, eval_context, steady_states),
                 ),
-                BinaryOp::Au => eval_au(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                    steady_states,
-                ),
-                BinaryOp::Ew => eval_ew(
+                BinaryOp::AU => eval_au(
                     graph,
                     &eval_node(*left, graph, eval_context, steady_states),
                     &eval_node(*right, graph, eval_context, steady_states),
                     steady_states,
                 ),
-                BinaryOp::Aw => eval_aw(
+                BinaryOp::EW => eval_ew(
+                    graph,
+                    &eval_node(*left, graph, eval_context, steady_states),
+                    &eval_node(*right, graph, eval_context, steady_states),
+                    steady_states,
+                ),
+                BinaryOp::AW => eval_aw(
                     graph,
                     &eval_node(*left, graph, eval_context, steady_states),
                     &eval_node(*right, graph, eval_context, steady_states),
@@ -262,8 +262,8 @@ fn eval_hybrid_node(
 fn is_attractor_pattern(node: HctlTreeNode) -> bool {
     match node.node_type {
         NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match child1.node_type {
-            NodeType::UnaryNode(UnaryOp::Ag, child2) => match child2.node_type {
-                NodeType::UnaryNode(UnaryOp::Ef, child3) => match child3.node_type {
+            NodeType::UnaryNode(UnaryOp::AG, child2) => match child2.node_type {
+                NodeType::UnaryNode(UnaryOp::EF, child3) => match child3.node_type {
                     NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
                     _ => false,
                 },
@@ -280,7 +280,7 @@ fn is_attractor_pattern(node: HctlTreeNode) -> bool {
 fn is_fixed_point_pattern(node: HctlTreeNode) -> bool {
     match node.node_type {
         NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match child1.node_type {
-            NodeType::UnaryNode(UnaryOp::Ax, child2) => match child2.node_type {
+            NodeType::UnaryNode(UnaryOp::AX, child2) => match child2.node_type {
                 NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
                 _ => false,
             },
@@ -332,7 +332,7 @@ mod tests {
     /// Test recognition of fixed-point pattern.
     fn test_fixed_point_pattern() {
         let tree = HctlTreeNode::mk_hybrid_node(
-            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::Ax),
+            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::AX),
             "x".to_string(),
             None,
             HybridOp::Bind,
@@ -347,9 +347,9 @@ mod tests {
             HctlTreeNode::mk_unary_node(
                 HctlTreeNode::mk_unary_node(
                     HctlTreeNode::mk_var_node("x".to_string()),
-                    UnaryOp::Ef,
+                    UnaryOp::EF,
                 ),
-                UnaryOp::Ag,
+                UnaryOp::AG,
             ),
             "x".to_string(),
             None,

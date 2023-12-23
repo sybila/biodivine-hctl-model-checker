@@ -122,7 +122,7 @@ mod tests {
         let formula = "!{x}: (AX {x} & AX {x})";
         let syntax_tree = parse_hctl_formula(formula).unwrap();
 
-        let expected_duplicates = HashMap::from([("(Ax {var0})".to_string(), 1)]);
+        let expected_duplicates = HashMap::from([("(AX {var0})".to_string(), 1)]);
         let eval_info = EvalContext::new(expected_duplicates.clone());
 
         assert_eq!(eval_info, EvalContext::from_single_tree(&syntax_tree));

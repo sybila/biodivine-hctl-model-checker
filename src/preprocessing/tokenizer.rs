@@ -85,11 +85,11 @@ fn try_tokenize_recursive(
                     }
 
                     match c2 {
-                        'X' => output.push(HctlToken::Unary(UnaryOp::Ex)),
-                        'F' => output.push(HctlToken::Unary(UnaryOp::Ef)),
-                        'G' => output.push(HctlToken::Unary(UnaryOp::Eg)),
-                        'U' => output.push(HctlToken::Binary(BinaryOp::Eu)),
-                        'W' => output.push(HctlToken::Binary(BinaryOp::Ew)),
+                        'X' => output.push(HctlToken::Unary(UnaryOp::EX)),
+                        'F' => output.push(HctlToken::Unary(UnaryOp::EF)),
+                        'G' => output.push(HctlToken::Unary(UnaryOp::EG)),
+                        'U' => output.push(HctlToken::Binary(BinaryOp::EU)),
+                        'W' => output.push(HctlToken::Binary(BinaryOp::EW)),
                         _ => return Err(format!("Unexpected char '{c2}' after 'E'.")),
                     }
                 } else {
@@ -111,11 +111,11 @@ fn try_tokenize_recursive(
                         }
                     }
                     match c2 {
-                        'X' => output.push(HctlToken::Unary(UnaryOp::Ax)),
-                        'F' => output.push(HctlToken::Unary(UnaryOp::Af)),
-                        'G' => output.push(HctlToken::Unary(UnaryOp::Ag)),
-                        'U' => output.push(HctlToken::Binary(BinaryOp::Au)),
-                        'W' => output.push(HctlToken::Binary(BinaryOp::Aw)),
+                        'X' => output.push(HctlToken::Unary(UnaryOp::AX)),
+                        'F' => output.push(HctlToken::Unary(UnaryOp::AF)),
+                        'G' => output.push(HctlToken::Unary(UnaryOp::AG)),
+                        'U' => output.push(HctlToken::Binary(BinaryOp::AU)),
+                        'W' => output.push(HctlToken::Binary(BinaryOp::AW)),
                         _ => return Err(format!("Unexpected char '{c2}' after 'A'.")),
                     }
                 } else {
@@ -370,8 +370,8 @@ mod tests {
             tokens1,
             vec![
                 HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
-                HctlToken::Unary(UnaryOp::Ag),
-                HctlToken::Unary(UnaryOp::Ef),
+                HctlToken::Unary(UnaryOp::AG),
+                HctlToken::Unary(UnaryOp::EF),
                 HctlToken::Atom(Atomic::Var("x".to_string())),
             ]
         );
@@ -384,12 +384,12 @@ mod tests {
             vec![
                 HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
                 HctlToken::Tokens(vec![
-                    HctlToken::Unary(UnaryOp::Ax),
+                    HctlToken::Unary(UnaryOp::AX),
                     HctlToken::Tokens(vec![
                         HctlToken::Unary(UnaryOp::Not),
                         HctlToken::Atom(Atomic::Var("x".to_string())),
                         HctlToken::Binary(BinaryOp::And),
-                        HctlToken::Unary(UnaryOp::Af),
+                        HctlToken::Unary(UnaryOp::AF),
                         HctlToken::Atom(Atomic::Var("x".to_string())),
                     ]),
                 ]),
@@ -409,13 +409,13 @@ mod tests {
                     HctlToken::Unary(UnaryOp::Not),
                     HctlToken::Atom(Atomic::Var("y".to_string())),
                     HctlToken::Binary(BinaryOp::And),
-                    HctlToken::Unary(UnaryOp::Ax),
+                    HctlToken::Unary(UnaryOp::AX),
                     HctlToken::Atom(Atomic::Var("x".to_string())),
                 ]),
                 HctlToken::Binary(BinaryOp::And),
                 HctlToken::Tokens(vec![
                     HctlToken::Hybrid(HybridOp::Jump, "y".to_string(), None),
-                    HctlToken::Unary(UnaryOp::Ax),
+                    HctlToken::Unary(UnaryOp::AX),
                     HctlToken::Atom(Atomic::Var("y".to_string())),
                 ]),
             ]
@@ -437,10 +437,10 @@ mod tests {
                     HctlToken::Binary(BinaryOp::Imp),
                     HctlToken::Atom(Atomic::Prop("1".to_string())),
                 ]),
-                HctlToken::Binary(BinaryOp::Eu),
+                HctlToken::Binary(BinaryOp::EU),
                 HctlToken::Tokens(vec![
                     HctlToken::Atom(Atomic::Prop("0".to_string())),
-                    HctlToken::Binary(BinaryOp::Aw),
+                    HctlToken::Binary(BinaryOp::AW),
                     HctlToken::Atom(Atomic::Prop("A_prop".to_string())),
                     HctlToken::Binary(BinaryOp::Xor),
                     HctlToken::Atom(Atomic::Prop("E_prop".to_string())),
