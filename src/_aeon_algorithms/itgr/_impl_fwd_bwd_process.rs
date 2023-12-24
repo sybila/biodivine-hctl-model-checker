@@ -1,8 +1,8 @@
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-use crate::aeon::itgr::{BwdProcess, FwdProcess, Process, Scheduler};
-use crate::aeon::saturated_reachability::reachability_step;
+use crate::_aeon_algorithms::itgr::{BwdProcess, FwdProcess, Process, Scheduler};
+use crate::_aeon_algorithms::saturated_reachability::reachability_step;
 
 impl BwdProcess {
     pub fn new(initial: GraphColoredVertices, universe: GraphColoredVertices) -> BwdProcess {

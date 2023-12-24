@@ -16,7 +16,7 @@ pub mod postprocessing;
 pub mod preprocessing;
 pub mod result_print;
 
-mod aeon;
+mod _aeon_algorithms;
 
 /// **(internal)** Several complex test scenarios for the model checking procedure.
 #[cfg(test)]

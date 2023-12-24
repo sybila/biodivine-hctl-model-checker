@@ -1,5 +1,5 @@
-use crate::aeon::algo_xie_beerel::xie_beerel_attractor_set;
-use crate::aeon::itgr::interleaved_transition_guided_reduction;
+use crate::_aeon_algorithms::algo_xie_beerel::xie_beerel_attractor_set;
+use crate::_aeon_algorithms::itgr::interleaved_transition_guided_reduction;
 
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 

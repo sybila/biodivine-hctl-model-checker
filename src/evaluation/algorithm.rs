@@ -1,6 +1,6 @@
 //! Contains the high-level model-checking algorithm and few optimisations.
 
-use crate::aeon::scc_computation::compute_attractor_states;
+use crate::_aeon_algorithms::scc_computation::compute_attractor_states;
 use crate::evaluation::canonization::get_canonical_and_mapping;
 use crate::evaluation::eval_context::EvalContext;
 use crate::evaluation::hctl_operators_evaluation::*;
