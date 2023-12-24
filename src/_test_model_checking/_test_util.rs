@@ -1,4 +1,4 @@
-use crate::preprocessing::node::HctlTreeNode;
+use crate::preprocessing::hctl_tree::HctlTreeNode;
 use biodivine_lib_param_bn::BooleanNetwork;
 
 /// Generate set of `num` syntactic trees for random boolean expressions.

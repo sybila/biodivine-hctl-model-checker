@@ -1,6 +1,6 @@
 //! Model checking utilities such as generating extended STG or checking STG for variable support.
 
-use crate::preprocessing::node::{HctlTreeNode, NodeType};
+use crate::preprocessing::hctl_tree::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::{Atomic, HybridOp};
 
 use biodivine_lib_param_bn::symbolic_async_graph::{SymbolicAsyncGraph, SymbolicContext};

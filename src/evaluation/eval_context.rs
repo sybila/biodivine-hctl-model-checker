@@ -3,7 +3,7 @@
 use crate::evaluation::mark_duplicate_subform::{
     mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
 };
-use crate::preprocessing::node::HctlTreeNode;
+use crate::preprocessing::hctl_tree::HctlTreeNode;
 
 use biodivine_lib_param_bn::symbolic_async_graph::GraphColoredVertices;
 

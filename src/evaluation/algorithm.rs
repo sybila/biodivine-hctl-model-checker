@@ -7,7 +7,7 @@ use crate::evaluation::hctl_operators_evaluation::*;
 use crate::evaluation::low_level_operations::{
     compute_valid_domain_for_var, restrict_stg_unit_bdd, substitute_hctl_var,
 };
-use crate::preprocessing::node::{HctlTreeNode, NodeType};
+use crate::preprocessing::hctl_tree::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::*;
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
@@ -345,7 +345,7 @@ pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices
 #[cfg(test)]
 mod tests {
     use crate::evaluation::algorithm::{is_attractor_pattern, is_fixed_point_pattern};
-    use crate::preprocessing::node::*;
+    use crate::preprocessing::hctl_tree::*;
     use crate::preprocessing::operator_enums::*;
 
     #[test]

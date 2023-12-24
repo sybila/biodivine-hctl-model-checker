@@ -179,7 +179,7 @@ impl fmt::Display for HctlTreeNode {
 
 #[cfg(test)]
 mod tests {
-    use crate::preprocessing::node::HctlTreeNode;
+    use crate::preprocessing::hctl_tree::HctlTreeNode;
     use crate::preprocessing::tokenizer::{try_tokenize_extended_formula, try_tokenize_formula};
 
     #[test]

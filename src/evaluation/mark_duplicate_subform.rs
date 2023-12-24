@@ -2,7 +2,7 @@
 //! highly useful for memoization during evaluation.
 
 use crate::evaluation::canonization::{get_canonical, get_canonical_and_mapping};
-use crate::preprocessing::node::{HctlTreeNode, NodeType};
+use crate::preprocessing::hctl_tree::{HctlTreeNode, NodeType};
 use std::cmp::Ordering;
 
 use crate::preprocessing::operator_enums::Atomic;

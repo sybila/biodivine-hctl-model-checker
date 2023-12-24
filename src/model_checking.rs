@@ -10,7 +10,7 @@ use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_context::EvalContext;
 use crate::mc_utils::*;
 use crate::postprocessing::sanitizing::sanitize_colored_vertices;
-use crate::preprocessing::node::HctlTreeNode;
+use crate::preprocessing::hctl_tree::HctlTreeNode;
 use crate::preprocessing::parser::{
     parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula,
 };

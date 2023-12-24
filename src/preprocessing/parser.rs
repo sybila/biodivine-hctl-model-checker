@@ -7,7 +7,7 @@
 //!  - hybrid operators: 8
 //!
 
-use crate::preprocessing::node::*;
+use crate::preprocessing::hctl_tree::*;
 use crate::preprocessing::operator_enums::*;
 use crate::preprocessing::tokenizer::{
     try_tokenize_extended_formula, try_tokenize_formula, HctlToken,
@@ -279,7 +279,7 @@ fn parse_9_terminal_and_parentheses(tokens: &[HctlToken]) -> Result<HctlTreeNode
 
 #[cfg(test)]
 mod tests {
-    use crate::preprocessing::node::*;
+    use crate::preprocessing::hctl_tree::*;
     use crate::preprocessing::operator_enums::*;
     use crate::preprocessing::parser::{parse_extended_formula, parse_hctl_formula};
 

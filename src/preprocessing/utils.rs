@@ -1,6 +1,6 @@
 //! Contains functionality mostly regarding proposition validating, and manipulation with variables.
 
-use crate::preprocessing::node::*;
+use crate::preprocessing::hctl_tree::*;
 use crate::preprocessing::operator_enums::{Atomic, HybridOp};
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use std::collections::HashMap;
