@@ -337,6 +337,7 @@ mod tests {
 
     use crate::postprocessing::sanitizing::sanitize_colored_vertices;
     use crate::preprocessing::node::HctlTreeNode;
+    use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
     use biodivine_lib_param_bn::BooleanNetwork;
 
     // model FISSION-YEAST-2008
@@ -484,7 +485,7 @@ $DivK: (!PleC & DivJ)
 
     /// Test evaluation of pairs of equivalent formulae on given BN model.
     /// Compare whether the results are the same.
-    fn test_model_check_equivalences(bn: BooleanNetwork) {
+    fn test_model_check_formula_equivalences(bn: BooleanNetwork) {
         // test formulae use 3 HCTL vars at most
         let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
 
@@ -555,21 +556,21 @@ $DivK: (!PleC & DivJ)
     /// Test evaluation of pairs of equivalent formulae on model FISSION-YEAST-2008.
     fn test_model_check_equivalences_yeast() {
         let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        test_model_check_equivalences(bn);
+        test_model_check_formula_equivalences(bn);
     }
 
     #[test]
     /// Test evaluation of pairs of equivalent formulae on model MAMMALIAN-CELL-CYCLE-2006.
     fn test_model_check_equivalences_mammal() {
         let bn = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
-        test_model_check_equivalences(bn);
+        test_model_check_formula_equivalences(bn);
     }
 
     #[test]
     /// Test evaluation of pairs of equivalent formulae on model ASYMMETRIC-CELL-DIVISION-B.
     fn test_model_check_equivalences_cell_division() {
         let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        test_model_check_equivalences(bn);
+        test_model_check_formula_equivalences(bn);
     }
 
     #[test]
@@ -661,7 +662,6 @@ $DivK: (!PleC & DivJ)
     /// Test evaluation of extended HCTL formulae, in which `wild-card properties` can
     /// represent already pre-computed results.
     fn test_model_check_extended_formulae(bn: BooleanNetwork) {
-        // test formulae use 3 HCTL vars at most
         let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
 
         // the test is conducted on two different formulae
@@ -733,14 +733,19 @@ $DivK: (!PleC & DivJ)
         test_model_check_extended_formulae(bn3);
     }
 
-    fn make_random_boolean_trees(num: u64, height: u8, bn: &BooleanNetwork) -> Vec<HctlTreeNode> {
+    fn make_random_boolean_trees(
+        num: u64,
+        height: u8,
+        bn: &BooleanNetwork,
+        seed: u64,
+    ) -> Vec<HctlTreeNode> {
         let props: Vec<String> = bn
             .variables()
             .map(|var_id| bn.get_variable_name(var_id).clone())
             .collect();
 
         (0..num)
-            .map(|seed| HctlTreeNode::new_random_boolean(height, &props, seed))
+            .map(|i| HctlTreeNode::new_random_boolean(height, &props, seed + i))
             .collect()
     }
 
@@ -752,28 +757,31 @@ $DivK: (!PleC & DivJ)
         let bn1 = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
         let bn2 = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
         let bn3 = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-
-        let num_test_trees = 2;
-        let height_test_trees = 4;
-
-        // the random combination of each models props
-        let random_boolean_trees = [
-            make_random_boolean_trees(num_test_trees, height_test_trees, &bn1),
-            make_random_boolean_trees(num_test_trees, height_test_trees, &bn2),
-            make_random_boolean_trees(num_test_trees, height_test_trees, &bn3),
-        ];
-
         let bns = [bn1, bn2, bn3];
-        for i in 1..bns.len() {
-            let stg = get_extended_symbolic_graph(&bns[i], 2).unwrap();
 
-            for tree in random_boolean_trees[i].clone() {
+        for bn in bns {
+            let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
+
+            // make a set of random boolean expression trees
+            let num_test_trees = 5;
+            let height_test_trees = 4;
+            let seed = 0;
+            let random_boolean_trees =
+                make_random_boolean_trees(num_test_trees, height_test_trees, &bn, seed);
+
+            for tree in random_boolean_trees {
                 // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
-                let raw_set = model_check_tree_dirty(tree, &stg).unwrap();
+                let raw_set = GraphColoredVertices::new(
+                    model_check_tree_dirty(tree, &stg)
+                        .unwrap()
+                        .vertices()
+                        .into_bdd(),
+                    stg.symbolic_context(),
+                );
 
                 let formulae_pairs = [
-                    ("3{x}:@{x}:%s% & (AG EF {x})", "3{x} in %s%:@{x}:AG EF {x}"),
-                    ("V{x}: @{x}:%s% =>(AG EF {x})", "V{x} in %s%:@{x}:AG EF {x}"),
+                    ("3{x}:@{x}: %s% & AG EF{x}", "3{x} in %s%:@{x}:AG EF{x}"),
+                    ("V{x}:@{x}: %s% => AG EF{x}", "V{x} in %s%:@{x}:AG EF{x}"),
                     ("!{x}: %s% & (AG EF {x})", "!{x} in %s%: AG EF {x}"),
                 ];
 
@@ -794,7 +802,6 @@ $DivK: (!PleC & DivJ)
                         &ctx_doms,
                     )
                     .unwrap();
-
                     assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
                 }
             }
@@ -830,6 +837,75 @@ $DivK: (!PleC & DivJ)
             .unwrap();
 
             assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
+        }
+    }
+
+    /// Test evaluation of pairs of equivalent pattern formulae on given BN model.
+    /// The patterns (wild-card propositions) are evaluated as raw sets specified by `context`.
+    fn test_model_check_pattern_equivalences_in_context(
+        stg: &SymbolicAsyncGraph,
+        context: HashMap<String, GraphColoredVertices>,
+    ) {
+        let equivalent_pattern_pairs = vec![
+            // AU equivalence
+            (
+                "(%p1%) AU (%p2%)",
+                "~EG~(%p2%) & ~(~%p2% EU (~%p2% & ~%p1%))",
+            ),
+            // AX equivalence
+            ("AX %p1%", "~EX ~%p1%"),
+            // AF equivalence
+            ("AF %p1%", "~EG ~%p1%"),
+            // quantifiers equivalence
+            ("~(3{x}: @{x}: %p1%)", "V{x}: @{x}: ~%p1%"),
+            // binder and forall equivalence v1
+            ("!{x}: %p1%", "V{x}: ({x} => %p1%)"),
+        ];
+
+        for (f1, f2) in equivalent_pattern_pairs {
+            let result1 =
+                model_check_extended_formula(f1.to_string(), stg, &context, &HashMap::new())
+                    .unwrap();
+            let result2 =
+                model_check_extended_formula(f2.to_string(), stg, &context, &HashMap::new())
+                    .unwrap();
+            assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
+        }
+    }
+
+    #[test]
+    /// Test evaluation of extended HCTL formulae with restricted domains of quantified vars.
+    /// Use all 3 pre-defined models.
+    fn test_model_check_pattern_equivalences() {
+        // the 3 predefined models
+        let bn1 = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
+        let bn2 = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
+        let bn3 = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+        let bns = [bn1, bn2, bn3];
+
+        for bn in bns {
+            let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
+
+            // make two sets of random boolean expression trees (we need context for 2 wild-cards)
+            let num_test_trees = 5;
+            let height_test_trees = 4;
+            let seed_1 = 100000;
+            let seed_2 = 200000;
+            let random_trees_1 =
+                make_random_boolean_trees(num_test_trees, height_test_trees, &bn, seed_1);
+            let random_trees_2 =
+                make_random_boolean_trees(num_test_trees, height_test_trees, &bn, seed_2);
+
+            for (tree_1, tree_2) in random_trees_1.into_iter().zip(random_trees_2) {
+                // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
+                let raw_set_1 = model_check_tree_dirty(tree_1, &stg).unwrap();
+                let raw_set_2 = model_check_tree_dirty(tree_2, &stg).unwrap();
+                let context = HashMap::from([
+                    ("p1".to_string(), raw_set_1.clone()),
+                    ("p2".to_string(), raw_set_2.clone()),
+                ]);
+                test_model_check_pattern_equivalences_in_context(&stg, context);
+            }
         }
     }
 

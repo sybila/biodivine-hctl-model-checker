@@ -228,7 +228,7 @@ pub fn eval_node(
 /// Wrapper to recursively evaluate the formula represented by a sub-tree beginning at hybrid node
 /// specified by its `operator`, `variable` and `child_node`.
 ///
-/// `graph` gives the context for evaluating the operator itself, while `graph_to_propagate` should
+/// `graph` gives the context for evaluating the hybrid operator itself, while `graph_to_propagate` should
 /// be used to evaluate the successors of the node. The two graphs might be the same. Having two
 /// distinct versions allows to evaluate the sub-tree on a different graph with smaller unit bdd,
 /// thus limiting the validity domain of the `variable`.
@@ -261,10 +261,18 @@ fn eval_hybrid_node(
             &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
             variable.as_str(),
         ),
-        HybridOp::Forall => eval_forall(
+        // evaluate `forall x in A. phi` as `not exists x in A. not phi`
+        // do it directly there so that the domain for negations are handled correctly
+        HybridOp::Forall => eval_neg(
             graph,
-            &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
-            variable.as_str(),
+            &eval_exists(
+                graph,
+                &eval_neg(
+                    graph_to_propagate,
+                    &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
+                ),
+                variable.as_str(),
+            ),
         ),
     }
 }

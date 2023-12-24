@@ -83,15 +83,6 @@ pub fn eval_exists(
     project_out_hctl_var(graph, phi, var_name)
 }
 
-/// Evaluate universal quantifier.
-pub fn eval_forall(
-    graph: &SymbolicAsyncGraph,
-    phi: &GraphColoredVertices,
-    var_name: &str,
-) -> GraphColoredVertices {
-    eval_neg(graph, &eval_exists(graph, &eval_neg(graph, phi), var_name))
-}
-
 /// Evaluate jump operator - does intersection with comparator and projects out BN variables.
 pub fn eval_jump(
     graph: &SymbolicAsyncGraph,
