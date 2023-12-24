@@ -12,7 +12,6 @@ keywords = ["hctl", "model-checking", "boolean-network", "symbolic", "systems-bi
 categories = ["science", "simulation"]
 license = "MIT"
 exclude = ["benchmark_models", ".github", ".githooks"]
-rust-version = "1.72"
 
 [profile.test]
 opt-level = 3 # to be able to run non-trivial tests
