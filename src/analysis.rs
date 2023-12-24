@@ -4,7 +4,7 @@ use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_context::EvalContext;
 use crate::mc_utils::{collect_unique_hctl_vars, get_extended_symbolic_graph};
 use crate::preprocessing::parser::parse_hctl_formula;
-use crate::preprocessing::utils::check_props_and_rename_vars;
+use crate::preprocessing::utils::validate_props_and_rename_vars;
 use crate::result_print::*;
 
 use biodivine_lib_param_bn::BooleanNetwork;
@@ -41,7 +41,7 @@ pub fn analyse_formulae(
         print_if_allowed(format!("Parsed version:       {tree}"), print_op);
 
         let modified_tree =
-            check_props_and_rename_vars(tree, HashMap::new(), String::new(), &plain_context)?;
+            validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &plain_context)?;
         let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone()).len();
         print_if_allowed(format!("Modified version:     {modified_tree}"), print_op);
         print_if_allowed("-----".to_string(), print_op);
@@ -172,10 +172,12 @@ mod tests {
         ";
         let bn = BooleanNetwork::try_from(model).unwrap();
 
+        // try both versions with exhaustive results and without them (they execute different code)
+
         let formulae = vec!["!{x}: AG EF {x}".to_string(), "!{x}: AF {x}".to_string()];
         assert!(analyse_formulae(&bn, formulae, PrintOptions::WithProgress).is_ok());
 
-        let formula = "erk & fgfr & frs2 & ~shc".to_string(); // simple to avoid long prints
+        let formula = "erk & fgfr & ~shc".to_string(); // simple to avoid long prints
         assert!(analyse_formula(&bn, formula, PrintOptions::Exhaustive).is_ok());
     }
 }

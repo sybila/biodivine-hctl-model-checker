@@ -327,257 +327,21 @@ pub fn model_check_formula_unsafe_ex(
 }
 
 #[cfg(test)]
+/// Some basic tests for the model-checking procedure and corresponding utilities. Note that larger tests
+/// involving complex models and formulae are in module `_test_model_checking`.
 mod tests {
+
     use crate::mc_utils::get_extended_symbolic_graph;
-    use crate::model_checking::{
-        model_check_extended_formula, model_check_formula, model_check_formula_dirty,
-        model_check_formula_unsafe_ex, model_check_tree_dirty, parse_extended_and_validate,
-    };
+    use crate::model_checking::{model_check_formula, parse_extended_and_validate};
+    use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
-    use crate::postprocessing::sanitizing::sanitize_colored_vertices;
-    use crate::preprocessing::node::HctlTreeNode;
-    use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
-    use biodivine_lib_param_bn::BooleanNetwork;
-
-    // model FISSION-YEAST-2008
-    const MODEL_FISSION_YEAST: &str = r"
-targets,factors
-Cdc25, ((!Cdc2_Cdc13 & (Cdc25 & !PP)) | ((Cdc2_Cdc13 & (!Cdc25 & !PP)) | (Cdc2_Cdc13 & Cdc25)))
-Cdc2_Cdc13, (!Ste9 & (!Rum1 & !Slp1))
-Cdc2_Cdc13_A, (!Ste9 & (!Rum1 & (!Slp1 & (!Wee1_Mik1 & Cdc25))))
-PP, Slp1
-Rum1, ((!SK & (!Cdc2_Cdc13 & (!Rum1 & (!Cdc2_Cdc13_A & PP)))) | ((!SK & (!Cdc2_Cdc13 & (Rum1 & !Cdc2_Cdc13_A))) | ((!SK & (!Cdc2_Cdc13 & (Rum1 & (Cdc2_Cdc13_A & PP)))) | ((!SK & (Cdc2_Cdc13 & (Rum1 & (!Cdc2_Cdc13_A & PP)))) | (SK & (!Cdc2_Cdc13 & (Rum1 & (!Cdc2_Cdc13_A & PP))))))))
-SK, Start
-Slp1, Cdc2_Cdc13_A
-Start, false
-Ste9, ((!SK & (!Cdc2_Cdc13 & (!Ste9 & (!Cdc2_Cdc13_A & PP)))) | ((!SK & (!Cdc2_Cdc13 & (Ste9 & !Cdc2_Cdc13_A))) | ((!SK & (!Cdc2_Cdc13 & (Ste9 & (Cdc2_Cdc13_A & PP)))) | ((!SK & (Cdc2_Cdc13 & (Ste9 & (!Cdc2_Cdc13_A & PP)))) | (SK & (!Cdc2_Cdc13 & (Ste9 & (!Cdc2_Cdc13_A & PP))))))))
-Wee1_Mik1, ((!Cdc2_Cdc13 & (!Wee1_Mik1 & PP)) | ((!Cdc2_Cdc13 & Wee1_Mik1) | (Cdc2_Cdc13 & (Wee1_Mik1 & PP))))
-";
-
-    // model MAMMALIAN-CELL-CYCLE-2006
-    const MODEL_MAMMALIAN_CELL_CYCLE: &str = r"
-targets,factors
-v_Cdc20, v_CycB
-v_Cdh1, ((v_Cdc20 | (v_p27 & !v_CycB)) | !(((v_p27 | v_CycB) | v_CycA) | v_Cdc20))
-v_CycA, ((v_CycA & !(((v_Cdh1 & v_UbcH10) | v_Cdc20) | v_Rb)) | (v_E2F & !(((v_Cdh1 & v_UbcH10) | v_Cdc20) | v_Rb)))
-v_CycB, !(v_Cdc20 | v_Cdh1)
-v_CycE, (v_E2F & !v_Rb)
-v_E2F, ((v_p27 & !(v_CycB | v_Rb)) | !(((v_p27 | v_Rb) | v_CycB) | v_CycA))
-v_Rb, ((v_p27 & !(v_CycD | v_CycB)) | !((((v_CycE | v_p27) | v_CycB) | v_CycD) | v_CycA))
-v_UbcH10, (((((v_UbcH10 & ((v_Cdh1 & ((v_CycB | v_Cdc20) | v_CycA)) | !v_Cdh1)) | (v_CycA & !v_Cdh1)) | (v_Cdc20 & !v_Cdh1)) | (v_CycB & !v_Cdh1)) | !((((v_UbcH10 | v_Cdh1) | v_CycB) | v_Cdc20) | v_CycA))
-v_p27, ((v_p27 & !((v_CycD | (v_CycA & v_CycE)) | v_CycB)) | !((((v_CycE | v_p27) | v_CycB) | v_CycD) | v_CycA))
-";
-
-    // largely parametrized version of the model ASYMMETRIC-CELL-DIVISION-B
-    const MODEL_ASYMMETRIC_CELL_DIVISION: &str = r"
-DivJ -?? DivK
-PleC -?? DivK
-DivK -?? DivL
-DivL -?? CckA
-CckA -?? ChpT
-ChpT -?? CpdR
-CpdR -?? ClpXP_RcdA
-ChpT -?? CtrAb
-ClpXP_RcdA -?? CtrAb
-DivK -?? DivJ
-PleC -?? DivJ
-DivK -?? PleC
-$CckA: DivL
-$ChpT: CckA
-$DivK: (!PleC & DivJ)
-";
-
-    /// Run the evaluation tests for the set of given formulae on given model.
-    /// Compare numbers of results with the expected numbers given.
-    /// The `test_tuples` consist of tuples <formula, num_total, num_colors, num_states>.
-    fn test_model_check_basic_formulae(
-        test_tuples: Vec<(&str, f64, f64, f64)>,
-        bn: BooleanNetwork,
-    ) {
-        // test formulae use 3 HCTL vars at most
-        let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
-
-        for (formula, num_total, num_colors, num_states) in test_tuples {
-            let result = model_check_formula(formula.to_string(), &stg).unwrap();
-            assert_eq!(num_total, result.approx_cardinality());
-            assert_eq!(num_colors, result.colors().approx_cardinality());
-            assert_eq!(num_states, result.vertices().approx_cardinality());
-
-            let result = model_check_formula_dirty(formula.to_string(), &stg).unwrap();
-            assert_eq!(num_total, result.approx_cardinality());
-            assert_eq!(num_colors, result.colors().approx_cardinality());
-            assert_eq!(num_states, result.vertices().approx_cardinality());
-        }
-    }
-
     #[test]
-    /// Test evaluation of several important formulae on model FISSION-YEAST-2008.
-    /// Compare numbers of results with the numbers acquired by Python model checker or AEON.
-    fn test_model_check_basic_formulae_yeast() {
-        // tuples consisting of <formula, num_total, num_colors, num_states>
-        // num_x are numbers of expected results
-        let test_tuples = vec![
-            ("!{x}: AG EF {x}", 12., 1., 12.),
-            ("!{x}: AX {x}", 12., 1., 12.),
-            ("!{x}: AX EF {x}", 68., 1., 68.),
-            ("AF (!{x}: AX {x})", 60., 1., 60.),
-            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 12., 1., 12.),
-            ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 11., 1., 11.),
-            ("!{x}: (AX (AF {x}))", 12., 1., 12.),
-            ("AF (!{x}: (AX (~{x} & AF {x})))", 0., 0., 0.),
-            ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 0., 0., 0.),
-            // TODO: more tests regarding formulae for inference using concrete observations
-        ];
-
-        // model is in bnet format
-        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        test_model_check_basic_formulae(test_tuples, bn);
-    }
-
-    #[test]
-    /// Test evaluation of several important formulae on model MAMMALIAN-CELL-CYCLE-2006.
-    /// Compare numbers of results with the numbers acquired by Python model checker or AEON.
-    fn test_model_check_basic_formulae_mammal() {
-        // tuples consisting of <formula, num_total, num_colors, num_states>
-        // num_x are numbers of expected results
-        let test_tuples = vec![
-            ("!{x}: AG EF {x}", 113., 2., 113.),
-            ("!{x}: AX {x}", 1., 1., 1.),
-            ("!{x}: AX EF {x}", 425., 2., 425.),
-            ("AF (!{x}: AX {x})", 32., 1., 32.),
-            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 0., 0., 0.),
-            ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 0., 0., 0.),
-            ("!{x}: (AX (AF {x}))", 1., 1., 1.),
-            ("AF (!{x}: (AX (~{x} & AF {x})))", 0., 0., 0.),
-            ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 0., 0., 0.),
-            // TODO: more tests regarding formulae for inference using concrete observations
-        ];
-
-        // model is in bnet format
-        let bn = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
-        test_model_check_basic_formulae(test_tuples, bn);
-    }
-
-    #[test]
-    /// Test evaluation of several important formulae on model ASYMMETRIC-CELL-DIVISION-B.
-    /// Compare numbers of results with the numbers acquired by Python model checker or AEON.
-    fn test_model_check_basic_formulae_cell_division() {
-        // tuples consisting of <formula, num_total, num_colors, num_states>
-        // num_x are numbers of expected results
-        let test_tuples = vec![
-            ("!{x}: AG EF {x}", 1097728., 65536., 512.),
-            ("!{x}: AX {x}", 65536., 53248., 64.),
-            ("!{x}: AX EF {x}", 1499136., 65536., 512.),
-            ("AF (!{x}: AX {x})", 21430272., 53248., 512.),
-            ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 24576., 12288., 64.),
-            ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 24576., 12288., 48.),
-            ("!{x}: (AX (AF {x}))", 84992., 59392., 112.),
-            ("AF (!{x}: (AX (~{x} & AF {x})))", 49152., 6144., 128.),
-            ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 28672., 3584., 128.),
-            // TODO: more tests regarding formulae for inference using concrete observations
-        ];
-
-        // model is in aeon format
-        let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        test_model_check_basic_formulae(test_tuples, bn);
-    }
-
-    /// Test evaluation of pairs of equivalent formulae on given BN model.
-    /// Compare whether the results are the same.
-    fn test_model_check_formula_equivalences(bn: BooleanNetwork) {
-        // test formulae use 3 HCTL vars at most
-        let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
-
-        let equivalent_formulae_pairs = vec![
-            // constants
-            ("true", "~ false"),
-            // AU equivalence (where phi1 are attractors, and phi2 the rest)
-            (
-                "(~(!{x}:AG EF{x})) AU (!{x}:AG EF{x})",
-                "~EG~(!{x}:AG EF{x}) & ~(~(!{x}:AG EF{x}) EU (~(!{x}:AG EF{x}) & (!{x}:AG EF{x})))",
-            ),
-            // AU equivalence (where phi1 are fixed points, and phi2 the rest)
-            (
-                "(~(!{x}:AX{x})) AU (!{x}:AX{x})",
-                "~EG~(!{x}:AX{x}) & ~(~(!{x}:AX{x}) EU (~(!{x}:AX{x}) & (!{x}:AX{x})))",
-            ),
-            // formulae for attractors, one is evaluated directly through optimisation
-            ("!{x}: AG EF {x}", "!{x}: AG EF ({x} & {x})"),
-            // formulae for fixed-points, one is evaluated directly through optimisation
-            ("!{x}: AX {x}", "!{x}: AX ({x} & {x})"),
-            // formulae for fixed-points, but differently named variables
-            ("!{x}: AX {x}", "!{y}: AX {y}"),
-            // computation for one of these involves canonization and basic caching
-            ("!{x}: AX {x}", "(!{x}: AX {x}) & (!{y}: AX {y})"),
-            // AX equivalence
-            ("!{x}: AX {x}", "!{x}: ~EX ~{x}"),
-            // computation for one of these involves basic caching
-            ("!{x}: ((AG EF {x}) & (AG EF {x}))", "!{x}: AG EF {x}"),
-            // computation for one of these involves advanced canonized caching
-            ("!{x}: !{y}: ((AG EF {x}) & (AG EF {y}))", "!{x}: AG EF {x}"),
-            // different order of quantifiers
-            (
-                "3{x}: !{y}: ((AG EF {x}) & (AG EF {y}))",
-                "!{x}: 3{y}: ((AG EF {y}) & (AG EF {x}))",
-            ),
-            // AF equivalence
-            ("!{x}: AX AF {x}", "!{x}: AX ~EG ~{x}"),
-            // steady-states in bi-stable dynamics expressed in different ways (2 vs 3 variables)
-            (
-                "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})",
-                "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))",
-            ),
-            // quantifiers
-            (
-                "~(3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}))",
-                "V{x}: V{y}: (@{x}: {y} | ~(!{z}: AX {z})) | (@{y}: ~(!{z}: AX {z}))",
-            ),
-            // binder and forall equivalence v1
-            ("!{x}: AG EF {x}", "V{x}: ({x} => (AG EF {x}))"),
-            // binder and forall equivalence v2
-            ("!{x}: AX {x}", "V{x}: ({x} => (AX {x}))"),
-            // binder and forall equivalence v3
-            ("!{x}: AF {x}", "V{x}: ({x} => (AF {x}))"),
-        ];
-
-        for (formula1, formula2) in equivalent_formulae_pairs {
-            let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
-            let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
-            assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
-
-            let result1 = model_check_formula_dirty(formula1.to_string(), &stg).unwrap();
-            let result2 = model_check_formula_dirty(formula2.to_string(), &stg).unwrap();
-            assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
-        }
-    }
-
-    #[test]
-    /// Test evaluation of pairs of equivalent formulae on model FISSION-YEAST-2008.
-    fn test_model_check_equivalences_yeast() {
-        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        test_model_check_formula_equivalences(bn);
-    }
-
-    #[test]
-    /// Test evaluation of pairs of equivalent formulae on model MAMMALIAN-CELL-CYCLE-2006.
-    fn test_model_check_equivalences_mammal() {
-        let bn = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
-        test_model_check_formula_equivalences(bn);
-    }
-
-    #[test]
-    /// Test evaluation of pairs of equivalent formulae on model ASYMMETRIC-CELL-DIVISION-B.
-    fn test_model_check_equivalences_cell_division() {
-        let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        test_model_check_formula_equivalences(bn);
-    }
-
-    #[test]
-    /// Test that function errors correctly if graph does not support enough state variables.
-    fn test_model_check_error_1() {
+    /// Test that function errors correctly if graph object does not support enough state variables.
+    fn model_check_not_enough_symbolic_vars() {
+        // define any placeholder bn
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         // create symbolic graph supporting only one variable
-        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
         let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
 
         // define formula with two variables
@@ -587,9 +351,9 @@ $DivK: (!PleC & DivJ)
 
     #[test]
     /// Test that function errors correctly if formula contains free variables.
-    fn test_model_check_error_2() {
-        // create placeholder symbolic graph
-        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+    fn model_check_invalid_free_var() {
+        // create placeholder bn and symbolic graph
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // define formula that contains free variable
@@ -598,10 +362,10 @@ $DivK: (!PleC & DivJ)
     }
 
     #[test]
-    /// Test that function errors correctly if formula contains several times quantified vars.
-    fn test_model_check_error_3() {
-        // create placeholder symbolic graph
-        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+    /// Test that function errors correctly if some variable is quantified more than once in a sub-formula.
+    fn model_check_invalid_quantification() {
+        // create placeholder bn and symbolic graph
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // define formula with several times quantified var
@@ -610,333 +374,23 @@ $DivK: (!PleC & DivJ)
     }
 
     #[test]
-    /// Test that function errors correctly if formula contains invalid propositions.
-    fn test_model_check_error_4() {
-        // create placeholder symbolic graph
-        let bn = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
+    /// Test that function errors correctly if formula contains invalid propositions (not present in the BN).
+    fn model_check_invalid_proposition() {
+        // create placeholder bn with a single var `v1`, and corresponding symbolic graph
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
-        // define formula with invalid proposition
+        // define formula with an invalid proposition
         let formula = "AX invalid_proposition".to_string();
         assert!(model_check_formula(formula, &stg).is_err());
     }
 
     #[test]
-    /// Test evaluation of (very simple) extended formulae, where special propositions are
-    /// evaluated as various simple pre-computed sets.
-    fn test_model_check_extended_formulae_simple() {
-        let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
-
-        // 1) first test, only proposition substituted
-        let formula_v1 = "PleC & EF PleC".to_string();
-        let sub_formula = "PleC".to_string();
-        let formula_v2 = "%s% & EF %s%".to_string();
-
-        let result_v1 = model_check_formula(formula_v1, &stg).unwrap();
-        // use 'dirty' version to avoid sanitation (for BDD to retain all symbolic vars)
-        let result_sub = model_check_formula_dirty(sub_formula, &stg).unwrap();
-        let context_props = HashMap::from([("s".to_string(), result_sub)]);
-        let context_domains = HashMap::new();
-        let result_v2 =
-            model_check_extended_formula(formula_v2, &stg, &context_props, &context_domains)
-                .unwrap();
-        assert!(result_v1.as_bdd().iff(result_v2.as_bdd()).is_true());
-
-        // 2) second test, disjunction substituted
-        let formula_v1 = "EX (PleC | DivK)".to_string();
-        let sub_formula = "PleC | DivK".to_string();
-        let formula_v2 = "EX %s%".to_string();
-
-        let result_v1 = model_check_formula(formula_v1, &stg).unwrap();
-        // use 'dirty' version to avoid sanitation (for BDD to retain all symbolic vars)
-        let result_sub = model_check_formula_dirty(sub_formula, &stg).unwrap();
-        let context_props = HashMap::from([("s".to_string(), result_sub)]);
-        let context_domains = HashMap::new();
-        let result_v2 =
-            model_check_extended_formula(formula_v2, &stg, &context_props, &context_domains)
-                .unwrap();
-        assert!(result_v1.as_bdd().iff(result_v2.as_bdd()).is_true());
-    }
-
-    /// Test evaluation of extended HCTL formulae, in which `wild-card properties` can
-    /// represent already pre-computed results.
-    fn test_model_check_extended_formulae(bn: BooleanNetwork) {
-        let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
-
-        // the test is conducted on two different formulae
-
-        // first define and evaluate the two formulae normally in one step
-        let formula1 = "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))";
-        let formula2 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))";
-        let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
-        let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
-
-        // now precompute part of the formula, and then substitute it as `wild-card proposition`
-        let substitution_formula = "(!{z}: AX {z})";
-        // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
-        let raw_set = model_check_formula_dirty(substitution_formula.to_string(), &stg).unwrap();
-        let context_props = HashMap::from([("subst".to_string(), raw_set)]);
-        let context_domains = HashMap::new();
-
-        let formula1_v2 = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%)";
-        let formula2_v2 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & %subst%) & EF ({y} & %subst%) & AX (EF ({x} & %subst%) ^ EF ({y} & %subst%))";
-        let result1_v2 = model_check_extended_formula(
-            formula1_v2.to_string(),
-            &stg,
-            &context_props,
-            &context_domains,
-        )
-        .unwrap();
-        let result2_v2 = model_check_extended_formula(
-            formula2_v2.to_string(),
-            &stg,
-            &context_props,
-            &context_domains,
-        )
-        .unwrap();
-
-        assert!(result1.as_bdd().iff(result1_v2.as_bdd()).is_true());
-        assert!(result2.as_bdd().iff(result2_v2.as_bdd()).is_true());
-
-        // also double check that running "extended" evaluation on the original formula (without
-        // wild-card propositions) is the same as running the standard variant
-        let empty_context = HashMap::new();
-        let result1_v2 = model_check_extended_formula(
-            formula1.to_string(),
-            &stg,
-            &empty_context,
-            &empty_context,
-        )
-        .unwrap();
-        let result2_v2 = model_check_extended_formula(
-            formula2.to_string(),
-            &stg,
-            &empty_context,
-            &empty_context,
-        )
-        .unwrap();
-        assert!(result1.as_bdd().iff(result1_v2.as_bdd()).is_true());
-        assert!(result2.as_bdd().iff(result2_v2.as_bdd()).is_true());
-    }
-
-    #[test]
-    /// Test evaluation of extended HCTL formulae, in which `wild-card properties` can
-    /// represent already pre-computed results. Use all 3 pre-defined models.
-    fn test_model_check_extended_all_models() {
-        let bn1 = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        let bn2 = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
-        let bn3 = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-
-        test_model_check_extended_formulae(bn1);
-        test_model_check_extended_formulae(bn2);
-        test_model_check_extended_formulae(bn3);
-    }
-
-    fn make_random_boolean_trees(
-        num: u64,
-        height: u8,
-        bn: &BooleanNetwork,
-        seed: u64,
-    ) -> Vec<HctlTreeNode> {
-        let props: Vec<String> = bn
-            .variables()
-            .map(|var_id| bn.get_variable_name(var_id).clone())
-            .collect();
-
-        (0..num)
-            .map(|i| HctlTreeNode::new_random_boolean(height, &props, seed + i))
-            .collect()
-    }
-
-    #[test]
-    /// Test evaluation of extended HCTL formulae with restricted domains of quantified vars.
-    /// Use all 3 pre-defined models.
-    fn test_model_check_with_domains_all_models() {
-        // the 3 predefined models
-        let bn1 = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        let bn2 = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
-        let bn3 = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let bns = [bn1, bn2, bn3];
-
-        for bn in bns {
-            let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
-
-            // make a set of random boolean expression trees
-            let num_test_trees = 5;
-            let height_test_trees = 4;
-            let seed = 0;
-            let random_boolean_trees =
-                make_random_boolean_trees(num_test_trees, height_test_trees, &bn, seed);
-
-            for tree in random_boolean_trees {
-                // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
-                let raw_set = GraphColoredVertices::new(
-                    model_check_tree_dirty(tree, &stg)
-                        .unwrap()
-                        .vertices()
-                        .into_bdd(),
-                    stg.symbolic_context(),
-                );
-
-                let formulae_pairs = [
-                    ("3{x}:@{x}: %s% & AG EF{x}", "3{x} in %s%:@{x}:AG EF{x}"),
-                    ("V{x}:@{x}: %s% => AG EF{x}", "V{x} in %s%:@{x}:AG EF{x}"),
-                    ("!{x}: %s% & (AG EF {x})", "!{x} in %s%: AG EF {x}"),
-                ];
-
-                for (f, domain_f) in formulae_pairs {
-                    // eval the variant without domain first
-                    let ctx_props = HashMap::from([("s".to_string(), raw_set.clone())]);
-                    let ctx_doms = HashMap::new();
-                    let res =
-                        model_check_extended_formula(f.to_string(), &stg, &ctx_props, &ctx_doms)
-                            .unwrap();
-
-                    let ctx_props = HashMap::new();
-                    let ctx_doms = HashMap::from([("s".to_string(), raw_set.clone())]);
-                    let res_v2 = model_check_extended_formula(
-                        domain_f.to_string(),
-                        &stg,
-                        &ctx_props,
-                        &ctx_doms,
-                    )
-                    .unwrap();
-                    assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
-                }
-            }
-        }
-    }
-
-    #[test]
-    /// Test evaluation of extended HCTL formulae, with an empty domain.
-    fn test_model_check_empty_domain() {
-        let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
-
-        let formulae_pairs = [
-            ("3{x}: @{x}: false & (AX {x})", "3{x} in %s%: @{x}: AX {x}"),
-            ("V{x}: @{x}: false => (AX {x})", "V{x} in %s%: @{x}: AX {x}"),
-            ("!{x}: false & (AX {x})", "!{x} in %s%: (AX {x})"),
-        ];
-
-        let empty_set = stg.mk_empty_colored_vertices();
-        let context_domains = HashMap::from([("s".to_string(), empty_set)]);
-        let context_props = HashMap::new();
-
-        for (f, domain_f) in formulae_pairs {
-            // eval the variant without domain first
-            let res = model_check_formula(f.to_string(), &stg).unwrap();
-
-            let res_v2 = model_check_extended_formula(
-                domain_f.to_string(),
-                &stg,
-                &context_props,
-                &context_domains,
-            )
-            .unwrap();
-
-            assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
-        }
-    }
-
-    /// Test evaluation of pairs of equivalent pattern formulae on given BN model.
-    /// The patterns (wild-card propositions) are evaluated as raw sets specified by `context`.
-    fn test_model_check_pattern_equivalences_in_context(
-        stg: &SymbolicAsyncGraph,
-        context: HashMap<String, GraphColoredVertices>,
-    ) {
-        let equivalent_pattern_pairs = vec![
-            // AU equivalence
-            (
-                "(%p1%) AU (%p2%)",
-                "~EG~(%p2%) & ~(~%p2% EU (~%p2% & ~%p1%))",
-            ),
-            // AX equivalence
-            ("AX %p1%", "~EX ~%p1%"),
-            // AF equivalence
-            ("AF %p1%", "~EG ~%p1%"),
-            // quantifiers equivalence
-            ("~(3{x}: @{x}: %p1%)", "V{x}: @{x}: ~%p1%"),
-            // binder and forall equivalence v1
-            ("!{x}: %p1%", "V{x}: ({x} => %p1%)"),
-        ];
-
-        for (f1, f2) in equivalent_pattern_pairs {
-            let result1 =
-                model_check_extended_formula(f1.to_string(), stg, &context, &HashMap::new())
-                    .unwrap();
-            let result2 =
-                model_check_extended_formula(f2.to_string(), stg, &context, &HashMap::new())
-                    .unwrap();
-            assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
-        }
-    }
-
-    #[test]
-    /// Test evaluation of extended HCTL formulae with restricted domains of quantified vars.
-    /// Use all 3 pre-defined models.
-    fn test_model_check_pattern_equivalences() {
-        // the 3 predefined models
-        let bn1 = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        let bn2 = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
-        let bn3 = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let bns = [bn1, bn2, bn3];
-
-        for bn in bns {
-            let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
-
-            // make two sets of random boolean expression trees (we need context for 2 wild-cards)
-            let num_test_trees = 5;
-            let height_test_trees = 4;
-            let seed_1 = 100000;
-            let seed_2 = 200000;
-            let random_trees_1 =
-                make_random_boolean_trees(num_test_trees, height_test_trees, &bn, seed_1);
-            let random_trees_2 =
-                make_random_boolean_trees(num_test_trees, height_test_trees, &bn, seed_2);
-
-            for (tree_1, tree_2) in random_trees_1.into_iter().zip(random_trees_2) {
-                // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
-                let raw_set_1 = model_check_tree_dirty(tree_1, &stg).unwrap();
-                let raw_set_2 = model_check_tree_dirty(tree_2, &stg).unwrap();
-                let context = HashMap::from([
-                    ("p1".to_string(), raw_set_1.clone()),
-                    ("p2".to_string(), raw_set_2.clone()),
-                ]);
-                test_model_check_pattern_equivalences_in_context(&stg, context);
-            }
-        }
-    }
-
-    #[test]
-    /// Test that the (potentially unsafe) optimization works on several formulae where it
-    /// should be applicable without any loss of information.
-    fn test_model_check_unsafe_version() {
-        let bn1 = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
-        let bn2 = BooleanNetwork::try_from_bnet(MODEL_MAMMALIAN_CELL_CYCLE).unwrap();
-        let bn3 = BooleanNetwork::try_from_bnet(MODEL_FISSION_YEAST).unwrap();
-        let bns = vec![bn1, bn2, bn3];
-
-        for bn in bns {
-            let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
-            // use formula for attractors that won't be recognized as the "attractor pattern"
-            let formula = "!{x}: AG EF ({x} & {x})".to_string();
-            let result1 = model_check_formula(formula.clone(), &stg).unwrap();
-            // result of the unsafe eval must be sanitized
-            let result2 = sanitize_colored_vertices(
-                &stg,
-                &model_check_formula_unsafe_ex(formula.clone(), &stg).unwrap(),
-            );
-            assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
-        }
-    }
-
-    #[test]
-    /// Test that the helper function for parsing and validating extended formulae properly
-    /// discovers errors.
-    fn test_validation_extended_context() {
-        let bn = BooleanNetwork::try_from(MODEL_ASYMMETRIC_CELL_DIVISION).unwrap();
+    /// Test that the utility function for parsing and validating extended formulae can properly
+    /// discover errors (such as missing context for wild-cards or domains).
+    fn validate_extended_context() {
+        // create placeholder bn and symbolic graph
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // test situation where one substitution is missing

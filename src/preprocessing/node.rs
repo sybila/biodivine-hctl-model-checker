@@ -126,7 +126,8 @@ impl HctlTreeNode {
     }
 
     /// Create a new random tree containing Boolean operations and propositions. The `tree_height`
-    /// is the number of levels in the tree (so the number of leaves will be `2^tree_height`).
+    /// is the number of levels in the tree (not counting random negation nodes between each "level").
+    /// The number of leaves will be `2^tree_height`.
     pub fn new_random_boolean(
         tree_height: u8,
         propositions: &Vec<String>,
@@ -183,7 +184,7 @@ mod tests {
 
     #[test]
     /// Test creation, ordering, and display of HCTL tree nodes.
-    fn test_tree_nodes() {
+    fn tree_generating() {
         // formula containing all kinds of operators and terminals (even wild-card propositions)
         let formula1 = "!{x}: 3{y}: (@{x}: ~{y} & %subst% & True ^ v1)".to_string();
         // much shorter formula to generate shallower tree

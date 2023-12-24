@@ -1,7 +1,7 @@
 //! A small library regarding analysis of dynamic properties of Boolean networks through HCTL model checking.
 //! As of now, the library supports:
-//!  - Model-checking analysis of HCTL properties on a (partially specified) BNs.
-//!  - Various formulae preprocessing utilities, such as tokenizing, parsing, or some canonization.
+//!  - Model-checking analysis of HCTL properties on (partially specified) BNs.
+//!  - Various formulae pre-processing utilities, such as tokenizing, parsing, or canonization.
 //!  - Manipulation with abstract syntactic trees for HCTL formulae.
 //!  - Searching for common sub-formulae across multiple properties.
 //!  - Optimised evaluation for several patterns, such as various attractor types or reachability.
@@ -17,3 +17,7 @@ pub mod preprocessing;
 pub mod result_print;
 
 mod aeon;
+
+/// **(internal)** Several complex test scenarios for the model checking procedure.
+#[cfg(test)]
+mod _test_model_checking;

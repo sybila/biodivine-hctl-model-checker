@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     /// Test equivalent ways to generate EvalContext object.
-    fn test_eval_context_creation() {
+    fn generating_eval_context() {
         let formula = "!{x}: (AX {x} & AX {x})";
         let syntax_tree = parse_hctl_formula(formula).unwrap();
 
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     /// Test extension of the EvalContext with "pre-computed cache" regarding wild-card nodes and var domains.
-    fn test_eval_context_extension() {
+    fn eval_context_extending() {
         // prepare placeholder BN and STG
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();

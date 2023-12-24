@@ -8,7 +8,7 @@ use std::collections::HashMap;
 /// Checks that all vars in formula are quantified (exactly once) and props are valid BN variables.
 /// Renames hctl vars in the formula tree to canonical form - "x", "xx", ...
 /// Renames as many state-vars as possible to identical names, without changing the semantics.
-pub fn check_props_and_rename_vars(
+pub fn validate_props_and_rename_vars(
     orig_node: HctlTreeNode,
     mut mapping_dict: HashMap<String, String>,
     mut last_used_name: String,
@@ -42,18 +42,18 @@ pub fn check_props_and_rename_vars(
         // just dive one level deeper for unary nodes, and rename string
         NodeType::UnaryNode(op, child) => {
             let node =
-                check_props_and_rename_vars(*child, mapping_dict, last_used_name.clone(), ctx)?;
+                validate_props_and_rename_vars(*child, mapping_dict, last_used_name.clone(), ctx)?;
             Ok(HctlTreeNode::mk_unary_node(node, op))
         }
         // just dive deeper for binary nodes, and rename string
         NodeType::BinaryNode(op, left, right) => {
-            let node1 = check_props_and_rename_vars(
+            let node1 = validate_props_and_rename_vars(
                 *left,
                 mapping_dict.clone(),
                 last_used_name.clone(),
                 ctx,
             )?;
-            let node2 = check_props_and_rename_vars(*right, mapping_dict, last_used_name, ctx)?;
+            let node2 = validate_props_and_rename_vars(*right, mapping_dict, last_used_name, ctx)?;
             Ok(HctlTreeNode::mk_binary_node(node1, node2, op))
         }
         // hybrid nodes are more complicated
@@ -65,7 +65,7 @@ pub fn check_props_and_rename_vars(
                     // check that var is not already quantified (we dont allow that)
                     if mapping_dict.contains_key(var.as_str()) {
                         return Err(format!(
-                            "Variable {var} is quantified several times in one sub-formula"
+                            "Variable {var} is quantified several times in one sub-formula."
                         ));
                     }
                     last_used_name.push('x'); // this represents adding to stack
@@ -75,12 +75,17 @@ pub fn check_props_and_rename_vars(
             }
 
             // dive deeper
-            let node = check_props_and_rename_vars(
+            let node = validate_props_and_rename_vars(
                 *child,
                 mapping_dict.clone(),
                 last_used_name.clone(),
                 ctx,
             )?;
+
+            // if current operator is jump, make sure that it does not contain free var
+            if matches!(op, HybridOp::Jump) && !mapping_dict.contains_key(var.as_str()) {
+                return Err(format!("Variable {var} is free in `@{{{var}}}:`."));
+            }
 
             // rename the variable in the node
             let renamed_var = mapping_dict.get(var.as_str()).unwrap();
@@ -100,14 +105,14 @@ mod tests {
         parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula,
         parse_extended_formula, parse_hctl_formula,
     };
-    use crate::preprocessing::utils::check_props_and_rename_vars;
+    use crate::preprocessing::utils::validate_props_and_rename_vars;
     use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
     /// Compare tree for formula with automatically minimized state var number to the
     /// tree for the semantically same, but already minimized formula.
-    fn test_state_var_minimization(formula: &str, formula_minimized: &str) {
+    fn check_state_var_minimization(formula: &str, formula_minimized: &str) {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let ctx = SymbolicContext::new(&bn).unwrap();
@@ -123,30 +128,30 @@ mod tests {
 
     #[test]
     /// Test minimization of number of state variables and their renaming.
-    fn test_state_var_minimization_simple() {
+    fn state_var_minimization_simple() {
         let formula = "(!{x}: AG EF {x}) | (!{y}: !{x}: (AX {y} & AX {x})) | (!{z}: AG EF {z})";
         // same formula with already minimized vars
         let formula_minimized =
             "(!{x}: AG EF {x}) | (!{x}: !{xx}: (AX {x} & AX {xx})) | (!{x}: AG EF {x})";
 
-        test_state_var_minimization(formula, formula_minimized);
+        check_state_var_minimization(formula, formula_minimized);
     }
 
     #[test]
     /// Test minimization of number of state variables and their renaming.
-    fn test_state_var_minimization_complex() {
+    fn state_var_minimization_complex() {
         // conjunction of two semantically same formulae (for FORK states) that use different var names
         let formula = "(!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))) & (!{x1}: 3{y1}: (@{x1}: ~{y1} & (!{z1}: AX {z1})) & (@{y1}: (!{z1}: AX {z1})))";
         // same formula with already minimized vars
         let formula_minimized = "(!{x}: 3{xx}: (@{x}: ~{xx} & (!{xxx}: AX {xxx})) & (@{xx}: (!{xxx}: AX {xxx}))) & (!{x}: 3{xx}: (@{x}: ~{xx} & (!{xxx}: AX {xxx})) & (@{xx}: (!{xxx}: AX {xxx})))";
 
-        test_state_var_minimization(formula, formula_minimized);
+        check_state_var_minimization(formula, formula_minimized);
     }
 
     #[test]
     /// Test minimization of number of state variables and their renaming, but this time with
     /// formula containing wild-card propositions (to check they are not affected).
-    fn test_state_var_minimization_with_wild_cards() {
+    fn state_var_minimization_with_wild_cards() {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let ctx = SymbolicContext::new(&bn).unwrap();
@@ -163,7 +168,7 @@ mod tests {
 
     #[test]
     /// Test that function errors correctly if formula contains free variables.
-    fn test_check_vars_error_1() {
+    fn validation_error_free_vars() {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let ctx = SymbolicContext::new(&bn).unwrap();
@@ -171,13 +176,24 @@ mod tests {
         // define and parse formula with free variable
         let formula = "AX {x}";
         let tree = parse_hctl_formula(formula).unwrap();
+        let result = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx);
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap(), "Variable x is free.".to_string());
 
-        assert!(check_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
+        // define and parse formula with free variable in jump operator
+        let formula = "@{x}: v1";
+        let tree = parse_hctl_formula(formula).unwrap();
+        let result = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx);
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap(),
+            "Variable x is free in `@{x}:`.".to_string()
+        );
     }
 
     #[test]
     /// Test that function errors correctly if formula contains several times quantified vars.
-    fn test_check_vars_error_2() {
+    fn validation_error_invalid_quantification() {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let ctx = SymbolicContext::new(&bn).unwrap();
@@ -186,12 +202,12 @@ mod tests {
         let formula = "!{x}: !{x}: AX {x}";
         let tree = parse_hctl_formula(formula).unwrap();
 
-        assert!(check_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
+        assert!(validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
     }
 
     #[test]
     /// Test that function errors correctly if formula contains invalid propositions.
-    fn test_check_props_error_1() {
+    fn validation_error_invalid_propositions() {
         // define a placeholder bn with only 1 prop v1
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let ctx = SymbolicContext::new(&bn).unwrap();
@@ -200,6 +216,6 @@ mod tests {
         let formula = "AX invalid_proposition";
         let tree = parse_hctl_formula(formula).unwrap();
 
-        assert!(check_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
+        assert!(validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
     }
 }

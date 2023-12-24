@@ -5,7 +5,7 @@ use std::iter::Peekable;
 use std::str::Chars;
 
 /// Return a string representing the same subformula, but with canonized var names (var0, var1...).
-/// Param `subform_chars` must represent valid formula processed by `check_props_and_rename_vars`.
+/// Param `subform_chars` must represent valid formula processed by `validate_props_and_rename_vars`.
 /// Param `subform_chars` must include all PARENTHESES and must NOT contain excess spaces.
 /// For example, `(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))` is a valid input.
 /// Generally, any `node.subform_string` field should be OK to use.
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     /// Compare automatically canonized formula to the expected result.
-    fn test_canonization_simple() {
+    fn canonization_simple() {
         // two formulae that should have same canonization
         let sub_formula1 = "(AX{x})";
         let sub_formula2 = "(AX{xx})";
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     /// Compare automatically canonized formula to the expected result.
-    fn test_canonization_mediate() {
+    fn canonization_mediate() {
         // two formulae that should have same canonization
         let sub_formula1 = "(AX{x})&(AG(EF{xx}))";
         let sub_formula2 = "(AX{xx})&(AG(EF{xxx}))";
@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     /// Compare automatically canonized formula to the expected result.
-    fn test_canonization_complex() {
+    fn canonization_complex() {
         // two formulae that should have same canonization
         let sub_formula1 = "(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))";
         let sub_formula2 = "(3{xx}:(3{x}:((@{xx}:((~{x})&(AX{xx})))&(@{x}:(AX{x})))))";
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     /// Compare automatically canonized formulas that contains wild-card properties and restricted
     /// var domains to the expected result.
-    fn test_canonization_var_domains() {
+    fn canonization_with_domains() {
         let formula = "(!{x}in%d1%:({x}&%p1%))";
         let formula_canonized = "(!{var0}in%d1%:({var0}&%p1%))";
 

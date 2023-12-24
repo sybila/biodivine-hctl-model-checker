@@ -12,7 +12,7 @@ use crate::preprocessing::operator_enums::*;
 use crate::preprocessing::tokenizer::{
     try_tokenize_extended_formula, try_tokenize_formula, HctlToken,
 };
-use crate::preprocessing::utils::check_props_and_rename_vars;
+use crate::preprocessing::utils::validate_props_and_rename_vars;
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use std::collections::HashMap;
 
@@ -44,7 +44,7 @@ pub fn parse_and_minimize_hctl_formula(
     formula: &str,
 ) -> Result<HctlTreeNode, String> {
     let tree = parse_hctl_formula(formula)?;
-    let tree = check_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
+    let tree = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
     Ok(tree)
 }
 
@@ -56,7 +56,7 @@ pub fn parse_and_minimize_extended_formula(
     formula: &str,
 ) -> Result<HctlTreeNode, String> {
     let tree = parse_extended_formula(formula)?;
-    let tree = check_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
+    let tree = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
     Ok(tree)
 }
 
@@ -286,7 +286,7 @@ mod tests {
     #[test]
     /// Test whether several valid HCTL formulae are parsed without causing errors.
     /// Also check that the formula is saved correctly in the tree root.
-    fn test_parse_valid_formulae() {
+    fn parse_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}";
         let tree = parse_hctl_formula(valid1).unwrap();
         assert_eq!(tree.as_str(), "(!{x}: (AG (EF {x})))");
@@ -319,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_operator_priority() {
+    fn operator_priority() {
         assert_eq!(
             "(((((~a) ^ ((~b) & (~c))) | (~d)) => (~e)) <=> (~f))",
             parse_hctl_formula("~a ^ ~b & ~c | ~d => ~e <=> ~f")
@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_operator_associativity() {
+    fn operator_associativity() {
         assert_eq!(
             "(a & (b & c))",
             parse_hctl_formula("a & b & c").unwrap().as_str()
@@ -375,7 +375,7 @@ mod tests {
 
     #[test]
     /// Test parsing of several completely invalid HCTL formulae.
-    fn test_parse_invalid_formulae() {
+    fn parse_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EK {x}",
             "!{x}: p q",
@@ -399,7 +399,7 @@ mod tests {
 
     #[test]
     /// Test parsing several extended HCTL formulae.
-    fn test_parse_extended_formulae() {
+    fn parse_extended_formulae() {
         let formula = "(!{x}: AG EF {x}) & %p%";
         // parser for standard HCTL should fail, for extended succeed
         assert!(parse_hctl_formula(formula).is_err());

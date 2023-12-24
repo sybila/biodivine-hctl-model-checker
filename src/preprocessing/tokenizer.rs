@@ -362,7 +362,7 @@ mod tests {
     /// Test tokenization process on several valid HCTL formulae.
     /// Test both some important and meaningful formulae and formulae that include wide
     /// range of operators.
-    fn test_tokenize_valid_formulae() {
+    fn tokenize_valid_formulae() {
         // formula for attractors
         let valid1 = "!{x}: AG EF {x}".to_string();
         let tokens1 = try_tokenize_formula(valid1).unwrap();
@@ -451,7 +451,7 @@ mod tests {
 
     #[test]
     /// Test tokenization process on HCTL formula with several whitespaces.
-    fn test_tokenize_formula_whitespaces() {
+    fn tokenize_with_whitespaces() {
         let valid_formula = " !   {x}   :  AG  EF    {x} ";
         assert!(try_tokenize_formula(valid_formula.to_string()).is_ok())
     }
@@ -459,7 +459,7 @@ mod tests {
     #[test]
     /// Test tokenization process on several invalid HCTL formulae.
     /// Try to cover wide range of invalid possibilities, as well as potential frequent mistakes.
-    fn test_tokenize_invalid_formulae() {
+    fn tokenize_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EF {x<&}",
             "!{x}: A* EF {x}",
@@ -489,7 +489,7 @@ mod tests {
     #[test]
     /// Test tokenization process on several extended HCTL formulae containing
     /// `wild-card propositions` or `variable domains`.
-    fn test_tokenize_extended_formulae() {
+    fn tokenize_extended_formulae() {
         let formula1 = "p & %p%";
         // tokenizer for standard HCTL should fail, for extended succeed
         assert!(try_tokenize_formula(formula1.to_string()).is_err());
@@ -548,7 +548,7 @@ mod tests {
 
     #[test]
     /// Test tokenization process on an extended HCTL formula with several whitespaces.
-    fn test_tokenize_extended_whitespaces() {
+    fn tokenize_extended_with_whitespaces() {
         let valid_formula = " !   {x}   in  %d%  :  AF   %u%   ";
         assert!(try_tokenize_extended_formula(valid_formula.to_string()).is_ok())
     }
@@ -556,13 +556,15 @@ mod tests {
     #[test]
     /// Test tokenization process on several invalid extended HCTL formulae.
     /// Try to cover wide range of invalid possibilities, as well as potential frequent mistakes.
-    fn test_tokenize_invalid_extended_formulae() {
+    fn tokenize_invalid_extended() {
         let invalid_formulae = vec![
             "!{x} in: AG EF {x}",
             "!{x} i %d%: AG EF {x}",
             "!{x} in %%: AG EF {x}",
             "!{x} %d%: AG EF {x}",
+            "!{x} in abc: AG EF {x}",
             "!{} in %d%: AG EF {x}",
+            "3{x}: @{x} in %s%: AG EF {x}",
             "%%",
             "%ddd %",
             "%ddd*%",

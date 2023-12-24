@@ -128,7 +128,7 @@ mod tests {
     use crate::preprocessing::parser::{
         parse_and_minimize_hctl_formula, parse_extended_formula, parse_hctl_formula,
     };
-    use crate::preprocessing::utils::check_props_and_rename_vars;
+    use crate::preprocessing::utils::validate_props_and_rename_vars;
 
     use biodivine_lib_param_bn::BooleanNetwork;
 
@@ -159,7 +159,7 @@ mod tests {
 
         // and for tree with minimized number of renamed state vars
         let modified_tree =
-            check_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).unwrap();
+            validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).unwrap();
         let expected_vars =
             HashSet::from_iter(vec!["x".to_string(), "xx".to_string(), "xxx".to_string()]);
         assert_eq!(collect_unique_hctl_vars(modified_tree), expected_vars);
