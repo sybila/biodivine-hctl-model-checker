@@ -88,21 +88,24 @@ The operator precedence is following (the lower, the stronger):
 
 However, it is strongly recommended to use parentheses wherever possible to prevent any parsing issues.
 
-#### Wild-card properties
+### Extended formulae
 
-The library also provides functions to model check extended formulae that contain so called "wild-card propositions".
-These special propositions are evaluated as an arbitrary (coloured) set given by the user.
+#### Wild-card propositions
+
+The library also provides functions to model check "extended" formulae that contain so called "wild-card propositions".
+These special propositions are evaluated as an arbitrary (coloured) set of states provided by the user.
 This allows the re-use of already pre-computed results in subsequent computations.
 In formulae, the syntax of these propositions is `%property_name%`.
 
-#### Restricting domains of variables
+#### Restricting domains of quantified variables
 
-You can directly restrict a domain of any quantified variable in a following manner:
+You can also directly restrict a domain of any quantified variable in a following manner:
 * `!{x} in %domain%:`
 
 The domain is treated similar as a "wild-card proposition" (see above).
-During the computation, the user then provides an arbitrary (coloured) set that will be used as the domain for the variable.
-This directly restricts the domain of every `{x}` encountered during bottom-up computation (makes formula more readable and speeds up the computation).
+During the computation, the user provides an arbitrary set of states that will be used as the domain for the variable (the variable may only take the value of states from that set).
+
+This way the user can directly restrict the domain of every `{x}` encountered during bottom-up computation (makes formula more readable and speeds up the computation).
 
 The following equivalences hold:
 * `!{x} in %A%: phi` = `!{x}: %A% & phi`
