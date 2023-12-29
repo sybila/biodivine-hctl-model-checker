@@ -31,13 +31,23 @@ struct Arguments {
     /// Path to a file with formulae to check.
     formulae_path: String,
 
-    /// Format of the BN model.
+    /// Format of the BN model. Default is `aeon`.
     #[clap(short, long, default_value = "aeon", value_parser = PossibleValuesParser::new(["aeon", "sbml", "bnet"]))]
     model_format: String,
 
     /// Choice of the amount of output regarding computation and results.
+    /// Default is just an aggregated information regarding the number of satisfying states/colors
     #[clap(short, long, default_value = "summary", value_parser = PossibleValuesParser::new(["no-print", "summary", "with-progress", "exhaustive"]))]
     print_option: String,
+
+    /// Model-check extended formula (that may contain wild-card propositions and variable domains) by providing
+    /// a path to zip bundle of BDDs specifying context of wild-cards.
+    #[clap(short, long)]
+    extended_formulae: Option<String>,
+
+    /// Path to the zip with resulting BDD dumps. If not specified, only selected summary is printed.
+    #[clap(short, long)]
+    output_bundle: Option<String>,
 }
 
 /// Wrapper function to invoke the model checker, works with CLI arguments.

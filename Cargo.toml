@@ -31,3 +31,4 @@ biodivine-lib-param-bn = ">=0.5.1, <1.0.0"
 clap = { version = "4.1.4", features = ["derive"] }
 rand = "0.8.5"
 termcolor = "1.1.2"
+zip = "0.6.3"

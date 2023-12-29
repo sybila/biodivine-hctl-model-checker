@@ -8,15 +8,15 @@
 //!  - Simultaneous evaluation of several formulae, sharing common computation via cache.
 //!
 
+mod _aeon_algorithms;
 pub mod analysis;
 pub mod evaluation;
+pub mod generate_output;
 pub mod mc_utils;
 pub mod model_checking;
 pub mod postprocessing;
 pub mod preprocessing;
 pub mod result_print;
-
-mod _aeon_algorithms;
 
 /// **(internal)** Several complex test scenarios for the model checking procedure.
 #[cfg(test)]
