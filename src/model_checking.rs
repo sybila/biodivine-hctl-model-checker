@@ -86,7 +86,7 @@ pub fn model_check_tree(
 
 /// Parse given HCTL formulae into syntactic trees and perform compatibility check with
 /// the provided `graph` (i.e., check if `graph` object supports enough symbolic variables).
-fn parse_hctl_and_validate(
+fn parse_and_validate(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<HctlTreeNode>, String> {
@@ -111,7 +111,7 @@ pub fn model_check_multiple_formulae(
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees
-    let parsed_trees = parse_hctl_and_validate(formulae, graph)?;
+    let parsed_trees = parse_and_validate(formulae, graph)?;
     // run the main model-checking procedure on formulae trees
     model_check_multiple_trees(parsed_trees, graph)
 }
@@ -123,7 +123,7 @@ pub fn model_check_multiple_formulae_dirty(
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees
-    let parsed_trees = parse_hctl_and_validate(formulae, graph)?;
+    let parsed_trees = parse_and_validate(formulae, graph)?;
     // run the main model-checking procedure on formulae trees
     model_check_multiple_trees_dirty(parsed_trees, graph)
 }
@@ -151,7 +151,7 @@ pub fn model_check_formula_dirty(
 
 /// Parse given extended HCTL formulae into syntactic trees and perform compatibility check with
 /// the provided `graph` (i.e., check if `graph` object supports enough symbolic variables).
-fn parse_extended_and_validate(
+fn parse_and_validate_extended(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
     subst_context_props: &HashMap<String, GraphColoredVertices>,
@@ -207,7 +207,7 @@ pub fn model_check_multiple_extended_formulae_dirty(
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees and check compatibility with graph
     let parsed_trees =
-        parse_extended_and_validate(formulae, stg, subst_context_props, subst_context_domains)?;
+        parse_and_validate_extended(formulae, stg, subst_context_props, subst_context_domains)?;
 
     // prepare the extended evaluation context
 
@@ -313,7 +313,7 @@ pub fn model_check_formula_unsafe_ex(
     formula: String,
     graph: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
-    let tree = parse_hctl_and_validate(vec![formula], graph)?[0].clone();
+    let tree = parse_and_validate(vec![formula], graph)?[0].clone();
 
     let mut eval_info = EvalContext::from_single_tree(&tree);
     // do not consider self-loops during EX computation (UNSAFE optimisation)
@@ -332,7 +332,7 @@ pub fn model_check_formula_unsafe_ex(
 mod tests {
 
     use crate::mc_utils::get_extended_symbolic_graph;
-    use crate::model_checking::{model_check_formula, parse_extended_and_validate};
+    use crate::model_checking::{model_check_formula, parse_and_validate_extended};
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
 
@@ -397,7 +397,7 @@ mod tests {
         let sub_context_props = HashMap::from([("s".to_string(), stg.mk_empty_colored_vertices())]);
         let sub_context_domains = HashMap::new();
         let formula = "%s% & EF %t%".to_string();
-        let res = parse_extended_and_validate(
+        let res = parse_and_validate_extended(
             vec![formula],
             &stg,
             &sub_context_props,
@@ -414,7 +414,7 @@ mod tests {
         let sub_context_domains =
             HashMap::from([("a".to_string(), stg.mk_empty_colored_vertices())]);
         let formula = "!{x} in %a%: !{y} in %b%: AX {x}".to_string();
-        let res = parse_extended_and_validate(
+        let res = parse_and_validate_extended(
             vec![formula],
             &stg,
             &sub_context_props,

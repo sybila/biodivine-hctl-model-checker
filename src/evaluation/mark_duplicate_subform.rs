@@ -67,9 +67,6 @@ impl Ord for NodeWithDomains<'_> {
 /// Note that except for wild-card properties, the terminal nodes (props, vars, constants)
 /// are not considered.
 pub fn mark_duplicates_canonized_multiple(root_nodes: &Vec<HctlTreeNode>) -> HashMap<String, i32> {
-    // TODO: check and test if addition of restricted var domains does not break things
-    // TODO: we must check that duplicates share var domains (in case that they contain free vars) - done?
-
     // go through each tree from top, use height to compare only the nodes with the same level
     // once we find duplicate, do not continue traversing its branch (it will be skipped during eval)
 
@@ -285,6 +282,14 @@ mod tests {
         // example with sub-formulae that cannot be duplicate due to domains
         let formula = "(!{x} in %d1%: AG EF {x}) & AX (!{x} in %d2%: AG EF {x}) & v1";
         let expected_duplicates = HashMap::new();
+        let tree = parse_and_minimize_extended_formula(&ctx, formula).unwrap();
+        let duplicates = mark_duplicates_canonized_single(&tree);
+        assert_eq!(duplicates, expected_duplicates);
+
+        // example combining the cases when the same sub-formulae are and are not duplicate (due to domains)
+        let formula =
+            "(!{x} in %s1%: AX {x}) & (!{x} in %s1%: (!{y} in %s2%: (AX {y}) & (AX {x})))";
+        let expected_duplicates = HashMap::from([("(AX {var0})".to_string(), 1)]);
         let tree = parse_and_minimize_extended_formula(&ctx, formula).unwrap();
         let duplicates = mark_duplicates_canonized_single(&tree);
         assert_eq!(duplicates, expected_duplicates);

@@ -12,13 +12,14 @@ use std::collections::HashMap;
 /// Struct holding information for efficient caching during the main computation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EvalContext {
-    /// Duplicate sub-formulae and their counter
+    /// Remaining duplicate sub-formulae and their counter.
     pub duplicates: HashMap<String, i32>,
-    /// Cached sub-formulae and their result + corresponding mapping of variable renaming
+    /// Mapping between cached sub-formulae and their corresponding tuple of 1) the resulting relation, 2) mapping from
+    /// variable names of the sub-formula to their canonical form.
     pub cache: HashMap<String, (GraphColoredVertices, HashMap<String, String>)>,
     /// Similar to cache, but this time just mapping the name of var domain to the raw set.
     /// Var domain bdd must not depend on any symbolic variables, thus needs no renaming.
-    pub var_domains: HashMap<String, GraphColoredVertices>,
+    pub domain_sets: HashMap<String, GraphColoredVertices>,
 }
 
 impl EvalContext {
@@ -27,7 +28,7 @@ impl EvalContext {
         EvalContext {
             duplicates,
             cache: HashMap::new(),
-            var_domains: HashMap::new(),
+            domain_sets: HashMap::new(),
         }
     }
 
@@ -36,7 +37,7 @@ impl EvalContext {
         EvalContext {
             duplicates: mark_duplicates_canonized_single(tree),
             cache: HashMap::new(),
-            var_domains: HashMap::new(),
+            domain_sets: HashMap::new(),
         }
     }
 
@@ -45,7 +46,7 @@ impl EvalContext {
         EvalContext {
             duplicates: mark_duplicates_canonized_multiple(trees),
             cache: HashMap::new(),
-            var_domains: HashMap::new(),
+            domain_sets: HashMap::new(),
         }
     }
 
@@ -54,14 +55,14 @@ impl EvalContext {
         self.duplicates.clone()
     }
 
-    /// Get the cache field containing the cached sub-formulae, their result and var renaming.
+    /// Get the copy of the `cache` field containing the cached sub-formulae, their result and var renaming.
     pub fn get_cache(&self) -> HashMap<String, (GraphColoredVertices, HashMap<String, String>)> {
         self.cache.clone()
     }
 
-    /// Get the var_domains field containing the cached domain names and the raw sets.
+    /// Get the copy of the `domain_sets` field containing the cached domain names and the raw sets.
     pub fn get_var_domains(&self) -> HashMap<String, GraphColoredVertices> {
-        self.var_domains.clone()
+        self.domain_sets.clone()
     }
 
     /// Extend the standard evaluation context with two kinds of "pre-computed cache" regarding
@@ -71,7 +72,7 @@ impl EvalContext {
     /// directly to the `cache` field.
     ///
     /// `subst_context_domains` describes context of `variable domains` and is put into the
-    /// `var_domains` field.
+    /// `domain_sets` field.
     pub fn extend_context_with_wild_cards(
         &mut self,
         subst_context_properties: &HashMap<String, GraphColoredVertices>,
@@ -100,7 +101,7 @@ impl EvalContext {
 
         // For each `domain` in `subst_context_domains`, just put it inside domains.
         for (domain_name, raw_set) in subst_context_domains.iter() {
-            self.var_domains
+            self.domain_sets
                 .insert(domain_name.clone(), raw_set.clone());
         }
     }

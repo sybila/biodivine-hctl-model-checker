@@ -5,18 +5,17 @@ use std::iter::Peekable;
 use std::str::Chars;
 
 /// Return a string representing the same subformula, but with canonized var names (var0, var1...).
-/// Param `subform_chars` must represent valid formula processed by `validate_props_and_rename_vars`.
-/// Param `subform_chars` must include all PARENTHESES and must NOT contain excess spaces.
+///
+/// Param `subform_chars` must represent valid formula processed by `validate_props_and_rename_vars`. For instance,
+/// the formula must include parentheses at all places where they are needed.
 /// For example, `(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))` is a valid input.
-/// Generally, any `node.subform_string` field should be OK to use.
+/// Generally, any `formula_str` field of `HctlTreeNode` should have the right format.
 pub fn canonize_subform(
     mut subform_chars: Peekable<Chars>,
     mut mapping_dict: HashMap<String, String>,
     mut canonical: String,
     mut stack_len: i32,
 ) -> (Peekable<Chars>, String, HashMap<String, String>, i32) {
-    // TODO check if addition of restricted var domains does not break things
-
     while let Some(ch) = subform_chars.next() {
         let mut should_return = false;
         match ch {

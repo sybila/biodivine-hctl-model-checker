@@ -186,7 +186,7 @@ pub fn eval_node(
                 }
                 Some(domain) => {
                     // get a domain set from EvalContext, can use unwrap as it is previously checked
-                    let domain_set = eval_context.var_domains.get(domain.as_str()).unwrap();
+                    let domain_set = eval_context.domain_sets.get(domain.as_str()).unwrap();
 
                     // check edge case of an empty domain (in that case we cannot restrict the domain,
                     // there would be an error)
