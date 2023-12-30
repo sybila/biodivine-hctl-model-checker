@@ -1,5 +1,7 @@
 use crate::_test_model_checking::_test_util::make_random_boolean_trees;
-use crate::_test_model_checking::{MODEL_CELL_CYCLE, MODEL_CELL_DIVISION, MODEL_YEAST};
+use crate::_test_model_checking::{
+    MODEL_CELL_CYCLE, MODEL_CELL_DIVISION, MODEL_YEAST, NUM_FUZZING_CASES,
+};
 use crate::mc_utils::get_extended_symbolic_graph;
 use crate::model_checking::{
     model_check_extended_formula, model_check_formula, model_check_tree_dirty,
@@ -22,8 +24,7 @@ fn model_check_with_domains() {
 
         // make a set of random boolean expression trees (will be used to get 'random' set of states for the domain)
 
-        // for now, the number of tree is low (to make github action tests swift), but it was tested on larger set
-        let num_test_trees = 2;
+        let num_test_trees = NUM_FUZZING_CASES;
         let height_test_trees = 4;
         let seed = 0;
         let random_boolean_trees =
@@ -50,9 +51,13 @@ fn model_check_with_domains() {
                 // eval the variant with a domain
                 let ctx_props = HashMap::new();
                 let ctx_doms = HashMap::from([("s".to_string(), raw_set.clone())]);
-                let res_v2 =
-                    model_check_extended_formula(f_with_domain.to_string(), &stg, &ctx_props, &ctx_doms)
-                        .unwrap();
+                let res_v2 = model_check_extended_formula(
+                    f_with_domain.to_string(),
+                    &stg,
+                    &ctx_props,
+                    &ctx_doms,
+                )
+                .unwrap();
                 assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
             }
         }

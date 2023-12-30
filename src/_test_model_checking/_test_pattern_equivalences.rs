@@ -1,5 +1,7 @@
 use crate::_test_model_checking::_test_util::make_random_boolean_trees;
-use crate::_test_model_checking::{MODEL_CELL_CYCLE, MODEL_CELL_DIVISION, MODEL_YEAST};
+use crate::_test_model_checking::{
+    MODEL_CELL_CYCLE, MODEL_CELL_DIVISION, MODEL_YEAST, NUM_FUZZING_CASES,
+};
 use crate::mc_utils::get_extended_symbolic_graph;
 use crate::model_checking::{model_check_extended_formula, model_check_tree_dirty};
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
@@ -53,7 +55,7 @@ fn model_check_equivalent_patterns() {
         // make two sets of random boolean expression trees (we need context for 2 wild-cards)
 
         // for now, the number of tree is low (to make github action tests swift), but it was tested on larger set
-        let num_test_trees = 2;
+        let num_test_trees = NUM_FUZZING_CASES;
         let height_test_trees = 4;
         let seed_1 = 100000;
         let seed_2 = 200000;

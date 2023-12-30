@@ -1,20 +1,19 @@
 //! Contains the high-level model-checking algorithm and few optimisations.
 
 use crate::_aeon_algorithms::scc_computation::compute_attractor_states;
-use crate::evaluation::canonization::get_canonical_and_mapping;
+use crate::evaluation::canonization::get_canonical_and_renaming;
 use crate::evaluation::eval_context::EvalContext;
 use crate::evaluation::hctl_operators_eval::*;
 use crate::evaluation::low_level_operations::{
     compute_valid_domain_for_var, restrict_stg_unit_bdd, substitute_hctl_var,
 };
+use crate::evaluation::{VarDomainMap, VarRenameMap};
 use crate::preprocessing::hctl_tree::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::*;
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::fixed_points::FixedPoints;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
-
-use std::collections::{BTreeMap, HashMap};
 
 /// Recursively evaluate the formula represented by a sub-tree `node` on the given `graph`.
 ///
@@ -32,11 +31,11 @@ pub fn eval_node(
     let mut save_to_cache = false;
 
     // get canonized form of this sub-formula, and mapping between original and canonized variable names
-    let (canonized_form, renaming) = get_canonical_and_mapping(node.to_string());
+    let (canonized_form, renaming) = get_canonical_and_renaming(node.to_string());
     // rename the variables in the domain map to their canonical form (duplicate formulae are always canonical)
     // only include the FREE canonical variables that are actually contained in the sub-formula
     // example: given "!{x}:!{y}: (AX {y})", its sub-formula "AX {x}" would have one "None" domain for "var0"
-    let mut canonical_domains: BTreeMap<String, Option<String>> = BTreeMap::new();
+    let mut canonical_domains: VarDomainMap = VarDomainMap::new();
     for (variable, domain) in &eval_context.free_var_domains {
         if renaming.contains_key(variable) {
             canonical_domains.insert(renaming.get(variable).unwrap().clone(), domain.clone());
@@ -49,7 +48,10 @@ pub fn eval_node(
         .duplicates
         .contains_key(&canonized_formula_with_domains)
     {
-        if eval_context.cache.contains_key(&canonized_formula_with_domains) {
+        if eval_context
+            .cache
+            .contains_key(&canonized_formula_with_domains)
+        {
             // decrement number of duplicates left
             *eval_context
                 .duplicates
@@ -66,12 +68,14 @@ pub fn eval_node(
 
             // if we already visited all of the duplicates, lets delete the cached value
             if eval_context.duplicates[&canonized_formula_with_domains] == 0 {
-                eval_context.duplicates.remove(&canonized_formula_with_domains);
+                eval_context
+                    .duplicates
+                    .remove(&canonized_formula_with_domains);
                 eval_context.cache.remove(&canonized_formula_with_domains);
             }
 
             // since we are working with canonical cache, we might need to rename vars in result bdd
-            let mut reverse_renaming: HashMap<String, String> = HashMap::new();
+            let mut reverse_renaming: VarRenameMap = VarRenameMap::new();
             for (var_curr, var_canon) in renaming.iter() {
                 reverse_renaming.insert(var_canon.clone(), var_curr.clone());
             }
@@ -194,14 +198,22 @@ pub fn eval_node(
             // add the variable's domain to the eval context (the variable will be free in the sub-formulae)
             // only do this for quantifiers
             if !matches!(op.clone(), HybridOp::Jump) {
-                eval_context.free_var_domains.insert(var.clone(), maybe_domain.clone());
+                eval_context
+                    .free_var_domains
+                    .insert(var.clone(), maybe_domain.clone());
             }
 
             // two different options depending on if the quantified variable has restricted domain
             let res = match maybe_domain {
-                None => {
-                    eval_hybrid_node(graph, graph, eval_context, steady_states, op.clone(), var.clone(), *child)
-                }
+                None => eval_hybrid_node(
+                    graph,
+                    graph,
+                    eval_context,
+                    steady_states,
+                    op.clone(),
+                    var.clone(),
+                    *child,
+                ),
                 Some(domain) => {
                     // get a domain set from EvalContext, can use unwrap as it is previously checked
                     let domain_set = eval_context.domain_raw_sets.get(domain.as_str()).unwrap();

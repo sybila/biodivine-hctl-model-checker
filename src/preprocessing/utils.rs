@@ -6,11 +6,11 @@ use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use std::collections::HashMap;
 
 /// Checks that all vars in formula are quantified (exactly once) and props are valid BN variables.
-/// Renames hctl vars in the formula tree to canonical form - "x", "xx", ...
+/// Renames hctl vars in the formula tree to a canonical form - "x", "xx", ...
 /// Renames as many state-vars as possible to identical names, without changing the semantics.
 pub fn validate_props_and_rename_vars(
     orig_node: HctlTreeNode,
-    mut mapping_dict: HashMap<String, String>,
+    mut renaming_map: HashMap<String, String>,
     mut last_used_name: String,
     ctx: &SymbolicContext,
 ) -> Result<HctlTreeNode, String> {
@@ -22,10 +22,10 @@ pub fn validate_props_and_rename_vars(
         NodeType::TerminalNode(ref atom) => match atom {
             Atomic::Var(name) => {
                 // check that variable is not free (it must be already in mapping dict)
-                if !mapping_dict.contains_key(name.as_str()) {
+                if !renaming_map.contains_key(name.as_str()) {
                     return Err(format!("Variable {name} is free."));
                 }
-                let renamed_var = mapping_dict.get(name.as_str()).unwrap();
+                let renamed_var = renaming_map.get(name.as_str()).unwrap();
                 Ok(HctlTreeNode::mk_var_node(renamed_var.to_string()))
             }
             Atomic::Prop(name) => {
@@ -42,18 +42,18 @@ pub fn validate_props_and_rename_vars(
         // just dive one level deeper for unary nodes, and rename string
         NodeType::UnaryNode(op, child) => {
             let node =
-                validate_props_and_rename_vars(*child, mapping_dict, last_used_name.clone(), ctx)?;
+                validate_props_and_rename_vars(*child, renaming_map, last_used_name.clone(), ctx)?;
             Ok(HctlTreeNode::mk_unary_node(node, op))
         }
         // just dive deeper for binary nodes, and rename string
         NodeType::BinaryNode(op, left, right) => {
             let node1 = validate_props_and_rename_vars(
                 *left,
-                mapping_dict.clone(),
+                renaming_map.clone(),
                 last_used_name.clone(),
                 ctx,
             )?;
-            let node2 = validate_props_and_rename_vars(*right, mapping_dict, last_used_name, ctx)?;
+            let node2 = validate_props_and_rename_vars(*right, renaming_map, last_used_name, ctx)?;
             Ok(HctlTreeNode::mk_binary_node(node1, node2, op))
         }
         // hybrid nodes are more complicated
@@ -63,13 +63,13 @@ pub fn validate_props_and_rename_vars(
             match op {
                 HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
                     // check that var is not already quantified (we dont allow that)
-                    if mapping_dict.contains_key(var.as_str()) {
+                    if renaming_map.contains_key(var.as_str()) {
                         return Err(format!(
                             "Variable {var} is quantified several times in one sub-formula."
                         ));
                     }
                     last_used_name.push('x'); // this represents adding to stack
-                    mapping_dict.insert(var.clone(), last_used_name.clone());
+                    renaming_map.insert(var.clone(), last_used_name.clone());
                 }
                 _ => {}
             }
@@ -77,18 +77,18 @@ pub fn validate_props_and_rename_vars(
             // dive deeper
             let node = validate_props_and_rename_vars(
                 *child,
-                mapping_dict.clone(),
+                renaming_map.clone(),
                 last_used_name.clone(),
                 ctx,
             )?;
 
             // if current operator is jump, make sure that it does not contain free var
-            if matches!(op, HybridOp::Jump) && !mapping_dict.contains_key(var.as_str()) {
+            if matches!(op, HybridOp::Jump) && !renaming_map.contains_key(var.as_str()) {
                 return Err(format!("Variable {var} is free in `@{{{var}}}:`."));
             }
 
             // rename the variable in the node
-            let renamed_var = mapping_dict.get(var.as_str()).unwrap();
+            let renamed_var = renaming_map.get(var.as_str()).unwrap();
             Ok(HctlTreeNode::mk_hybrid_node(
                 node,
                 renamed_var.clone(),

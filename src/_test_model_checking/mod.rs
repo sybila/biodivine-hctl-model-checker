@@ -23,6 +23,11 @@ mod _test_variable_domains;
 /// **(internal)**  Utilities used in tests, such as generating sets of random formula trees.
 mod _test_util;
 
+/// In some cases, we do fuzzing tests using pseudo-random formulae/sets.
+/// This is number of such generated formulae in each of these tests.
+/// For now, the number is low to make github actions finish swiftly, but we ran tests with up to 1000.
+const NUM_FUZZING_CASES: u64 = 5;
+
 // model FISSION-YEAST-2008
 const MODEL_YEAST: &str = r"
 targets,factors
