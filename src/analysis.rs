@@ -9,42 +9,50 @@ use crate::result_print::*;
 
 use biodivine_lib_param_bn::BooleanNetwork;
 
-use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
+use crate::generate_output::build_result_archive;
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicContext};
 use std::collections::HashMap;
 use std::time::SystemTime;
 
 /// Perform the whole model checking analysis regarding several (individual) formulae. This
 /// comprises the complete process from the parsing to summarizing results).
+///
 /// Print the selected amount of result info (no prints / summary / detailed summary / exhaustive)
 /// for each formula.
+///
+/// If provided, dump the resulting BDDs to an zip archive.
 pub fn analyse_formulae(
     bn: &BooleanNetwork,
     formulae: Vec<String>,
-    print_op: PrintOptions,
+    print_opt: PrintOptions,
+    result_zip: Option<String>,
 ) -> Result<(), String> {
     let start = SystemTime::now();
     print_if_allowed(
         "============ INITIAL PHASE ============".to_string(),
-        print_op,
+        print_opt,
     );
 
     // first parse all the formulae and count max number of HCTL variables
     let mut parsed_trees = Vec::new();
     let mut max_num_hctl_vars = 0;
-    print_if_allowed(format!("Read {} HCTL formulae.", formulae.len()), print_op);
-    print_if_allowed("-----".to_string(), print_op);
+    print_if_allowed(format!("Read {} HCTL formulae.", formulae.len()), print_opt);
+    print_if_allowed("-----".to_string(), print_opt);
 
     let plain_context = SymbolicContext::new(bn).unwrap();
     for (i, formula) in formulae.iter().enumerate() {
-        print_if_allowed(format!("Original formula n.{}: {formula}", i + 1), print_op);
+        print_if_allowed(
+            format!("Original formula n.{}: {formula}", i + 1),
+            print_opt,
+        );
         let tree = parse_hctl_formula(formula.as_str())?;
-        print_if_allowed(format!("Parsed version:       {tree}"), print_op);
+        print_if_allowed(format!("Parsed version:       {tree}"), print_opt);
 
         let modified_tree =
             validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &plain_context)?;
         let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone()).len();
-        print_if_allowed(format!("Modified version:     {modified_tree}"), print_op);
-        print_if_allowed("-----".to_string(), print_op);
+        print_if_allowed(format!("Modified version:     {modified_tree}"), print_opt);
+        print_if_allowed("-----".to_string(), print_opt);
 
         parsed_trees.push(modified_tree);
         if num_hctl_vars > max_num_hctl_vars {
@@ -60,7 +68,7 @@ pub fn analyse_formulae(
             graph.num_vars(),
             graph.symbolic_context().num_parameter_variables()
         ),
-        print_op,
+        print_opt,
     );
     print_if_allowed(
         format!(
@@ -71,16 +79,16 @@ pub fn analyse_formulae(
                 .approx_cardinality(),
             graph.unit_colors().approx_cardinality(),
         ),
-        print_op,
+        print_opt,
     );
     print_if_allowed(
         format!(
             "Time to parse all formulae + build STG: {}ms.",
             start.elapsed().unwrap().as_millis()
         ),
-        print_op,
+        print_opt,
     );
-    print_if_allowed("-----".to_string(), print_op);
+    print_if_allowed("-----".to_string(), print_opt);
 
     // find duplicate sub-formulae throughout all formulae + initiate caching structures
     let mut eval_info = EvalContext::from_multiple_trees(&parsed_trees);
@@ -89,25 +97,27 @@ pub fn analyse_formulae(
             "Found following duplicate sub-formulae (canonized): {:?}",
             eval_info.get_duplicates()
         ),
-        print_op,
+        print_opt,
     );
-    print_if_allowed("-----".to_string(), print_op);
+    print_if_allowed("-----".to_string(), print_opt);
 
     // pre-compute states with self-loops which will be needed
     let self_loop_states = compute_steady_states(&graph);
     print_if_allowed(
         "Self-loops successfully pre-computed.\n".to_string(),
-        print_op,
+        print_opt,
     );
 
     print_if_allowed(
         "============= EVALUATION PHASE =============".to_string(),
-        print_op,
+        print_opt,
     );
+
     // evaluate the formulae (perform the actual model checking) and summarize results
+    let mut results: HashMap<String, GraphColoredVertices> = HashMap::new();
     for (i, parse_tree) in parsed_trees.iter().enumerate() {
         let formula = formulae[i].clone();
-        print_if_allowed(format!("Evaluating formula {}...", i + 1), print_op);
+        print_if_allowed(format!("Evaluating formula {}...", i + 1), print_opt);
         let curr_comp_start = SystemTime::now();
         let result = eval_node(
             parse_tree.clone(),
@@ -116,7 +126,7 @@ pub fn analyse_formulae(
             &self_loop_states,
         );
 
-        match print_op {
+        match print_opt {
             PrintOptions::Exhaustive => {
                 print_results_full(formula, &graph, &result, curr_comp_start, true)
             }
@@ -124,6 +134,20 @@ pub fn analyse_formulae(
             PrintOptions::JustSummary => summarize_results(formula, &result, curr_comp_start),
             PrintOptions::NoPrint => {}
         }
+        results.insert(format!("formula-{i}"), result);
+    }
+
+    // create the archive for the results (for now, there'll be just the model string)
+    if let Some(zip_path) = result_zip {
+        print_if_allowed(format!("Writing the results to {zip_path}.\n"), print_opt);
+        build_result_archive(
+            results,
+            zip_path.as_str(),
+            bn.to_string().as_str(),
+            formulae,
+        )
+        .map_err(|e| e.to_string())?;
+        print_if_allowed("Results successfully written.\n".to_string(), print_opt);
     }
 
     print_if_allowed(
@@ -131,7 +155,7 @@ pub fn analyse_formulae(
             "Total computation time: {}ms",
             start.elapsed().unwrap().as_millis()
         ),
-        print_op,
+        print_opt,
     );
     Ok(())
 }
@@ -139,13 +163,17 @@ pub fn analyse_formulae(
 #[allow(dead_code)]
 /// Perform the whole model checking analysis for a single formula (complete process from
 /// the parsing to summarizing results).
+///
 /// Print the selected amount of result info (no prints / summary / detailed summary / exhaustive).
+///
+/// If provided, dump the resulting BDDs to an zip archive.
 pub fn analyse_formula(
     bn: &BooleanNetwork,
     formula: String,
-    print_option: PrintOptions,
+    print_opt: PrintOptions,
+    result_zip: Option<String>,
 ) -> Result<(), String> {
-    analyse_formulae(bn, vec![formula], print_option)
+    analyse_formulae(bn, vec![formula], print_opt, result_zip)
 }
 
 #[cfg(test)]
@@ -175,9 +203,9 @@ mod tests {
         // try both versions with exhaustive results and without them (they execute different code)
 
         let formulae = vec!["!{x}: AG EF {x}".to_string(), "!{x}: AF {x}".to_string()];
-        assert!(analyse_formulae(&bn, formulae, PrintOptions::WithProgress).is_ok());
+        assert!(analyse_formulae(&bn, formulae, PrintOptions::WithProgress, None).is_ok());
 
         let formula = "erk & fgfr & ~shc".to_string(); // simple to avoid long prints
-        assert!(analyse_formula(&bn, formula, PrintOptions::Exhaustive).is_ok());
+        assert!(analyse_formula(&bn, formula, PrintOptions::Exhaustive, None).is_ok());
     }
 }

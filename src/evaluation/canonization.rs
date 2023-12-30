@@ -47,7 +47,7 @@ pub fn canonize_subform(
                     var_name.push(name_char);
                 }
 
-                // the rest of the quantifier-related characters (domain restriction, or ':') are
+                // the rest of the quantifier-related characters (domain label, or just ':') are
                 // handled as everything else in following iterations
 
                 // insert new mapping to dict and push it all to canonical string

@@ -2,7 +2,7 @@
 //! Several variants of the model-checking procedure are provided:
 //!  - variants for both single or multiple formulae
 //!  - variants for formulae given by a string or a syntactic tree
-//!  - `dirty` variants that do not sanitize the resulting BDDs (and thus, the BDDs retain additional vars)
+//!  - `dirty` variants that do not sanitize the resulting BDDs (and thus, the BDDs retain additional symbolic vars)
 //!  - variants allowing `extended` HCTL with special propositions referencing raw sets
 //!  - variants using potentially unsafe optimizations, targeted for specific use cases
 
@@ -18,11 +18,12 @@ use crate::preprocessing::parser::{
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use std::collections::HashMap;
 
-/// Perform the model checking for the list of HCTL syntax trees on a given transition `graph`.
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// Perform the model checking for the list of HCTL formulae given by their syntax trees on a given transition `graph`.
+///
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 /// Return the list of resulting sets of colored vertices (in the same order as input formulae).
 ///
-/// This version does not sanitize the resulting BDDs (`model_check_multiple_trees` does).
+/// This version does not sanitize the resulting BDDs ([model_check_multiple_trees] does).
 pub fn model_check_multiple_trees_dirty(
     formula_trees: Vec<HctlTreeNode>,
     graph: &SymbolicAsyncGraph,
@@ -45,8 +46,8 @@ pub fn model_check_multiple_trees_dirty(
     Ok(results)
 }
 
-/// Perform the model checking for the syntactic tree, but do not sanitize the results.
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// Perform the model checking for a formula given by its syntactic tree, but do not sanitize the results.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 pub fn model_check_tree_dirty(
     formula_tree: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
@@ -55,8 +56,8 @@ pub fn model_check_tree_dirty(
     Ok(result[0].clone())
 }
 
-/// Perform the model checking for the list of HCTL syntax trees on a given transition `graph`.
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// Perform the model checking for the list of HCTL formulae given by their syntax trees on a given transition `graph`.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 /// Return the list of resulting sets of colored vertices (in the same order as input formulae).
 pub fn model_check_multiple_trees(
     formula_trees: Vec<HctlTreeNode>,
@@ -73,8 +74,8 @@ pub fn model_check_multiple_trees(
     Ok(sanitized_results)
 }
 
-/// Perform the model checking for a given HCTL formula's syntax tree on a given transition `graph`.
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// Perform the model checking for the list of HCTL formula given by its syntactic tree on a given transition `graph`.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 /// Return the resulting set of colored vertices.
 pub fn model_check_tree(
     formula_tree: HctlTreeNode,
@@ -85,7 +86,7 @@ pub fn model_check_tree(
 }
 
 /// Parse given HCTL formulae into syntactic trees and perform compatibility check with
-/// the provided `graph` (i.e., check if `graph` object supports enough symbolic variables).
+/// the provided `graph` (i.e., check if `graph` object supports enough sets of symbolic variables).
 fn parse_and_validate(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
@@ -105,7 +106,7 @@ fn parse_and_validate(
 
 /// Perform the model checking for the list of HCTL formulae on a given transition `graph`.
 /// Return the resulting sets of colored vertices (in the same order as input formulae).
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 pub fn model_check_multiple_formulae(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
@@ -117,7 +118,7 @@ pub fn model_check_multiple_formulae(
 }
 
 /// Perform the model checking for the list of formulae, but do not sanitize the results.
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 pub fn model_check_multiple_formulae_dirty(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
@@ -129,7 +130,7 @@ pub fn model_check_multiple_formulae_dirty(
 }
 
 /// Perform the model checking for a given HCTL formula on a given transition `graph`.
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 /// Return the resulting set of colored vertices.
 pub fn model_check_formula(
     formula: String,
@@ -140,7 +141,7 @@ pub fn model_check_formula(
 }
 
 /// Perform the model checking for given formula, but do not sanitize the result.
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 pub fn model_check_formula_dirty(
     formula: String,
     graph: &SymbolicAsyncGraph,
@@ -150,7 +151,7 @@ pub fn model_check_formula_dirty(
 }
 
 /// Parse given extended HCTL formulae into syntactic trees and perform compatibility check with
-/// the provided `graph` (i.e., check if `graph` object supports enough symbolic variables).
+/// the provided `graph` (i.e., check if `graph` object supports enough sets of symbolic variables).
 fn parse_and_validate_extended(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
@@ -194,7 +195,7 @@ fn parse_and_validate_extended(
 /// Perform the model checking for list of `extended` HCTL formulae on a given transition `graph`,
 /// but do not sanitize the results.
 /// Return the resulting sets of colored vertices (in the same order as input formulae).
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 ///
 /// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
 /// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
@@ -233,7 +234,7 @@ pub fn model_check_multiple_extended_formulae_dirty(
 
 /// Perform the model checking for list of `extended` HCTL formulae on a given transition `graph`.
 /// Return the resulting sets of colored vertices (in the same order as input formulae).
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 ///
 /// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
 /// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
@@ -260,7 +261,7 @@ pub fn model_check_multiple_extended_formulae(
 }
 
 /// Perform the model checking for a given `extended` HCTL formula on a given transition `graph`.
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 ///
 /// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
 /// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
@@ -282,7 +283,7 @@ pub fn model_check_extended_formula(
 
 /// Perform the model checking for a given `extended` HCTL formula on a given transition `graph`,
 /// but do not sanitize the results.
-/// The `graph` object MUST support enough symbolic variables to represent all occurring HCTL vars.
+/// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 ///
 /// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
 /// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
@@ -328,7 +329,7 @@ pub fn model_check_formula_unsafe_ex(
 
 #[cfg(test)]
 /// Some basic tests for the model-checking procedure and corresponding utilities. Note that larger tests
-/// involving complex models and formulae are in module `_test_model_checking`.
+/// involving complex models and formulae are in module [crate::_test_model_checking].
 mod tests {
 
     use crate::mc_utils::get_extended_symbolic_graph;

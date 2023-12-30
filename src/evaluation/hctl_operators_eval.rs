@@ -5,7 +5,7 @@ use crate::evaluation::low_level_operations::*;
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-/// Utility for evaluating negation that respects the allowed universe.
+/// Evaluate negation respecting the allowed universe.
 pub fn eval_neg(graph: &SymbolicAsyncGraph, set: &GraphColoredVertices) -> GraphColoredVertices {
     let unit_set = graph.mk_unit_colored_vertices();
     unit_set.minus(set)

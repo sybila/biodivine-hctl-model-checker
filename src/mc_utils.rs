@@ -1,4 +1,5 @@
-//! Model checking utilities such as generating extended STG or checking STG for variable support.
+//! Model checking utilities such as generating extended STG or checking if an STG supports
+//! enough sets of symbolic variables.
 
 use crate::preprocessing::hctl_tree::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::{Atomic, HybridOp};
@@ -9,6 +10,8 @@ use biodivine_lib_param_bn::BooleanNetwork;
 use std::collections::{HashMap, HashSet};
 
 /// Create an extended symbolic transition graph that supports the number of needed HCTL variables.
+///
+/// The underlying BDD will support `num_hctl_vars` additional variables for each component of the state.
 pub fn get_extended_symbolic_graph(
     bn: &BooleanNetwork,
     num_hctl_vars: u16,
@@ -25,7 +28,8 @@ pub fn get_extended_symbolic_graph(
 }
 
 /// Compute the set of all uniquely named HCTL variables in the formula tree.
-/// Variable names are collected from three quantifiers: bind, exists, forall (which is sufficient,
+///
+/// Variable names are collected from three quantifiers: `bind`, `exists`, `forall` (which is sufficient,
 /// as the formula must not contain free variables).
 pub fn collect_unique_hctl_vars(formula_tree: HctlTreeNode) -> HashSet<String> {
     collect_unique_hctl_vars_recursive(formula_tree, HashSet::new())

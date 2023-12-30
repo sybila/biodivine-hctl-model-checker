@@ -171,7 +171,9 @@ pub fn mark_duplicates_canonized_multiple(
     duplicates
 }
 
-/// Wrapper for duplicate marking (`mark_duplicates_canonized_multiple`) for a single formula.
+/// Wrapper for duplicate marking for a single formula.
+///
+/// See [mark_duplicates_canonized_multiple] for more details.
 pub fn mark_duplicates_canonized_single(
     root_node: &HctlTreeNode,
 ) -> HashMap<FormulaWithDomains, i32> {

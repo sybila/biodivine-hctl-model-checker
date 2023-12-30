@@ -11,15 +11,15 @@ use std::collections::HashMap;
 /// Struct holding information for efficient caching during the main computation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EvalContext {
-    /// Remaining duplicates - mapping from `sub-formula and its free var domains` to `the counter` of that duplicate.
+    /// Remaining duplicates - mapping from `sub-formula and domains of its free vars` to `the counter` of that duplicate.
     pub duplicates: HashMap<FormulaWithDomains, i32>,
-    /// Mapping between `cached sub-formulae` and their corresponding tuple of 1) the `resulting relation`,
+    /// Mapping between `cached sub-formula` and its corresponding tuple of
+    /// 1) the pre-computed `resulting set`,
     /// 2) mapping from sub-formula's ` original variable names` of the to their `canonical form`.
     pub cache: HashMap<FormulaWithDomains, (GraphColoredVertices, VarRenameMap)>,
-    /// Mapping of the `variable domain names` to the corresponding `raw sets`.
-    /// Var domain raw set (its bdd) must not depend on any symbolic variables, thus needs no renaming.
+    /// Mapping of the `variable domain labels` to the corresponding `raw sets`.
     pub domain_raw_sets: HashMap<String, GraphColoredVertices>,
-    /// Mapping the sub-formula's `free variable names` their `domain names` (if specified).
+    /// Mapping the sub-formula's `free variable names` their `domain labels` (if specified).
     /// The domains are needed if we are to compare two sub-formulae with free variables for equivalence.
     pub free_var_domains: VarDomainMap,
 }

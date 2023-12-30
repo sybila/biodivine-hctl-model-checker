@@ -6,7 +6,7 @@
 //!
 
 use biodivine_hctl_model_checker::analysis::analyse_formulae;
-use biodivine_hctl_model_checker::preprocessing::load_inputs::load_formulae;
+use biodivine_hctl_model_checker::load_inputs::load_formulae;
 use biodivine_hctl_model_checker::result_print::PrintOptions;
 
 use clap::builder::PossibleValuesParser;
@@ -37,7 +37,7 @@ struct Arguments {
     /// Model-check extended formula (that may contain wild-card propositions and variable domains) by providing
     /// a path to zip bundle of BDDs specifying context of wild-cards.
     #[clap(short, long)]
-    extended_formulae: Option<String>,
+    extended_context: Option<String>,
 
     /// Path to the zip with resulting BDD dumps. If not specified, only selected summary is printed.
     #[clap(short, long)]
@@ -46,6 +46,8 @@ struct Arguments {
 
 /// Wrapper function to invoke the model checker, works with CLI arguments.
 fn main() {
+    // TODO: utilize the extended context
+
     let args = Arguments::parse();
 
     // check if given paths are valid
@@ -56,6 +58,12 @@ fn main() {
     if !Path::new(args.model_path.as_str()).is_file() {
         println!("{} is not valid file", args.model_path);
         return;
+    }
+    if let Some(extended_context) = args.extended_context {
+        if !Path::new(extended_context.as_str()).is_file() {
+            println!("{extended_context} is not valid file");
+            return;
+        }
     }
 
     // read the model and formulae
@@ -70,10 +78,17 @@ fn main() {
 
     // compute the results
     let res = match args.print_option.as_str() {
-        "no-print" => analyse_formulae(&bn, formulae, PrintOptions::NoPrint),
-        "summary" => analyse_formulae(&bn, formulae, PrintOptions::JustSummary),
-        "with-progress" => analyse_formulae(&bn, formulae, PrintOptions::WithProgress),
-        "exhaustive" => analyse_formulae(&bn, formulae, PrintOptions::Exhaustive),
+        "no-print" => analyse_formulae(&bn, formulae, PrintOptions::NoPrint, args.output_bundle),
+        "summary" => analyse_formulae(&bn, formulae, PrintOptions::JustSummary, args.output_bundle),
+        "with-progress" => analyse_formulae(
+            &bn,
+            formulae,
+            PrintOptions::WithProgress,
+            args.output_bundle,
+        ),
+        "exhaustive" => {
+            analyse_formulae(&bn, formulae, PrintOptions::Exhaustive, args.output_bundle)
+        }
         // this cant really happen (would cause error earlier), just here to have exhaustive match
         _ => Err(format!(
             "Wrong print option \"{}\".",

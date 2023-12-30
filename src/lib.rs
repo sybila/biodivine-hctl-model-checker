@@ -12,6 +12,7 @@ mod _aeon_algorithms;
 pub mod analysis;
 pub mod evaluation;
 pub mod generate_output;
+pub mod load_inputs;
 pub mod mc_utils;
 pub mod model_checking;
 pub mod postprocessing;

@@ -15,12 +15,13 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::fixed_points::FixedPoints;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-/// Recursively evaluate the formula represented by a sub-tree `node` on the given `graph`.
+/// Recursively evaluate the sub-formula represented by a `node` (of a syntactic tree) on a given `graph`.
 ///
-/// `eval_context` holds the current version additional data used for optimization, such as
+/// `eval_context` holds the current version of additional data used for optimization, such as
 /// pre-computed set of `duplicate` sub-formulae and corresponding `cache` set, as well as domains of free vars.
+/// See also [EvalContext].
 ///
-/// The `steady_states` are needed to include self-loops in computing predecessors.
+/// The set of `steady_states` is used to include self-loops in computing predecessors.
 pub fn eval_node(
     node: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
@@ -283,7 +284,7 @@ pub fn eval_node(
 fn eval_hybrid_quantifier(
     graph: &SymbolicAsyncGraph,
     graph_to_propagate: &SymbolicAsyncGraph,
-    eval_info: &mut EvalContext,
+    eval_context: &mut EvalContext,
     steady_states: &GraphColoredVertices,
     operator: HybridOp,
     variable: String,
@@ -292,12 +293,12 @@ fn eval_hybrid_quantifier(
     match operator {
         HybridOp::Bind => eval_bind(
             graph,
-            &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
+            &eval_node(child_node, graph_to_propagate, eval_context, steady_states),
             variable.as_str(),
         ),
         HybridOp::Exists => eval_exists(
             graph,
-            &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
+            &eval_node(child_node, graph_to_propagate, eval_context, steady_states),
             variable.as_str(),
         ),
         // evaluate `forall x in A. phi` as `not exists x in A. not phi`
@@ -308,7 +309,7 @@ fn eval_hybrid_quantifier(
                 graph,
                 &eval_neg(
                     graph_to_propagate,
-                    &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
+                    &eval_node(child_node, graph_to_propagate, eval_context, steady_states),
                 ),
                 variable.as_str(),
             ),
