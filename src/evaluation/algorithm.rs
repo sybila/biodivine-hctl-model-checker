@@ -107,7 +107,7 @@ pub fn eval_node(
     }
 
     let result = match node.node_type {
-        NodeType::TerminalNode(atom) => match atom {
+        NodeType::Terminal(atom) => match atom {
             Atomic::True => graph.mk_unit_colored_vertices(),
             Atomic::False => graph.mk_empty_colored_vertices(),
             Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
@@ -115,7 +115,7 @@ pub fn eval_node(
             // should not be reachable, as wild-card nodes are always evaluated earlier using cache
             Atomic::WildCardProp(_) => unreachable!(),
         },
-        NodeType::UnaryNode(op, child) => match op {
+        NodeType::Unary(op, child) => match op {
             UnaryOp::Not => eval_neg(
                 graph,
                 &eval_node(*child, graph, eval_context, steady_states),
@@ -149,7 +149,7 @@ pub fn eval_node(
                 &eval_node(*child, graph, eval_context, steady_states),
             ),
         },
-        NodeType::BinaryNode(op, left, right) => {
+        NodeType::Binary(op, left, right) => {
             match op {
                 BinaryOp::And => eval_node(*left, graph, eval_context, steady_states)
                     .intersect(&eval_node(*right, graph, eval_context, steady_states)),
@@ -194,18 +194,26 @@ pub fn eval_node(
                 ),
             }
         }
-        NodeType::HybridNode(op, var, maybe_domain, child) => {
-            // add the variable's domain to the eval context (the variable will be free in the sub-formulae)
-            // only do this for quantifiers
-            if !matches!(op.clone(), HybridOp::Jump) {
-                eval_context
-                    .free_var_domains
-                    .insert(var.clone(), maybe_domain.clone());
-            }
+        NodeType::Hybrid(HybridOp::Jump, var, _, child) => {
+            // special case for hybrid operator Jump (it is not quantifier, so it is different than the rest)
+            // mainly, we dont have to worry about the domain (which complicates other hybrid operators)
+            eval_jump(
+                graph,
+                &eval_node(*child, graph, eval_context, steady_states),
+                var.as_str(),
+            )
+        }
+        NodeType::Hybrid(op, var, maybe_domain, child) => {
+            // since hybrid operator Jump is handled in previous match arm, only quantifiers end up there
 
-            // two different options depending on if the quantified variable has restricted domain
+            // add the variable's domain to the eval context (the variable will be free in the sub-formulae)
+            eval_context
+                .free_var_domains
+                .insert(var.clone(), maybe_domain.clone());
+
+            // two different options depending on if the quantified variable has restricted domain or not
             let res = match maybe_domain {
-                None => eval_hybrid_node(
+                None => eval_hybrid_quantifier(
                     graph,
                     graph,
                     eval_context,
@@ -232,7 +240,7 @@ pub fn eval_node(
                     // restrict the var domain in unit BDD of the graph
                     let var_domain = compute_valid_domain_for_var(graph, domain_set, var.as_str());
                     let restricted_graph = restrict_stg_unit_bdd(graph, &var_domain);
-                    eval_hybrid_node(
+                    eval_hybrid_quantifier(
                         graph,
                         &restricted_graph,
                         eval_context,
@@ -244,10 +252,8 @@ pub fn eval_node(
                 }
             };
 
-            // remove the domain of this (no longer free) variable (only do this for quantifiers)
-            if !matches!(op, HybridOp::Jump) {
-                eval_context.free_var_domains.remove(&var);
-            }
+            // remove the domain of this (no longer free) variable
+            eval_context.free_var_domains.remove(&var);
             res
         }
     };
@@ -264,6 +270,8 @@ pub fn eval_node(
 /// Wrapper to recursively evaluate the formula represented by a sub-tree beginning at hybrid node
 /// specified by its `operator`, `variable` and `child_node`.
 ///
+/// The operator must be a quantifier (bind, exists, forall), not a jump.
+///
 /// `graph` gives the context for evaluating the hybrid operator itself, while `graph_to_propagate` should
 /// be used to evaluate the successors of the node. The two graphs might be the same. Having two
 /// distinct versions allows to evaluate the sub-tree on a different graph with smaller unit bdd,
@@ -272,7 +280,7 @@ pub fn eval_node(
 /// `eval_context` holds the current version additional data used for optimization, such as
 /// pre-computed set of `duplicate` sub-formulae and corresponding `cache` set.
 /// The `steady_states` are needed to include self-loops in computing predecessors.
-fn eval_hybrid_node(
+fn eval_hybrid_quantifier(
     graph: &SymbolicAsyncGraph,
     graph_to_propagate: &SymbolicAsyncGraph,
     eval_info: &mut EvalContext,
@@ -283,11 +291,6 @@ fn eval_hybrid_node(
 ) -> GraphColoredVertices {
     match operator {
         HybridOp::Bind => eval_bind(
-            graph,
-            &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
-            variable.as_str(),
-        ),
-        HybridOp::Jump => eval_jump(
             graph,
             &eval_node(child_node, graph_to_propagate, eval_info, steady_states),
             variable.as_str(),
@@ -310,6 +313,8 @@ fn eval_hybrid_node(
                 variable.as_str(),
             ),
         ),
+        // only hybrid quantifiers should be evaluated in this function
+        _ => unreachable!(),
     }
 }
 
@@ -317,10 +322,10 @@ fn eval_hybrid_node(
 /// This recognition step is used to later optimize the attractor pattern.
 fn is_attractor_pattern(node: &HctlTreeNode) -> bool {
     match &node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match &child1.node_type {
-            NodeType::UnaryNode(UnaryOp::AG, child2) => match &child2.node_type {
-                NodeType::UnaryNode(UnaryOp::EF, child3) => match &child3.node_type {
-                    NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
+        NodeType::Hybrid(HybridOp::Bind, var1, None, child1) => match &child1.node_type {
+            NodeType::Unary(UnaryOp::AG, child2) => match &child2.node_type {
+                NodeType::Unary(UnaryOp::EF, child3) => match &child3.node_type {
+                    NodeType::Terminal(Atomic::Var(var2)) => var1 == var2,
                     _ => false,
                 },
                 _ => false,
@@ -335,9 +340,9 @@ fn is_attractor_pattern(node: &HctlTreeNode) -> bool {
 /// This recognition step is used to later optimize the fixed-point pattern.
 fn is_fixed_point_pattern(node: &HctlTreeNode) -> bool {
     match &node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match &child1.node_type {
-            NodeType::UnaryNode(UnaryOp::AX, child2) => match &child2.node_type {
-                NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
+        NodeType::Hybrid(HybridOp::Bind, var1, None, child1) => match &child1.node_type {
+            NodeType::Unary(UnaryOp::AX, child2) => match &child2.node_type {
+                NodeType::Terminal(Atomic::Var(var2)) => var1 == var2,
                 _ => false,
             },
             _ => false,
@@ -351,31 +356,6 @@ fn is_fixed_point_pattern(node: &HctlTreeNode) -> bool {
 /// Can also be used as optimised procedure for formula `!{x}: AX {x}`.
 pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     FixedPoints::symbolic(graph, &graph.mk_unit_colored_vertices())
-    /*
-    let context = graph.symbolic_context();
-    let network = graph.as_network();
-    let update_functions: Vec<Bdd> = network
-        .as_graph()
-        .variables()
-        .map(|variable| {
-            let regulators = network.regulators(variable);
-            let function_is_one = network
-                .get_update_function(variable)
-                .as_ref()
-                .map(|fun| context.mk_fn_update_true(fun))
-                .unwrap_or_else(|| context.mk_implicit_function_is_true(variable, &regulators));
-            let variable_is_one = context.mk_state_variable_is_true(variable);
-            bdd!(variable_is_one <=> function_is_one)
-        })
-        .collect();
-
-    GraphColoredVertices::new(
-        update_functions
-            .iter()
-            .fold(graph.mk_unit_colored_vertices().into_bdd(), |r, v| r.and(v)),
-        context,
-    )
-     */
 }
 
 #[cfg(test)]
@@ -387,9 +367,9 @@ mod tests {
     #[test]
     /// Test recognition of fixed-point pattern.
     fn test_fixed_point_pattern() {
-        let tree = HctlTreeNode::mk_hybrid_node(
-            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::AX),
-            "x".to_string(),
+        let tree = HctlTreeNode::mk_hybrid(
+            HctlTreeNode::mk_unary(HctlTreeNode::mk_variable("x"), UnaryOp::AX),
+            "x",
             None,
             HybridOp::Bind,
         );
@@ -399,15 +379,12 @@ mod tests {
     #[test]
     /// Test recognition of attractor pattern.
     fn test_attractor_pattern() {
-        let tree = HctlTreeNode::mk_hybrid_node(
-            HctlTreeNode::mk_unary_node(
-                HctlTreeNode::mk_unary_node(
-                    HctlTreeNode::mk_var_node("x".to_string()),
-                    UnaryOp::EF,
-                ),
+        let tree = HctlTreeNode::mk_hybrid(
+            HctlTreeNode::mk_unary(
+                HctlTreeNode::mk_unary(HctlTreeNode::mk_variable("x"), UnaryOp::EF),
                 UnaryOp::AG,
             ),
-            "x".to_string(),
+            "x",
             None,
             HybridOp::Bind,
         );

@@ -34,26 +34,17 @@ impl NodeWithDomains<'_> {
     }
 }
 
-/// `NodeWithDomains` objects are ordered by the height of their subtrees.
+/// Nodes are ordered by their height, with atomic propositions being the "smallest".
 impl PartialOrd for NodeWithDomains<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.subtree.height.cmp(&other.subtree.height))
-    }
-    fn lt(&self, other: &Self) -> bool {
-        self.subtree.height.lt(&other.subtree.height)
-    }
-    fn le(&self, other: &Self) -> bool {
-        self.subtree.height.le(&other.subtree.height)
-    }
-    fn gt(&self, other: &Self) -> bool {
-        self.subtree.height.gt(&other.subtree.height)
-    }
-    fn ge(&self, other: &Self) -> bool {
-        self.subtree.height.ge(&other.subtree.height)
+        self.subtree.height.partial_cmp(&other.subtree.height)
     }
 }
 
-/// Nodes are ordered by their height.
+/// Nodes are ordered by their height, with atomic propositions being the "smallest".
+///
+/// Note that while this sort is "total" in the sense that every pair of nodes can be compared,
+/// there are many "semantically equivalent" nodes that have the same height.
 impl Ord for NodeWithDomains<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.subtree.height.cmp(&other.subtree.height)
@@ -96,7 +87,7 @@ pub fn mark_duplicates_canonized_multiple(
     while let Some(current_node) = heap_queue.pop() {
         // if the node is terminal, process it only if it represents the `wild-card proposition`
         // other kinds of terminals are not worth to be considered and cached during evaluation
-        if let NodeType::TerminalNode(atom) = &current_node.subtree.node_type {
+        if let NodeType::Terminal(atom) = &current_node.subtree.node_type {
             if let Atomic::WildCardProp(_) = atom {
             } else {
                 continue;
@@ -159,15 +150,15 @@ pub fn mark_duplicates_canonized_multiple(
 
         // add children of current node to the heap_queue
         match &current_node.subtree.node_type {
-            NodeType::TerminalNode(_) => {}
-            NodeType::UnaryNode(_, child) => {
+            NodeType::Terminal(_) => {}
+            NodeType::Unary(_, child) => {
                 heap_queue.push(NodeWithDomains::new(child, current_node.domains.clone()));
             }
-            NodeType::BinaryNode(_, left, right) => {
+            NodeType::Binary(_, left, right) => {
                 heap_queue.push(NodeWithDomains::new(left, current_node.domains.clone()));
                 heap_queue.push(NodeWithDomains::new(right, current_node.domains.clone()));
             }
-            NodeType::HybridNode(_, variable, domain, child) => {
+            NodeType::Hybrid(_, variable, domain, child) => {
                 let mut child_w_domains = NodeWithDomains::new(child, current_node.domains.clone());
                 // add the domain of the new quantified variable to the domain list
                 child_w_domains

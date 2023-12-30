@@ -19,14 +19,14 @@ pub fn validate_props_and_rename_vars(
     // When we find terminal with free var or jump node, we rename the var using rename-dict
     return match orig_node.node_type {
         // rename vars in terminal state-var nodes
-        NodeType::TerminalNode(ref atom) => match atom {
+        NodeType::Terminal(ref atom) => match atom {
             Atomic::Var(name) => {
                 // check that variable is not free (it must be already in mapping dict)
                 if !renaming_map.contains_key(name.as_str()) {
                     return Err(format!("Variable {name} is free."));
                 }
                 let renamed_var = renaming_map.get(name.as_str()).unwrap();
-                Ok(HctlTreeNode::mk_var_node(renamed_var.to_string()))
+                Ok(HctlTreeNode::mk_variable(renamed_var))
             }
             Atomic::Prop(name) => {
                 // check that proposition corresponds to valid BN variable
@@ -40,13 +40,13 @@ pub fn validate_props_and_rename_vars(
             _ => return Ok(orig_node),
         },
         // just dive one level deeper for unary nodes, and rename string
-        NodeType::UnaryNode(op, child) => {
+        NodeType::Unary(op, child) => {
             let node =
                 validate_props_and_rename_vars(*child, renaming_map, last_used_name.clone(), ctx)?;
-            Ok(HctlTreeNode::mk_unary_node(node, op))
+            Ok(HctlTreeNode::mk_unary(node, op))
         }
         // just dive deeper for binary nodes, and rename string
-        NodeType::BinaryNode(op, left, right) => {
+        NodeType::Binary(op, left, right) => {
             let node1 = validate_props_and_rename_vars(
                 *left,
                 renaming_map.clone(),
@@ -54,10 +54,10 @@ pub fn validate_props_and_rename_vars(
                 ctx,
             )?;
             let node2 = validate_props_and_rename_vars(*right, renaming_map, last_used_name, ctx)?;
-            Ok(HctlTreeNode::mk_binary_node(node1, node2, op))
+            Ok(HctlTreeNode::mk_binary(node1, node2, op))
         }
         // hybrid nodes are more complicated
-        NodeType::HybridNode(op, var, domain, child) => {
+        NodeType::Hybrid(op, var, domain, child) => {
             // if we hit binder or exist, we are adding its new var name to dict & stack
             // no need to do this for jump, jump is not quantifier
             match op {
@@ -89,9 +89,9 @@ pub fn validate_props_and_rename_vars(
 
             // rename the variable in the node
             let renamed_var = renaming_map.get(var.as_str()).unwrap();
-            Ok(HctlTreeNode::mk_hybrid_node(
+            Ok(HctlTreeNode::mk_hybrid(
                 node,
-                renamed_var.clone(),
+                renamed_var.as_str(),
                 domain,
                 op,
             ))

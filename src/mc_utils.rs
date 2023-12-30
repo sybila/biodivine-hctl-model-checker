@@ -36,22 +36,22 @@ fn collect_unique_hctl_vars_recursive(
     mut seen_vars: HashSet<String>,
 ) -> HashSet<String> {
     match formula_tree.node_type {
-        NodeType::TerminalNode(_) => {}
-        NodeType::UnaryNode(_, child) => {
+        NodeType::Terminal(_) => {}
+        NodeType::Unary(_, child) => {
             seen_vars.extend(collect_unique_hctl_vars_recursive(
                 *child,
                 seen_vars.clone(),
             ));
         }
-        NodeType::BinaryNode(_, left, right) => {
+        NodeType::Binary(_, left, right) => {
             seen_vars.extend(collect_unique_hctl_vars_recursive(*left, seen_vars.clone()));
             seen_vars.extend(collect_unique_hctl_vars_recursive(
                 *right,
                 seen_vars.clone(),
             ));
         }
-        // collect variables from exist and binder nodes
-        NodeType::HybridNode(op, var_name, _, child) => {
+        // collect variables from quantifier nodes (bind, exists, forall)
+        NodeType::Hybrid(op, var_name, _, child) => {
             match op {
                 HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
                     seen_vars.insert(var_name); // we do not care whether insert is successful
@@ -84,19 +84,19 @@ fn collect_unique_wild_cards_recursive(
     seen_domains: &mut HashSet<String>,
 ) {
     match formula_tree.node_type {
-        NodeType::TerminalNode(atom) => {
+        NodeType::Terminal(atom) => {
             if let Atomic::WildCardProp(prop_name) = atom {
                 seen_props.insert(prop_name);
             }
         }
-        NodeType::UnaryNode(_, child) => {
+        NodeType::Unary(_, child) => {
             collect_unique_wild_cards_recursive(*child, seen_props, seen_domains);
         }
-        NodeType::BinaryNode(_, left, right) => {
+        NodeType::Binary(_, left, right) => {
             collect_unique_wild_cards_recursive(*left, seen_props, seen_domains);
             collect_unique_wild_cards_recursive(*right, seen_props, seen_domains);
         }
-        NodeType::HybridNode(_, _, optional_domain, child) => {
+        NodeType::Hybrid(_, _, optional_domain, child) => {
             if let Some(domain) = optional_domain {
                 seen_domains.insert(domain);
             }

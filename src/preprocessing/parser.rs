@@ -121,9 +121,9 @@ fn parse_1_hybrid(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
             ));
         }
         match &tokens[i] {
-            HctlToken::Hybrid(op, var, domain) => HctlTreeNode::mk_hybrid_node(
+            HctlToken::Hybrid(op, var, domain) => HctlTreeNode::mk_hybrid(
                 parse_1_hybrid(&tokens[(i + 1)..])?,
-                var.clone(),
+                var.as_str(),
                 domain.clone(),
                 op.clone(),
             ),
@@ -138,7 +138,7 @@ fn parse_1_hybrid(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_2_iff(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let iff_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Iff));
     Ok(if let Some(i) = iff_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_3_imp(&tokens[..i])?,
             parse_2_iff(&tokens[(i + 1)..])?,
             BinaryOp::Iff,
@@ -152,7 +152,7 @@ fn parse_2_iff(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_3_imp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let imp_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Imp));
     Ok(if let Some(i) = imp_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_4_or(&tokens[..i])?,
             parse_3_imp(&tokens[(i + 1)..])?,
             BinaryOp::Imp,
@@ -166,7 +166,7 @@ fn parse_3_imp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_4_or(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let or_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Or));
     Ok(if let Some(i) = or_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_5_xor(&tokens[..i])?,
             parse_4_or(&tokens[(i + 1)..])?,
             BinaryOp::Or,
@@ -180,7 +180,7 @@ fn parse_4_or(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_5_xor(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let xor_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Xor));
     Ok(if let Some(i) = xor_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_6_and(&tokens[..i])?,
             parse_5_xor(&tokens[(i + 1)..])?,
             BinaryOp::Xor,
@@ -194,7 +194,7 @@ fn parse_5_xor(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_6_and(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let and_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::And));
     Ok(if let Some(i) = and_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_7_binary_temp(&tokens[..i])?,
             parse_6_and(&tokens[(i + 1)..])?,
             BinaryOp::And,
@@ -209,7 +209,7 @@ fn parse_7_binary_temp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let binary_token = index_of_first_binary_temp(tokens);
     Ok(if let Some(i) = binary_token {
         match &tokens[i] {
-            HctlToken::Binary(op) => HctlTreeNode::mk_binary_node(
+            HctlToken::Binary(op) => HctlTreeNode::mk_binary(
                 parse_8_unary(&tokens[..i])?,
                 parse_7_binary_temp(&tokens[(i + 1)..])?,
                 op.clone(),
@@ -235,7 +235,7 @@ fn parse_8_unary(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 
         match &tokens[i] {
             HctlToken::Unary(op) => {
-                HctlTreeNode::mk_unary_node(parse_8_unary(&tokens[(i + 1)..])?, op.clone())
+                HctlTreeNode::mk_unary(parse_8_unary(&tokens[(i + 1)..])?, op.clone())
             }
             _ => unreachable!(), // we already made sure that this is indeed an unary token
         }
@@ -255,18 +255,18 @@ fn parse_9_terminal_and_parentheses(tokens: &[HctlToken]) -> Result<HctlTreeNode
             match &tokens[0] {
                 HctlToken::Atom(Atomic::Prop(name)) => {
                     return if name == "true" || name == "True" || name == "1" {
-                        Ok(HctlTreeNode::mk_constant_node(true))
+                        Ok(HctlTreeNode::mk_constant(true))
                     } else if name == "false" || name == "False" || name == "0" {
-                        Ok(HctlTreeNode::mk_constant_node(false))
+                        Ok(HctlTreeNode::mk_constant(false))
                     } else {
-                        Ok(HctlTreeNode::mk_prop_node(name.clone()))
+                        Ok(HctlTreeNode::mk_proposition(name.as_str()))
                     }
                 }
                 HctlToken::Atom(Atomic::Var(name)) => {
-                    return Ok(HctlTreeNode::mk_var_node(name.clone()))
+                    return Ok(HctlTreeNode::mk_variable(name.as_str()))
                 }
                 HctlToken::Atom(Atomic::WildCardProp(name)) => {
-                    return Ok(HctlTreeNode::mk_wild_card_node(name.clone()))
+                    return Ok(HctlTreeNode::mk_wild_card(name.as_str()))
                 }
                 // recursively solve sub-formulae in parentheses
                 HctlToken::Tokens(inner) => return parse_hctl_tokens(inner),
@@ -356,17 +356,17 @@ mod tests {
     /// Test parsing of several valid HCTL formulae against expected results.
     fn compare_parser_with_expected() {
         let formula = "(false & p1)";
-        let expected_tree = HctlTreeNode::mk_binary_node(
-            HctlTreeNode::mk_constant_node(false),
-            HctlTreeNode::mk_prop_node("p1".to_string()),
+        let expected_tree = HctlTreeNode::mk_binary(
+            HctlTreeNode::mk_constant(false),
+            HctlTreeNode::mk_proposition("p1"),
             BinaryOp::And,
         );
         assert_eq!(parse_hctl_formula(formula).unwrap(), expected_tree);
 
         let formula = "!{x}: (AX {x})";
-        let expected_tree = HctlTreeNode::mk_hybrid_node(
-            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::AX),
-            "x".to_string(),
+        let expected_tree = HctlTreeNode::mk_hybrid(
+            HctlTreeNode::mk_unary(HctlTreeNode::mk_variable("x"), UnaryOp::AX),
+            "x",
             None,
             HybridOp::Bind,
         );
