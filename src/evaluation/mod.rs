@@ -2,8 +2,8 @@
 
 pub mod algorithm;
 pub mod eval_context;
-pub mod mark_duplicate_subform;
+pub mod mark_duplicates;
 
 mod canonization;
-mod hctl_operators_evaluation;
+mod hctl_operators_eval;
 mod low_level_operations;

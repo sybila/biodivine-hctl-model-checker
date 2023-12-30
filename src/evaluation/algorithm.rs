@@ -3,7 +3,7 @@
 use crate::_aeon_algorithms::scc_computation::compute_attractor_states;
 use crate::evaluation::canonization::get_canonical_and_mapping;
 use crate::evaluation::eval_context::EvalContext;
-use crate::evaluation::hctl_operators_evaluation::*;
+use crate::evaluation::hctl_operators_eval::*;
 use crate::evaluation::low_level_operations::{
     compute_valid_domain_for_var, restrict_stg_unit_bdd, substitute_hctl_var,
 };
@@ -14,12 +14,13 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::fixed_points::FixedPoints;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Recursively evaluate the formula represented by a sub-tree `node` on the given `graph`.
 ///
 /// `eval_context` holds the current version additional data used for optimization, such as
-/// pre-computed set of `duplicate` sub-formulae and corresponding `cache` set.
+/// pre-computed set of `duplicate` sub-formulae and corresponding `cache` set, as well as domains of free vars.
+///
 /// The `steady_states` are needed to include self-loops in computing predecessors.
 pub fn eval_node(
     node: HctlTreeNode,
@@ -30,32 +31,43 @@ pub fn eval_node(
     // first check whether this node does not belong in the duplicates
     let mut save_to_cache = false;
 
-    // get canonized form of this sub-formula, and mapping of how vars are canonized
+    // get canonized form of this sub-formula, and mapping between original and canonized variable names
     let (canonized_form, renaming) = get_canonical_and_mapping(node.to_string());
+    // rename the variables in the domain map to their canonical form (duplicate formulae are always canonical)
+    // only include the FREE canonical variables that are actually contained in the sub-formula
+    // example: given "!{x}:!{y}: (AX {y})", its sub-formula "AX {x}" would have one "None" domain for "var0"
+    let mut canonical_domains: BTreeMap<String, Option<String>> = BTreeMap::new();
+    for (variable, domain) in &eval_context.free_var_domains {
+        if renaming.contains_key(variable) {
+            canonical_domains.insert(renaming.get(variable).unwrap().clone(), domain.clone());
+        }
+    }
+    // canonical version of the current formula and canonized mappings of its domains
+    let canonized_formula_with_domains = (canonized_form.clone(), canonical_domains.clone());
 
     if eval_context
         .duplicates
-        .contains_key(canonized_form.as_str())
+        .contains_key(&canonized_formula_with_domains)
     {
-        if eval_context.cache.contains_key(canonized_form.as_str()) {
+        if eval_context.cache.contains_key(&canonized_formula_with_domains) {
             // decrement number of duplicates left
             *eval_context
                 .duplicates
-                .get_mut(canonized_form.as_str())
+                .get_mut(&canonized_formula_with_domains)
                 .unwrap() -= 1;
 
             // get cached result, but it might be using differently named state-variables
             // so we might have to rename them later
             let (mut result, result_renaming) = eval_context
                 .cache
-                .get(canonized_form.as_str())
+                .get(&canonized_formula_with_domains)
                 .unwrap()
                 .clone();
 
             // if we already visited all of the duplicates, lets delete the cached value
-            if eval_context.duplicates[canonized_form.as_str()] == 0 {
-                eval_context.duplicates.remove(canonized_form.as_str());
-                eval_context.cache.remove(canonized_form.as_str());
+            if eval_context.duplicates[&canonized_formula_with_domains] == 0 {
+                eval_context.duplicates.remove(&canonized_formula_with_domains);
+                eval_context.cache.remove(&canonized_formula_with_domains);
             }
 
             // since we are working with canonical cache, we might need to rename vars in result bdd
@@ -76,17 +88,17 @@ pub fn eval_node(
 
     // first lets check for special cases, which can be optimised:
     // 1) attractors
-    if is_attractor_pattern(node.clone()) {
+    if is_attractor_pattern(&node) {
         let result = compute_attractor_states(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
             eval_context
                 .cache
-                .insert(canonized_form, (result.clone(), renaming));
+                .insert(canonized_formula_with_domains, (result.clone(), renaming));
         }
         return result;
     }
     // 2) fixed-points
-    if is_fixed_point_pattern(node.clone()) {
+    if is_fixed_point_pattern(&node) {
         return steady_states.clone();
     }
 
@@ -179,19 +191,25 @@ pub fn eval_node(
             }
         }
         NodeType::HybridNode(op, var, maybe_domain, child) => {
+            // add the variable's domain to the eval context (the variable will be free in the sub-formulae)
+            // only do this for quantifiers
+            if !matches!(op.clone(), HybridOp::Jump) {
+                eval_context.free_var_domains.insert(var.clone(), maybe_domain.clone());
+            }
+
             // two different options depending on if the quantified variable has restricted domain
-            return match maybe_domain {
+            let res = match maybe_domain {
                 None => {
-                    eval_hybrid_node(graph, graph, eval_context, steady_states, op, var, *child)
+                    eval_hybrid_node(graph, graph, eval_context, steady_states, op.clone(), var.clone(), *child)
                 }
                 Some(domain) => {
                     // get a domain set from EvalContext, can use unwrap as it is previously checked
-                    let domain_set = eval_context.domain_sets.get(domain.as_str()).unwrap();
+                    let domain_set = eval_context.domain_raw_sets.get(domain.as_str()).unwrap();
 
                     // check edge case of an empty domain (in that case we cannot restrict the domain,
                     // there would be an error)
                     if domain_set.is_empty() {
-                        return match op {
+                        return match op.clone() {
                             HybridOp::Bind => graph.mk_empty_colored_vertices(),
                             HybridOp::Exists => graph.mk_empty_colored_vertices(),
                             // forall
@@ -207,12 +225,18 @@ pub fn eval_node(
                         &restricted_graph,
                         eval_context,
                         steady_states,
-                        op,
-                        var,
+                        op.clone(),
+                        var.clone(),
                         *child,
                     )
                 }
             };
+
+            // remove the domain of this (no longer free) variable (only do this for quantifiers)
+            if !matches!(op, HybridOp::Jump) {
+                eval_context.free_var_domains.remove(&var);
+            }
+            res
         }
     };
 
@@ -220,7 +244,7 @@ pub fn eval_node(
     if save_to_cache {
         eval_context
             .cache
-            .insert(canonized_form, (result.clone(), renaming));
+            .insert(canonized_formula_with_domains, (result.clone(), renaming));
     }
     result
 }
@@ -279,11 +303,11 @@ fn eval_hybrid_node(
 
 /// Check whether a node represents the formula pattern for attractors `!{x}: AG EF {x}`.
 /// This recognition step is used to later optimize the attractor pattern.
-fn is_attractor_pattern(node: HctlTreeNode) -> bool {
-    match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match child1.node_type {
-            NodeType::UnaryNode(UnaryOp::AG, child2) => match child2.node_type {
-                NodeType::UnaryNode(UnaryOp::EF, child3) => match child3.node_type {
+fn is_attractor_pattern(node: &HctlTreeNode) -> bool {
+    match &node.node_type {
+        NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match &child1.node_type {
+            NodeType::UnaryNode(UnaryOp::AG, child2) => match &child2.node_type {
+                NodeType::UnaryNode(UnaryOp::EF, child3) => match &child3.node_type {
                     NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
                     _ => false,
                 },
@@ -297,10 +321,10 @@ fn is_attractor_pattern(node: HctlTreeNode) -> bool {
 
 /// Check whether a node represents the formula pattern for fixed-points `!{x}: AX {x}`.
 /// This recognition step is used to later optimize the fixed-point pattern.
-fn is_fixed_point_pattern(node: HctlTreeNode) -> bool {
-    match node.node_type {
-        NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match child1.node_type {
-            NodeType::UnaryNode(UnaryOp::AX, child2) => match child2.node_type {
+fn is_fixed_point_pattern(node: &HctlTreeNode) -> bool {
+    match &node.node_type {
+        NodeType::HybridNode(HybridOp::Bind, var1, None, child1) => match &child1.node_type {
+            NodeType::UnaryNode(UnaryOp::AX, child2) => match &child2.node_type {
                 NodeType::TerminalNode(Atomic::Var(var2)) => var1 == var2,
                 _ => false,
             },
@@ -357,7 +381,7 @@ mod tests {
             None,
             HybridOp::Bind,
         );
-        assert!(is_fixed_point_pattern(tree));
+        assert!(is_fixed_point_pattern(&tree));
     }
 
     #[test]
@@ -375,6 +399,6 @@ mod tests {
             None,
             HybridOp::Bind,
         );
-        assert!(is_attractor_pattern(tree));
+        assert!(is_attractor_pattern(&tree));
     }
 }

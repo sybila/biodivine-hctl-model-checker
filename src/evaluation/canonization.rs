@@ -93,6 +93,7 @@ pub fn canonize_subform(
 
 /// Returns string of the semantically same sub-formula, but with "canonized" var names.
 /// It is used in the process of marking duplicate sub-formulae and caching.
+#[allow(dead_code)]
 pub fn get_canonical(subform_string: String) -> String {
     let canonized_tuple = canonize_subform(
         subform_string.chars().peekable(),
