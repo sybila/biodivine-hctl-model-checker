@@ -2,18 +2,16 @@ use crate::_test_model_checking::_test_util::make_random_boolean_trees;
 use crate::_test_model_checking::{
     MODEL_CELL_CYCLE, MODEL_CELL_DIVISION, MODEL_YEAST, NUM_FUZZING_CASES,
 };
+use crate::evaluation::LabelToSetMap;
 use crate::mc_utils::get_extended_symbolic_graph;
 use crate::model_checking::{model_check_extended_formula, model_check_tree_dirty};
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
 use std::collections::HashMap;
 
 /// Test evaluation of pairs of equivalent pattern formulae on given BN model.
 /// The patterns (wild-card propositions) are evaluated to raw sets specified by `context`.
-fn evaluate_equivalent_formulae_in_context(
-    stg: &SymbolicAsyncGraph,
-    context: HashMap<String, GraphColoredVertices>,
-) {
+fn evaluate_equivalent_formulae_in_context(stg: &SymbolicAsyncGraph, context: LabelToSetMap) {
     let equivalent_pattern_pairs = vec![
         // AU equivalence
         (

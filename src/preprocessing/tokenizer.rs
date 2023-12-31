@@ -22,19 +22,24 @@ pub enum HctlToken {
 }
 
 /// Try to tokenize given HCTL formula string.
-/// Wrapper for the recursive `try_tokenize_formula` function.
+///
+/// This is a wrapper for the (more general) recursive [try_tokenize_formula]` function.
 pub fn try_tokenize_formula(formula: String) -> Result<Vec<HctlToken>, String> {
     try_tokenize_recursive(&mut formula.chars().peekable(), true, false)
 }
 
 /// Try to tokenize given `extended` HCTL formula string. That means that formula can include
-/// `wild-card properties` in form of "%proposition%".
-/// Wrapper for the recursive `try_tokenize_formula` function.
+/// `wild-card propositions` or variable domains.
+///
+/// This is a wrapper for the (more general) recursive [try_tokenize_formula]` function.
 pub fn try_tokenize_extended_formula(formula: String) -> Result<Vec<HctlToken>, String> {
     try_tokenize_recursive(&mut formula.chars().peekable(), true, true)
 }
 
 /// Process a peekable iterator of characters into a vector of `HctlToken`s.
+///
+/// If `parse_wild_cards` is `true`, `wild-card propositions` and `variable domains` are allowed to
+/// be in the formula. Otherwise, only classical HCTL components are allowed.
 fn try_tokenize_recursive(
     input_chars: &mut Peekable<Chars>,
     top_level: bool,
@@ -233,7 +238,7 @@ fn is_valid_temp_op(option_char: Option<&char>) -> bool {
     false
 }
 
-/// Retrieve the proposition (or variable) name from the input.
+/// Retrieve the name (of a proposition or variable) from the input.
 /// The first character of the name may or may not be already consumed by the caller.
 fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     let mut name = Vec::new();

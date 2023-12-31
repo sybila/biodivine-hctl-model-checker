@@ -3,7 +3,7 @@
 use crate::evaluation::mark_duplicates::{
     mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
 };
-use crate::evaluation::{FormulaWithDomains, VarDomainMap, VarRenameMap};
+use crate::evaluation::{FormulaWithDomains, LabelToSetMap, VarDomainMap, VarRenameMap};
 use crate::preprocessing::hctl_tree::HctlTreeNode;
 use biodivine_lib_param_bn::symbolic_async_graph::GraphColoredVertices;
 use std::collections::HashMap;
@@ -18,7 +18,7 @@ pub struct EvalContext {
     /// 2) mapping from sub-formula's ` original variable names` of the to their `canonical form`.
     pub cache: HashMap<FormulaWithDomains, (GraphColoredVertices, VarRenameMap)>,
     /// Mapping of the `variable domain labels` to the corresponding `raw sets`.
-    pub domain_raw_sets: HashMap<String, GraphColoredVertices>,
+    pub domain_raw_sets: LabelToSetMap,
     /// Mapping the sub-formula's `free variable names` their `domain labels` (if specified).
     /// The domains are needed if we are to compare two sub-formulae with free variables for equivalence.
     pub free_var_domains: VarDomainMap,
@@ -68,7 +68,7 @@ impl EvalContext {
     }
 
     /// Get a ref to the `domain_raw_sets` field containing the cached domain names and the raw sets.
-    pub fn get_domain_raw_sets(&self) -> &HashMap<String, GraphColoredVertices> {
+    pub fn get_domain_raw_sets(&self) -> &LabelToSetMap {
         &self.domain_raw_sets
     }
 
@@ -85,8 +85,8 @@ impl EvalContext {
     /// `subst_context_domains` describes context of `variable domains` and is put into the `domain_raw_sets` field.
     pub fn extend_context_with_wild_cards(
         &mut self,
-        subst_context_properties: &HashMap<String, GraphColoredVertices>,
-        subst_context_domains: &HashMap<String, GraphColoredVertices>,
+        subst_context_properties: &LabelToSetMap,
+        subst_context_domains: &LabelToSetMap,
     ) {
         // For each `wild-card proposition` in `subst_context_properties`, increment its duplicate
         // counter. That way, the first occurrence will also be treated as duplicate and taken from

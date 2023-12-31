@@ -15,8 +15,9 @@ use crate::preprocessing::parser::{
     parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula,
 };
 
+use crate::evaluation::LabelToSetMap;
+use crate::preprocessing::utils::validate_wild_cards;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
-use std::collections::HashMap;
 
 /// Perform the model checking for the list of HCTL formulae given by their syntax trees on a given transition `graph`.
 ///
@@ -155,8 +156,8 @@ pub fn model_check_formula_dirty(
 fn parse_and_validate_extended(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
-    subst_context_props: &HashMap<String, GraphColoredVertices>,
-    subst_context_domains: &HashMap<String, GraphColoredVertices>,
+    subst_context_props: &LabelToSetMap,
+    subst_context_domains: &LabelToSetMap,
 ) -> Result<Vec<HctlTreeNode>, String> {
     // parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
@@ -168,25 +169,7 @@ fn parse_and_validate_extended(
             return Err("Graph does not support enough HCTL state variables".to_string());
         }
 
-        let (wild_card_props, var_domains) = collect_unique_wild_cards(tree.clone());
-        // check that all occurring wild-card props are present in `substitution_context`
-        for wild_card in wild_card_props {
-            if !subst_context_props.contains_key(wild_card.as_str()) {
-                return Err(format!(
-                    "Wild-card prop `{}` lacks evaluation context.",
-                    wild_card
-                ));
-            }
-        }
-        // check that all occurring wild-card props are present in `substitution_context`
-        for var_domain in var_domains {
-            if !subst_context_domains.contains_key(var_domain.as_str()) {
-                return Err(format!(
-                    "Var domain `{}` lacks evaluation context.",
-                    var_domain
-                ));
-            }
-        }
+        validate_wild_cards(&tree, subst_context_props, subst_context_domains)?;
         parsed_trees.push(tree);
     }
     Ok(parsed_trees)
@@ -203,8 +186,8 @@ fn parse_and_validate_extended(
 pub fn model_check_multiple_extended_formulae_dirty(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
-    subst_context_props: &HashMap<String, GraphColoredVertices>,
-    subst_context_domains: &HashMap<String, GraphColoredVertices>,
+    subst_context_props: &LabelToSetMap,
+    subst_context_domains: &LabelToSetMap,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees and check compatibility with graph
     let parsed_trees =
@@ -242,8 +225,8 @@ pub fn model_check_multiple_extended_formulae_dirty(
 pub fn model_check_multiple_extended_formulae(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
-    subst_context_props: &HashMap<String, GraphColoredVertices>,
-    subst_context_domains: &HashMap<String, GraphColoredVertices>,
+    subst_context_props: &LabelToSetMap,
+    subst_context_domains: &LabelToSetMap,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     let results = model_check_multiple_extended_formulae_dirty(
         formulae,
@@ -269,8 +252,8 @@ pub fn model_check_multiple_extended_formulae(
 pub fn model_check_extended_formula(
     formula: String,
     stg: &SymbolicAsyncGraph,
-    subst_context_props: &HashMap<String, GraphColoredVertices>,
-    subst_context_domains: &HashMap<String, GraphColoredVertices>,
+    subst_context_props: &LabelToSetMap,
+    subst_context_domains: &LabelToSetMap,
 ) -> Result<GraphColoredVertices, String> {
     let result = model_check_multiple_extended_formulae(
         vec![formula],
@@ -291,8 +274,8 @@ pub fn model_check_extended_formula(
 pub fn model_check_extended_formula_dirty(
     formula: String,
     stg: &SymbolicAsyncGraph,
-    subst_context_props: &HashMap<String, GraphColoredVertices>,
-    subst_context_domains: &HashMap<String, GraphColoredVertices>,
+    subst_context_props: &LabelToSetMap,
+    subst_context_domains: &LabelToSetMap,
 ) -> Result<GraphColoredVertices, String> {
     let result = model_check_multiple_extended_formulae_dirty(
         vec![formula],

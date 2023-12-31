@@ -1,7 +1,5 @@
-use biodivine_lib_bdd::Bdd;
-use biodivine_lib_param_bn::symbolic_async_graph::GraphColoredVertices;
-use std::collections::HashMap;
-use std::fs::{File, OpenOptions};
+use crate::evaluation::LabelToSetMap;
+use std::fs::File;
 use std::io::{ErrorKind, Write};
 use std::path::Path;
 use zip::write::FileOptions;
@@ -9,9 +7,12 @@ use zip::ZipWriter;
 
 /// Create a full results archive for an "result map" of `string -> colored set of states`.
 ///
-/// It contains one BDD file for each result, metadata file with all the formulae, and the original model file.
+/// The archive will contain:
+/// - files with BDDs for each result (corresponding key in the hashmap is used as a file name)
+/// - metadata file with all the formulae (in order)
+/// - the original model file (so that we can load the results later)
 pub fn build_result_archive(
-    results: HashMap<String, GraphColoredVertices>,
+    results: LabelToSetMap,
     archive_name: &str,
     original_model_str: &str,
     formulae: Vec<String>,
@@ -55,7 +56,7 @@ pub fn build_result_archive(
     Ok(())
 }
 
-/// Create an archive with a given name, and put the original model file and formulae list file there.
+/// Create an archive with a given name, and put the original model file and file with formulae there.
 pub fn build_initial_archive(
     archive_name: &str,
     original_model_str: &str,
@@ -87,25 +88,5 @@ pub fn build_initial_archive(
     }
 
     zip_writer.finish().map_err(std::io::Error::from)?;
-    Ok(())
-}
-
-/// Add a file with an BDD dump to the existing zip archive.
-pub fn dump_bdd_to_zip(
-    zip_path: &str,
-    bdd: &Bdd,
-    file_name_in_zip: &str,
-) -> Result<(), std::io::Error> {
-    // Open the existing ZIP file and create a ZipWriter instance.
-    let mut file = OpenOptions::new().read(true).write(true).open(zip_path)?;
-    let mut zip_writer = ZipWriter::new(&mut file);
-
-    // Make a new file with the given content to the ZIP archive.
-    zip_writer
-        .start_file(file_name_in_zip, FileOptions::default())
-        .map_err(std::io::Error::from)?;
-    bdd.write_as_string(&mut zip_writer)?;
-
-    zip_writer.finish()?;
     Ok(())
 }

@@ -13,10 +13,9 @@ use clap::builder::PossibleValuesParser;
 use clap::Parser;
 
 use biodivine_lib_param_bn::BooleanNetwork;
-use std::path::Path;
 
 /// Structure to collect CLI arguments
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(
     author = "Ondřej Huvar",
     version,
@@ -29,6 +28,10 @@ struct Arguments {
     /// Path to a file with formulae to check.
     formulae_path: String,
 
+    /// Path to the zip with resulting BDD dumps. If not specified, only selected summary is printed.
+    #[clap(short, long)]
+    output_bundle: Option<String>,
+
     /// Choice of the amount of output regarding computation and results.
     /// Default is just an aggregated information regarding the number of satisfying states/colors
     #[clap(short, long, default_value = "summary", value_parser = PossibleValuesParser::new(["no-print", "summary", "with-progress", "exhaustive"]))]
@@ -38,63 +41,50 @@ struct Arguments {
     /// a path to zip bundle of BDDs specifying context of wild-cards.
     #[clap(short, long)]
     extended_context: Option<String>,
-
-    /// Path to the zip with resulting BDD dumps. If not specified, only selected summary is printed.
-    #[clap(short, long)]
-    output_bundle: Option<String>,
 }
 
 /// Wrapper function to invoke the model checker, works with CLI arguments.
 fn main() {
-    // TODO: utilize the extended context
-
     let args = Arguments::parse();
 
-    // check if given paths are valid
-    if !Path::new(args.formulae_path.as_str()).is_file() {
-        println!("{} is not valid file", args.formulae_path);
-        return;
-    }
-    if !Path::new(args.model_path.as_str()).is_file() {
-        println!("{} is not valid file", args.model_path);
-        return;
-    }
-    if let Some(extended_context) = args.extended_context {
-        if !Path::new(extended_context.as_str()).is_file() {
-            println!("{extended_context} is not valid file");
-            return;
-        }
-    }
-
-    // read the model and formulae
-    let formulae = load_formulae(args.formulae_path.as_str());
+    // read the BN model
     let maybe_bn = BooleanNetwork::try_from_file(args.model_path.as_str());
     if maybe_bn.is_err() {
-        println!("Model is incorrect or does not have any supported format.");
+        println!("Model is corrupted or does not have any supported format.");
         println!("{}", maybe_bn.err().unwrap());
         return;
     }
     let bn = maybe_bn.unwrap();
 
+    // read the formulae
+    let maybe_formulae = load_formulae(args.formulae_path.as_str());
+    if maybe_formulae.is_err() {
+        println!("Formulae file is corrupted or does not have the supported format.");
+        println!("{}", maybe_formulae.err().unwrap());
+        return;
+    }
+    let formulae = maybe_formulae.unwrap();
+
     // compute the results
-    let res = match args.print_option.as_str() {
-        "no-print" => analyse_formulae(&bn, formulae, PrintOptions::NoPrint, args.output_bundle),
-        "summary" => analyse_formulae(&bn, formulae, PrintOptions::JustSummary, args.output_bundle),
-        "with-progress" => analyse_formulae(
-            &bn,
-            formulae,
-            PrintOptions::WithProgress,
-            args.output_bundle,
-        ),
-        "exhaustive" => {
-            analyse_formulae(&bn, formulae, PrintOptions::Exhaustive, args.output_bundle)
-        }
+    let print_option = match args.print_option.as_str() {
+        "no-print" => PrintOptions::NoPrint,
+        "summary" => PrintOptions::JustSummary,
+        "with-progress" => PrintOptions::WithProgress,
+        "exhaustive" => PrintOptions::Exhaustive,
         // this cant really happen (would cause error earlier), just here to have exhaustive match
-        _ => Err(format!(
-            "Wrong print option \"{}\".",
-            args.print_option.as_str()
-        )),
+        _ => panic!(
+            "{}",
+            format!("Wrong print option \"{}\".", args.print_option.as_str())
+        ),
     };
+
+    let res = analyse_formulae(
+        &bn,
+        formulae,
+        print_option,
+        args.output_bundle,
+        args.extended_context,
+    );
 
     if res.is_err() {
         println!("{}", res.err().unwrap());

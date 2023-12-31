@@ -3,14 +3,16 @@
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_context::EvalContext;
 use crate::mc_utils::{collect_unique_hctl_vars, get_extended_symbolic_graph};
-use crate::preprocessing::parser::parse_hctl_formula;
-use crate::preprocessing::utils::validate_props_and_rename_vars;
+use crate::preprocessing::parser::{parse_extended_formula, parse_hctl_formula};
+use crate::preprocessing::utils::{validate_and_divide_wild_cards, validate_props_and_rename_vars};
 use crate::result_print::*;
 
 use biodivine_lib_param_bn::BooleanNetwork;
 
+use crate::evaluation::LabelToSetMap;
 use crate::generate_output::build_result_archive;
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicContext};
+use crate::load_inputs::load_bdd_bundle;
+use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use std::collections::HashMap;
 use std::time::SystemTime;
 
@@ -26,8 +28,10 @@ pub fn analyse_formulae(
     formulae: Vec<String>,
     print_opt: PrintOptions,
     result_zip: Option<String>,
+    context_archive_path: Option<String>,
 ) -> Result<(), String> {
     let start = SystemTime::now();
+    let use_extended = context_archive_path.is_some();
     print_if_allowed(
         "============ INITIAL PHASE ============".to_string(),
         print_opt,
@@ -45,19 +49,27 @@ pub fn analyse_formulae(
             format!("Original formula n.{}: {formula}", i + 1),
             print_opt,
         );
-        let tree = parse_hctl_formula(formula.as_str())?;
+
+        // parse the formula
+        let tree = if use_extended {
+            parse_extended_formula(formula.as_str())?
+        } else {
+            parse_hctl_formula(formula.as_str())?
+        };
         print_if_allowed(format!("Parsed version:       {tree}"), print_opt);
 
+        // validate propositions and modify variable names in the formula
         let modified_tree =
             validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &plain_context)?;
-        let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone()).len();
         print_if_allowed(format!("Modified version:     {modified_tree}"), print_opt);
         print_if_allowed("-----".to_string(), print_opt);
 
-        parsed_trees.push(modified_tree);
+        let num_hctl_vars = collect_unique_hctl_vars(modified_tree.clone()).len();
         if num_hctl_vars > max_num_hctl_vars {
             max_num_hctl_vars = num_hctl_vars;
         }
+
+        parsed_trees.push(modified_tree);
     }
 
     // instantiate one extended STG with enough variables to evaluate all formulae
@@ -90,6 +102,28 @@ pub fn analyse_formulae(
     );
     print_if_allowed("-----".to_string(), print_opt);
 
+    // read the contexts (corresponding raw sets) for wild-cards and domains (if provided)
+    let mut props_context = HashMap::new();
+    let mut domains_context = HashMap::new();
+    if use_extended {
+        let all_contexts = load_bdd_bundle(
+            context_archive_path.unwrap().as_str(),
+            graph.symbolic_context(),
+        )?;
+        // validate all wild-cards
+        for tree in &parsed_trees {
+            let (tree_prop_context, tree_dom_context) =
+                validate_and_divide_wild_cards(tree, &all_contexts)?;
+            props_context.extend(tree_prop_context);
+            domains_context.extend(tree_dom_context);
+        }
+        print_if_allowed(
+            "Successfully loaded and validated context for wild-card propositions/domains."
+                .to_string(),
+            print_opt,
+        );
+    }
+
     // find duplicate sub-formulae throughout all formulae + initiate caching structures
     let mut eval_info = EvalContext::from_multiple_trees(&parsed_trees);
     print_if_allowed(
@@ -99,6 +133,9 @@ pub fn analyse_formulae(
         ),
         print_opt,
     );
+    if use_extended {
+        eval_info.extend_context_with_wild_cards(&props_context, &domains_context);
+    }
     print_if_allowed("-----".to_string(), print_opt);
 
     // pre-compute states with self-loops which will be needed
@@ -114,7 +151,7 @@ pub fn analyse_formulae(
     );
 
     // evaluate the formulae (perform the actual model checking) and summarize results
-    let mut results: HashMap<String, GraphColoredVertices> = HashMap::new();
+    let mut results: LabelToSetMap = LabelToSetMap::new();
     for (i, parse_tree) in parsed_trees.iter().enumerate() {
         let formula = formulae[i].clone();
         print_if_allowed(format!("Evaluating formula {}...", i + 1), print_opt);
@@ -139,7 +176,7 @@ pub fn analyse_formulae(
 
     // create the archive for the results (for now, there'll be just the model string)
     if let Some(zip_path) = result_zip {
-        print_if_allowed(format!("Writing the results to {zip_path}.\n"), print_opt);
+        print_if_allowed(format!("Writing the results to {zip_path}."), print_opt);
         build_result_archive(
             results,
             zip_path.as_str(),
@@ -172,8 +209,15 @@ pub fn analyse_formula(
     formula: String,
     print_opt: PrintOptions,
     result_zip: Option<String>,
+    context_archive_path: Option<String>,
 ) -> Result<(), String> {
-    analyse_formulae(bn, vec![formula], print_opt, result_zip)
+    analyse_formulae(
+        bn,
+        vec![formula],
+        print_opt,
+        result_zip,
+        context_archive_path,
+    )
 }
 
 #[cfg(test)]
@@ -203,9 +247,9 @@ mod tests {
         // try both versions with exhaustive results and without them (they execute different code)
 
         let formulae = vec!["!{x}: AG EF {x}".to_string(), "!{x}: AF {x}".to_string()];
-        assert!(analyse_formulae(&bn, formulae, PrintOptions::WithProgress, None).is_ok());
+        assert!(analyse_formulae(&bn, formulae, PrintOptions::WithProgress, None, None).is_ok());
 
         let formula = "erk & fgfr & ~shc".to_string(); // simple to avoid long prints
-        assert!(analyse_formula(&bn, formula, PrintOptions::Exhaustive, None).is_ok());
+        assert!(analyse_formula(&bn, formula, PrintOptions::Exhaustive, None, None).is_ok());
     }
 }

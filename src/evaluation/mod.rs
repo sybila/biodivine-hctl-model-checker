@@ -1,5 +1,6 @@
 //! Components regarding the evaluation of formulae, including the main model-checking algorithm.
 
+use biodivine_lib_param_bn::symbolic_async_graph::GraphColoredVertices;
 use std::collections::{BTreeMap, HashMap};
 
 pub mod algorithm;
@@ -11,10 +12,14 @@ mod hctl_operators_eval;
 mod low_level_operations;
 
 /// Shorthand for mapping of free variables to (optional) labels of their domain.
-type VarDomainMap = BTreeMap<String, Option<String>>;
+pub type VarDomainMap = BTreeMap<String, Option<String>>;
 
 /// Shorthand for sub-formula with mapping of its free variables (optional) labels of their domain .
-type FormulaWithDomains = (String, VarDomainMap);
+pub type FormulaWithDomains = (String, VarDomainMap);
 
 /// Shorthand for mapping between variable names (usually from original to canonical form).
-type VarRenameMap = HashMap<String, String>;
+pub type VarRenameMap = HashMap<String, String>;
+
+/// Shorthand for mapping between string labels (domain label, proposition, formula) and the corresponding
+/// set it evaluates to.
+pub type LabelToSetMap = HashMap<String, GraphColoredVertices>;

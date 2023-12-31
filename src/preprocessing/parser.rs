@@ -19,7 +19,7 @@ use std::collections::HashMap;
 /// Parse an HCTL formula string representation into an actual formula tree.
 /// Basically a wrapper for tokenize+parse (used often for testing/debug purposes).
 ///
-/// NEEDS to call procedure for renaming variables to fully finish the preprocessing step.
+/// NEEDS to call [validate_props_and_rename_vars] to fully finish the preprocessing step.
 pub fn parse_hctl_formula(formula: &str) -> Result<HctlTreeNode, String> {
     let tokens = try_tokenize_formula(formula.to_string())?;
     let tree = parse_hctl_tokens(&tokens)?;
@@ -29,7 +29,7 @@ pub fn parse_hctl_formula(formula: &str) -> Result<HctlTreeNode, String> {
 /// Parse an extended HCTL formula string representation into an actual formula tree.
 /// Extended formulae can include `wild-card propositions` in form "%proposition%".
 ///
-/// NEEDS to call procedure for renaming variables to fully finish the preprocessing step.
+/// NEEDS to call [validate_props_and_rename_vars] to fully finish the preprocessing step.
 pub fn parse_extended_formula(formula: &str) -> Result<HctlTreeNode, String> {
     let tokens = try_tokenize_extended_formula(formula.to_string())?;
     let tree = parse_hctl_tokens(&tokens)?;

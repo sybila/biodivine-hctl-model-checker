@@ -1,15 +1,19 @@
-//! Contains functionality mostly regarding proposition validating, and manipulation with variables.
+//! Functionality mostly regarding validation of propositions, and manipulation with variables of
+//! syntactic trees.
 
+use crate::evaluation::LabelToSetMap;
+use crate::mc_utils::collect_unique_wild_cards;
 use crate::preprocessing::hctl_tree::*;
 use crate::preprocessing::operator_enums::{Atomic, HybridOp};
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use std::collections::HashMap;
 
-/// Checks that all vars in formula are quantified (exactly once) and props are valid BN variables.
-/// Renames hctl vars in the formula tree to a canonical form - "x", "xx", ...
-/// Renames as many state-vars as possible to identical names, without changing the semantics.
+/// Checks that all HCTL variables in the formula's syntactic tree are quantified (exactly once) and that
+/// its propositions are valid BN variables.
+/// Then renames all HCTL vars in the formula's tree to a pseudo-canonical form - "x", "xx", ...
+/// It renames as many variables as possible to identical names, without affecting the semantics.
 pub fn validate_props_and_rename_vars(
-    orig_node: HctlTreeNode,
+    orig_tree: HctlTreeNode,
     mut renaming_map: HashMap<String, String>,
     mut last_used_name: String,
     ctx: &SymbolicContext,
@@ -17,7 +21,7 @@ pub fn validate_props_and_rename_vars(
     // If we find hybrid node with binder or exist, we add new var-name to rename_dict and stack (x, xx, xxx...)
     // After we leave this binder/exist, we remove its var from rename_dict
     // When we find terminal with free var or jump node, we rename the var using rename-dict
-    return match orig_node.node_type {
+    return match orig_tree.node_type {
         // rename vars in terminal state-var nodes
         NodeType::Terminal(ref atom) => match atom {
             Atomic::Var(name) => {
@@ -33,11 +37,11 @@ pub fn validate_props_and_rename_vars(
                 if ctx.find_network_variable(name).is_none() {
                     Err(format!("There is no network variable named {name}."))
                 } else {
-                    Ok(orig_node)
+                    Ok(orig_tree)
                 }
             }
             // constants or wild-card propositions are always considered fine
-            _ => return Ok(orig_node),
+            _ => return Ok(orig_tree),
         },
         // just dive one level deeper for unary nodes, and rename string
         NodeType::Unary(op, child) => {
@@ -99,13 +103,88 @@ pub fn validate_props_and_rename_vars(
     };
 }
 
+/// Check that all wild-card propositions and variable domains in the formula's syntactic tree have
+/// their corresponding "raw set" (context) in `context_props` or `context_domains`, respectively.
+pub fn validate_wild_cards(
+    tree: &HctlTreeNode,
+    context_props: &LabelToSetMap,
+    context_domains: &LabelToSetMap,
+) -> Result<(), String> {
+    let (wild_card_props, var_domains) = collect_unique_wild_cards(tree.clone());
+    // check that all occurring wild-card props are present in `context_props`
+    for wild_card in wild_card_props {
+        if !context_props.contains_key(wild_card.as_str()) {
+            return Err(format!(
+                "Wild-card prop `{}` lacks evaluation context.",
+                wild_card
+            ));
+        }
+    }
+    // check that all occurring wild-card props are present in `context_domains`
+    for var_domain in var_domains {
+        if !context_domains.contains_key(var_domain.as_str()) {
+            return Err(format!(
+                "Var domain `{}` lacks evaluation context.",
+                var_domain
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Check that all wild-card propositions and variable domains in the formula's syntactic tree have
+/// their corresponding "raw set" (context) in `substitution_context`.
+///
+/// Returns two individual context subsets, one for wild-card propositions, and the other for variable domains.
+pub fn validate_and_divide_wild_cards(
+    tree: &HctlTreeNode,
+    substitution_context: &LabelToSetMap,
+) -> Result<(LabelToSetMap, LabelToSetMap), String> {
+    let mut context_domains = HashMap::new();
+    let mut context_props = HashMap::new();
+
+    let (wild_card_props, var_domains) = collect_unique_wild_cards(tree.clone());
+    // check that all occurring wild-card props are present in `substitution_context`
+    for wild_card in wild_card_props {
+        if !substitution_context.contains_key(wild_card.as_str()) {
+            return Err(format!(
+                "Wild-card prop `{}` lacks evaluation context.",
+                wild_card
+            ));
+        } else {
+            context_props.insert(
+                wild_card.clone(),
+                substitution_context.get(&wild_card).unwrap().clone(),
+            );
+        }
+    }
+    // check that all occurring wild-card props are present in `substitution_context`
+    for var_domain in var_domains {
+        if !substitution_context.contains_key(var_domain.as_str()) {
+            return Err(format!(
+                "Var domain `{}` lacks evaluation context.",
+                var_domain
+            ));
+        } else {
+            context_domains.insert(
+                var_domain.clone(),
+                substitution_context.get(&var_domain).unwrap().clone(),
+            );
+        }
+    }
+    Ok((context_props, context_domains))
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::mc_utils::get_extended_symbolic_graph;
     use crate::preprocessing::parser::{
         parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula,
         parse_extended_formula, parse_hctl_formula,
     };
-    use crate::preprocessing::utils::validate_props_and_rename_vars;
+    use crate::preprocessing::utils::{
+        validate_and_divide_wild_cards, validate_props_and_rename_vars, validate_wild_cards,
+    };
     use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
     use biodivine_lib_param_bn::BooleanNetwork;
     use std::collections::HashMap;
@@ -150,20 +229,47 @@ mod tests {
 
     #[test]
     /// Test minimization of number of state variables and their renaming, but this time with
-    /// formula containing wild-card propositions (to check they are not affected).
+    /// formula containing wild-card propositions and domains (to check they are not affected).
     fn state_var_minimization_with_wild_cards() {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
         let ctx = SymbolicContext::new(&bn).unwrap();
 
-        let formula = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%)";
+        let formula = "!{x} in %1%: 3{y} in %2%: (@{x}: ~{y} & %subst%) & (@{y}: %subst%)";
         // same formula with already minimized vars
-        let formula_minimized = "!{x}: 3{xx}: (@{x}: ~{xx} & %subst%) & (@{xx}: %subst%)";
+        let formula_minimized =
+            "!{x} in %1%: 3{xx} in %2%: (@{x}: ~{xx} & %subst%) & (@{xx}: %subst%)";
 
         let tree = parse_and_minimize_extended_formula(&ctx, formula).unwrap();
         // get expected tree using the (same) formula with already manually minimized vars
         let tree_minimized = parse_extended_formula(formula_minimized).unwrap();
         assert_eq!(tree_minimized, tree);
+    }
+
+    #[test]
+    /// Test the utility functions for validating and processing wild-cards in extended formulae.
+    fn test_validate_wild_cards() {
+        // create placeholder bn and symbolic graph
+        let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
+        let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
+
+        // test simple validation
+        let context_props = HashMap::from([("p".to_string(), stg.mk_empty_colored_vertices())]);
+        let context_domains = HashMap::from([("d".to_string(), stg.mk_empty_colored_vertices())]);
+        let formula = "!{x} in %d%: EF %p%";
+        let tree = parse_and_minimize_extended_formula(stg.symbolic_context(), formula).unwrap();
+        let res = validate_wild_cards(&tree, &context_props, &context_domains);
+        assert!(res.is_ok());
+
+        // test validation combined with dividing set of wild-cards into propositions and domains
+        let context_combined = HashMap::from([
+            ("p".to_string(), stg.mk_empty_colored_vertices()),
+            ("d".to_string(), stg.mk_empty_colored_vertices()),
+        ]);
+        let (context1, context2) =
+            validate_and_divide_wild_cards(&tree, &context_combined).unwrap();
+        assert_eq!(context1, context_props);
+        assert_eq!(context2, context_domains);
     }
 
     #[test]
