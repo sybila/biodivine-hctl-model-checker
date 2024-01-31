@@ -7,19 +7,19 @@
 //!  - hybrid operators: 8
 //!
 
-use crate::preprocessing::node::*;
+use crate::preprocessing::hctl_tree::*;
 use crate::preprocessing::operator_enums::*;
 use crate::preprocessing::tokenizer::{
     try_tokenize_extended_formula, try_tokenize_formula, HctlToken,
 };
-use crate::preprocessing::utils::check_props_and_rename_vars;
+use crate::preprocessing::utils::validate_props_and_rename_vars;
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
 use std::collections::HashMap;
 
 /// Parse an HCTL formula string representation into an actual formula tree.
 /// Basically a wrapper for tokenize+parse (used often for testing/debug purposes).
 ///
-/// NEEDS to call procedure for renaming variables to fully finish the preprocessing step.
+/// NEEDS to call [validate_props_and_rename_vars] to fully finish the preprocessing step.
 pub fn parse_hctl_formula(formula: &str) -> Result<HctlTreeNode, String> {
     let tokens = try_tokenize_formula(formula.to_string())?;
     let tree = parse_hctl_tokens(&tokens)?;
@@ -29,7 +29,7 @@ pub fn parse_hctl_formula(formula: &str) -> Result<HctlTreeNode, String> {
 /// Parse an extended HCTL formula string representation into an actual formula tree.
 /// Extended formulae can include `wild-card propositions` in form "%proposition%".
 ///
-/// NEEDS to call procedure for renaming variables to fully finish the preprocessing step.
+/// NEEDS to call [validate_props_and_rename_vars] to fully finish the preprocessing step.
 pub fn parse_extended_formula(formula: &str) -> Result<HctlTreeNode, String> {
     let tokens = try_tokenize_extended_formula(formula.to_string())?;
     let tree = parse_hctl_tokens(&tokens)?;
@@ -44,7 +44,7 @@ pub fn parse_and_minimize_hctl_formula(
     formula: &str,
 ) -> Result<HctlTreeNode, String> {
     let tree = parse_hctl_formula(formula)?;
-    let tree = check_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
+    let tree = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
     Ok(tree)
 }
 
@@ -56,13 +56,13 @@ pub fn parse_and_minimize_extended_formula(
     formula: &str,
 ) -> Result<HctlTreeNode, String> {
     let tree = parse_extended_formula(formula)?;
-    let tree = check_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
+    let tree = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
     Ok(tree)
 }
 
 /// Predicate for whether given token represents hybrid operator.
 fn is_hybrid(token: &HctlToken) -> bool {
-    matches!(token, HctlToken::Hybrid(_, _))
+    matches!(token, HctlToken::Hybrid(..))
 }
 
 /// Predicate for whether given token represents temporal binary operator.
@@ -114,16 +114,17 @@ fn parse_1_hybrid(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let hybrid_token = index_of_first_hybrid(tokens);
     Ok(if let Some(i) = hybrid_token {
         // perform check that hybrid operator is not preceded by other type of operators
-        if i > 0 && !matches!(&tokens[i - 1], HctlToken::Hybrid(_, _)) {
+        if i > 0 && !matches!(&tokens[i - 1], HctlToken::Hybrid(..)) {
             return Err(format!(
                 "Hybrid operator can't be directly preceded by {}.",
                 &tokens[i - 1]
             ));
         }
         match &tokens[i] {
-            HctlToken::Hybrid(op, var) => HctlTreeNode::mk_hybrid_node(
+            HctlToken::Hybrid(op, var, domain) => HctlTreeNode::mk_hybrid(
                 parse_1_hybrid(&tokens[(i + 1)..])?,
-                var.clone(),
+                var.as_str(),
+                domain.clone(),
                 op.clone(),
             ),
             _ => unreachable!(), // we already made sure that this is indeed a hybrid token
@@ -137,7 +138,7 @@ fn parse_1_hybrid(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_2_iff(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let iff_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Iff));
     Ok(if let Some(i) = iff_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_3_imp(&tokens[..i])?,
             parse_2_iff(&tokens[(i + 1)..])?,
             BinaryOp::Iff,
@@ -151,7 +152,7 @@ fn parse_2_iff(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_3_imp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let imp_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Imp));
     Ok(if let Some(i) = imp_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_4_or(&tokens[..i])?,
             parse_3_imp(&tokens[(i + 1)..])?,
             BinaryOp::Imp,
@@ -165,7 +166,7 @@ fn parse_3_imp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_4_or(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let or_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Or));
     Ok(if let Some(i) = or_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_5_xor(&tokens[..i])?,
             parse_4_or(&tokens[(i + 1)..])?,
             BinaryOp::Or,
@@ -179,7 +180,7 @@ fn parse_4_or(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_5_xor(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let xor_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::Xor));
     Ok(if let Some(i) = xor_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_6_and(&tokens[..i])?,
             parse_5_xor(&tokens[(i + 1)..])?,
             BinaryOp::Xor,
@@ -193,7 +194,7 @@ fn parse_5_xor(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_6_and(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let and_token = index_of_first(tokens, HctlToken::Binary(BinaryOp::And));
     Ok(if let Some(i) = and_token {
-        HctlTreeNode::mk_binary_node(
+        HctlTreeNode::mk_binary(
             parse_7_binary_temp(&tokens[..i])?,
             parse_6_and(&tokens[(i + 1)..])?,
             BinaryOp::And,
@@ -208,7 +209,7 @@ fn parse_7_binary_temp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let binary_token = index_of_first_binary_temp(tokens);
     Ok(if let Some(i) = binary_token {
         match &tokens[i] {
-            HctlToken::Binary(op) => HctlTreeNode::mk_binary_node(
+            HctlToken::Binary(op) => HctlTreeNode::mk_binary(
                 parse_8_unary(&tokens[..i])?,
                 parse_7_binary_temp(&tokens[(i + 1)..])?,
                 op.clone(),
@@ -224,9 +225,17 @@ fn parse_7_binary_temp(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
 fn parse_8_unary(tokens: &[HctlToken]) -> Result<HctlTreeNode, String> {
     let unary_token = index_of_first_unary(tokens);
     Ok(if let Some(i) = unary_token {
+        // perform check that unary operator is not directly preceded by some atomic sub-formula
+        if i > 0 && matches!(&tokens[i - 1], HctlToken::Atom(..)) {
+            return Err(format!(
+                "Unary operator can't be directly preceded by {}.",
+                &tokens[i - 1]
+            ));
+        }
+
         match &tokens[i] {
             HctlToken::Unary(op) => {
-                HctlTreeNode::mk_unary_node(parse_8_unary(&tokens[(i + 1)..])?, op.clone())
+                HctlTreeNode::mk_unary(parse_8_unary(&tokens[(i + 1)..])?, op.clone())
             }
             _ => unreachable!(), // we already made sure that this is indeed an unary token
         }
@@ -246,18 +255,18 @@ fn parse_9_terminal_and_parentheses(tokens: &[HctlToken]) -> Result<HctlTreeNode
             match &tokens[0] {
                 HctlToken::Atom(Atomic::Prop(name)) => {
                     return if name == "true" || name == "True" || name == "1" {
-                        Ok(HctlTreeNode::mk_constant_node(true))
+                        Ok(HctlTreeNode::mk_constant(true))
                     } else if name == "false" || name == "False" || name == "0" {
-                        Ok(HctlTreeNode::mk_constant_node(false))
+                        Ok(HctlTreeNode::mk_constant(false))
                     } else {
-                        Ok(HctlTreeNode::mk_prop_node(name.clone()))
+                        Ok(HctlTreeNode::mk_proposition(name.as_str()))
                     }
                 }
                 HctlToken::Atom(Atomic::Var(name)) => {
-                    return Ok(HctlTreeNode::mk_var_node(name.clone()))
+                    return Ok(HctlTreeNode::mk_variable(name.as_str()))
                 }
                 HctlToken::Atom(Atomic::WildCardProp(name)) => {
-                    return Ok(HctlTreeNode::mk_wild_card_node(name.clone()))
+                    return Ok(HctlTreeNode::mk_wild_card(name.as_str()))
                 }
                 // recursively solve sub-formulae in parentheses
                 HctlToken::Tokens(inner) => return parse_hctl_tokens(inner),
@@ -270,14 +279,14 @@ fn parse_9_terminal_and_parentheses(tokens: &[HctlToken]) -> Result<HctlTreeNode
 
 #[cfg(test)]
 mod tests {
-    use crate::preprocessing::node::*;
+    use crate::preprocessing::hctl_tree::*;
     use crate::preprocessing::operator_enums::*;
     use crate::preprocessing::parser::{parse_extended_formula, parse_hctl_formula};
 
     #[test]
     /// Test whether several valid HCTL formulae are parsed without causing errors.
     /// Also check that the formula is saved correctly in the tree root.
-    fn test_parse_valid_formulae() {
+    fn parse_valid_formulae() {
         let valid1 = "!{x}: AG EF {x}";
         let tree = parse_hctl_formula(valid1).unwrap();
         assert_eq!(tree.as_str(), "(!{x}: (AG (EF {x})))");
@@ -310,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_operator_priority() {
+    fn operator_priority() {
         assert_eq!(
             "(((((~a) ^ ((~b) & (~c))) | (~d)) => (~e)) <=> (~f))",
             parse_hctl_formula("~a ^ ~b & ~c | ~d => ~e <=> ~f")
@@ -320,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_operator_associativity() {
+    fn operator_associativity() {
         assert_eq!(
             "(a & (b & c))",
             parse_hctl_formula("a & b & c").unwrap().as_str()
@@ -347,17 +356,18 @@ mod tests {
     /// Test parsing of several valid HCTL formulae against expected results.
     fn compare_parser_with_expected() {
         let formula = "(false & p1)";
-        let expected_tree = HctlTreeNode::mk_binary_node(
-            HctlTreeNode::mk_constant_node(false),
-            HctlTreeNode::mk_prop_node("p1".to_string()),
+        let expected_tree = HctlTreeNode::mk_binary(
+            HctlTreeNode::mk_constant(false),
+            HctlTreeNode::mk_proposition("p1"),
             BinaryOp::And,
         );
         assert_eq!(parse_hctl_formula(formula).unwrap(), expected_tree);
 
         let formula = "!{x}: (AX {x})";
-        let expected_tree = HctlTreeNode::mk_hybrid_node(
-            HctlTreeNode::mk_unary_node(HctlTreeNode::mk_var_node("x".to_string()), UnaryOp::AX),
-            "x".to_string(),
+        let expected_tree = HctlTreeNode::mk_hybrid(
+            HctlTreeNode::mk_unary(HctlTreeNode::mk_variable("x"), UnaryOp::AX),
+            "x",
+            None,
             HybridOp::Bind,
         );
         assert_eq!(parse_hctl_formula(formula).unwrap(), expected_tree);
@@ -365,9 +375,11 @@ mod tests {
 
     #[test]
     /// Test parsing of several completely invalid HCTL formulae.
-    fn test_parse_invalid_formulae() {
+    fn parse_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EK {x}",
+            "!{x}: p q",
+            "!{x}: p q AG {x}",
             "!{x}: AG F {x}",
             "!{x}: AG EU {x}",
             "!{x}: TU EK {x}",
@@ -387,7 +399,7 @@ mod tests {
 
     #[test]
     /// Test parsing several extended HCTL formulae.
-    fn test_parse_extended_formulae() {
+    fn parse_extended_formulae() {
         let formula = "(!{x}: AG EF {x}) & %p%";
         // parser for standard HCTL should fail, for extended succeed
         assert!(parse_hctl_formula(formula).is_err());

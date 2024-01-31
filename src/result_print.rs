@@ -7,11 +7,17 @@ use std::io::Write;
 use std::time::SystemTime;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
+/// Enum with options of the amount of printed results/details.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PrintOptions {
+    /// Do not print anything at all.
     NoPrint,
+    /// Print only the short summary at the end (numbers of results, time).
     JustSummary,
+    /// Print the progress and details during the computation, and a summary at the end.
     WithProgress,
+    /// Print the progress, and also exhaustively enumerate all satisfying states at the end.
+    /// Note that this exhaustive result listing might be infeasible for large systems.
     Exhaustive,
 }
 
@@ -45,6 +51,7 @@ pub(crate) fn summarize_results(
 /// Print the general info about the resulting set and then prints all states which are included
 /// in the resulting set for at least one color (basically 'project out the colors' and print just
 /// the states).
+///
 /// If param `show_names` is false, the states are displayed as a vector of 0/1; otherwise the full
 /// proposition names are displayed.
 pub(crate) fn print_results_full(

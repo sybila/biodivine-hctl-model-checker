@@ -1,30 +1,32 @@
 //! Contains the functionality for canonizing variable names in sub-formulae.
 
+use crate::evaluation::VarRenameMap;
 use std::collections::HashMap;
 use std::iter::Peekable;
 use std::str::Chars;
 
-/// Return a string representing the same subformula, but with canonized var names (var0, var1...).
-/// Param `subform_chars` must represent valid formula processed by `check_props_and_rename_vars`.
-/// Param `subform_chars` must include all PARENTHESES and must NOT contain excess spaces.
-/// For example, `(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))` is a valid input.
-/// Generally, any `node.subform_string` field should be OK to use.
+/// Return a string representing the same sub-formula, but with canonized var names (var0, var1...).
+///
+/// Param `subform_chars` must represent valid formula processed by `validate_props_and_rename_vars`. For instance,
+/// the formula must include parentheses at all places where they are needed, and var names must have a certain format.
+/// For example, `(3{x}: (3{xx}: ((@{x}: ((~{xx}) & (AX {x}))) & (@{xx}: (AX {xx})))))` is a valid input.
+/// Generally, any `formula_str` field of `HctlTreeNode` should have the right format.
 pub fn canonize_subform(
     mut subform_chars: Peekable<Chars>,
-    mut mapping_dict: HashMap<String, String>,
+    mut renaming_map: VarRenameMap,
     mut canonical: String,
     mut stack_len: i32,
-) -> (Peekable<Chars>, String, HashMap<String, String>, i32) {
+) -> (Peekable<Chars>, String, VarRenameMap, i32) {
     while let Some(ch) = subform_chars.next() {
         let mut should_return = false;
         match ch {
             // dive deeper by one level
             '(' => {
                 canonical.push(ch);
-                let tuple = canonize_subform(subform_chars, mapping_dict, canonical, stack_len);
+                let tuple = canonize_subform(subform_chars, renaming_map, canonical, stack_len);
                 subform_chars = tuple.0;
                 canonical = tuple.1;
-                mapping_dict = tuple.2;
+                renaming_map = tuple.2;
                 stack_len = tuple.3;
             }
             // emerge back to upper level
@@ -44,11 +46,13 @@ pub fn canonize_subform(
                     }
                     var_name.push(name_char);
                 }
-                // skip ':'
-                subform_chars.next();
+
+                // the rest of the quantifier-related characters (domain label, or just ':') are
+                // handled as everything else in following iterations
+
                 // insert new mapping to dict and push it all to canonical string
-                mapping_dict.insert(var_name.clone(), format!("var{stack_len}"));
-                canonical.push_str(format!("{ch}{{var{stack_len}}}:").as_str());
+                renaming_map.insert(var_name.clone(), format!("var{stack_len}"));
+                canonical.push_str(format!("{ch}{{var{stack_len}}}").as_str());
                 stack_len += 1;
             }
             // rename existing var to canonical form, or handle free variables
@@ -64,19 +68,19 @@ pub fn canonize_subform(
 
                 // we must be prepared for free vars to appear (not bounded by hybrid operators)
                 // it is because we are canonizing all subformulas in the tree
-                if !mapping_dict.contains_key(var_name.as_str()) {
-                    mapping_dict.insert(var_name.clone(), format!("var{stack_len}"));
+                if !renaming_map.contains_key(var_name.as_str()) {
+                    renaming_map.insert(var_name.clone(), format!("var{stack_len}"));
                     stack_len += 1;
                 }
 
-                if let Some(canonical_name) = mapping_dict.get(var_name.as_str()) {
+                if let Some(canonical_name) = renaming_map.get(var_name.as_str()) {
                     canonical.push_str(format!("{{{canonical_name}}}").as_str());
                 } else {
                     // This branch should never happen
                     println!("Canonical name was not found for {var_name}");
                 }
             }
-            // all the other character, including boolean+temporal operators, '@', prop names
+            // all the other characters, including boolean+temporal operators, '@', prop names
             _ => {
                 canonical.push(ch);
             }
@@ -85,12 +89,13 @@ pub fn canonize_subform(
             break;
         }
     }
-    (subform_chars, canonical, mapping_dict, stack_len)
+    (subform_chars, canonical, renaming_map, stack_len)
 }
 
 #[allow(dead_code)]
 /// Returns string of the semantically same sub-formula, but with "canonized" var names.
-/// It is used in the process of marking duplicate sub-formulae and caching.
+///
+/// It is used for the purposes of marking duplicate sub-formulae and for caching.
 pub fn get_canonical(subform_string: String) -> String {
     let canonized_tuple = canonize_subform(
         subform_string.chars().peekable(),
@@ -103,8 +108,9 @@ pub fn get_canonical(subform_string: String) -> String {
 
 /// Return a tuple with the canonized sub-formula string, and mapping of var names to their new
 /// canonized form.
-/// It is used in the process of marking duplicate sub-formulae and caching.
-pub fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<String, String>) {
+///
+/// It is used for the purposes of marking duplicate sub-formulae and for caching.
+pub fn get_canonical_and_renaming(subform_string: String) -> (String, VarRenameMap) {
     let canonized_tuple = canonize_subform(
         subform_string.chars().peekable(),
         HashMap::new(),
@@ -116,12 +122,12 @@ pub fn get_canonical_and_mapping(subform_string: String) -> (String, HashMap<Str
 
 #[cfg(test)]
 mod tests {
-    use crate::evaluation::canonization::{get_canonical, get_canonical_and_mapping};
+    use crate::evaluation::canonization::{get_canonical, get_canonical_and_renaming};
     use std::collections::HashMap;
 
     #[test]
     /// Compare automatically canonized formula to the expected result.
-    fn test_canonization_simple() {
+    fn canonization_simple() {
         // two formulae that should have same canonization
         let sub_formula1 = "(AX{x})";
         let sub_formula2 = "(AX{xx})";
@@ -141,18 +147,18 @@ mod tests {
         let renaming2 = HashMap::from([("xx".to_string(), "var0".to_string())]);
 
         assert_eq!(
-            get_canonical_and_mapping(sub_formula1.to_string()),
+            get_canonical_and_renaming(sub_formula1.to_string()),
             (sub_formula_canonized.to_string(), renaming1)
         );
         assert_eq!(
-            get_canonical_and_mapping(sub_formula2.to_string()),
+            get_canonical_and_renaming(sub_formula2.to_string()),
             (sub_formula_canonized.to_string(), renaming2)
         );
     }
 
     #[test]
     /// Compare automatically canonized formula to the expected result.
-    fn test_canonization_mediate() {
+    fn canonization_mediate() {
         // two formulae that should have same canonization
         let sub_formula1 = "(AX{x})&(AG(EF{xx}))";
         let sub_formula2 = "(AX{xx})&(AG(EF{xxx}))";
@@ -178,18 +184,18 @@ mod tests {
         ]);
 
         assert_eq!(
-            get_canonical_and_mapping(sub_formula1.to_string()),
+            get_canonical_and_renaming(sub_formula1.to_string()),
             (sub_formula_canonized.to_string(), renaming1)
         );
         assert_eq!(
-            get_canonical_and_mapping(sub_formula2.to_string()),
+            get_canonical_and_renaming(sub_formula2.to_string()),
             (sub_formula_canonized.to_string(), renaming2)
         );
     }
 
     #[test]
     /// Compare automatically canonized formula to the expected result.
-    fn test_canonization_complex() {
+    fn canonization_complex() {
         // two formulae that should have same canonization
         let sub_formula1 = "(3{x}:(3{xx}:((@{x}:((~{xx})&(AX{x})))&(@{xx}:(AX{xx})))))";
         let sub_formula2 = "(3{xx}:(3{x}:((@{xx}:((~{x})&(AX{xx})))&(@{x}:(AX{x})))))";
@@ -216,12 +222,32 @@ mod tests {
         ]);
 
         assert_eq!(
-            get_canonical_and_mapping(sub_formula1.to_string()),
+            get_canonical_and_renaming(sub_formula1.to_string()),
             (sub_formula_canonized.to_string(), renaming1)
         );
         assert_eq!(
-            get_canonical_and_mapping(sub_formula2.to_string()),
+            get_canonical_and_renaming(sub_formula2.to_string()),
             (sub_formula_canonized.to_string(), renaming2)
+        );
+    }
+
+    #[test]
+    /// Compare automatically canonized formulas that contains wild-card properties and restricted
+    /// var domains to the expected result.
+    fn canonization_with_domains() {
+        let formula = "(!{x}in%d1%:({x}&%p1%))";
+        let formula_canonized = "(!{var0}in%d1%:({var0}&%p1%))";
+
+        assert_eq!(
+            get_canonical(formula.to_string()),
+            formula_canonized.to_string()
+        );
+
+        // mappings of variable names between formulae and the canonized version
+        let renaming1 = HashMap::from([("x".to_string(), "var0".to_string())]);
+        assert_eq!(
+            get_canonical_and_renaming(formula.to_string()),
+            (formula_canonized.to_string(), renaming1)
         );
     }
 }

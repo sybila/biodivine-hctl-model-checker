@@ -1,6 +1,7 @@
-//! Model checking utilities such as generating extended STG or checking STG for variable support.
+//! Model checking utilities such as generating extended STG or checking if an STG supports
+//! enough sets of symbolic variables.
 
-use crate::preprocessing::node::{HctlTreeNode, NodeType};
+use crate::preprocessing::hctl_tree::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::{Atomic, HybridOp};
 
 use biodivine_lib_param_bn::symbolic_async_graph::{SymbolicAsyncGraph, SymbolicContext};
@@ -9,6 +10,8 @@ use biodivine_lib_param_bn::BooleanNetwork;
 use std::collections::{HashMap, HashSet};
 
 /// Create an extended symbolic transition graph that supports the number of needed HCTL variables.
+///
+/// The underlying BDD will support `num_hctl_vars` additional variables for each component of the state.
 pub fn get_extended_symbolic_graph(
     bn: &BooleanNetwork,
     num_hctl_vars: u16,
@@ -25,7 +28,8 @@ pub fn get_extended_symbolic_graph(
 }
 
 /// Compute the set of all uniquely named HCTL variables in the formula tree.
-/// Variable names are collected from three quantifiers: bind, exists, forall (which is sufficient,
+///
+/// Variable names are collected from three quantifiers: `bind`, `exists`, `forall` (which is sufficient,
 /// as the formula must not contain free variables).
 pub fn collect_unique_hctl_vars(formula_tree: HctlTreeNode) -> HashSet<String> {
     collect_unique_hctl_vars_recursive(formula_tree, HashSet::new())
@@ -36,22 +40,22 @@ fn collect_unique_hctl_vars_recursive(
     mut seen_vars: HashSet<String>,
 ) -> HashSet<String> {
     match formula_tree.node_type {
-        NodeType::TerminalNode(_) => {}
-        NodeType::UnaryNode(_, child) => {
+        NodeType::Terminal(_) => {}
+        NodeType::Unary(_, child) => {
             seen_vars.extend(collect_unique_hctl_vars_recursive(
                 *child,
                 seen_vars.clone(),
             ));
         }
-        NodeType::BinaryNode(_, left, right) => {
+        NodeType::Binary(_, left, right) => {
             seen_vars.extend(collect_unique_hctl_vars_recursive(*left, seen_vars.clone()));
             seen_vars.extend(collect_unique_hctl_vars_recursive(
                 *right,
                 seen_vars.clone(),
             ));
         }
-        // collect variables from exist and binder nodes
-        NodeType::HybridNode(op, var_name, child) => {
+        // collect variables from quantifier nodes (bind, exists, forall)
+        NodeType::Hybrid(op, var_name, _, child) => {
             match op {
                 HybridOp::Bind | HybridOp::Exists | HybridOp::Forall => {
                     seen_vars.insert(var_name); // we do not care whether insert is successful
@@ -67,45 +71,43 @@ fn collect_unique_hctl_vars_recursive(
     seen_vars
 }
 
-/// Compute the set of all uniquely named `wild-card propositions` in the formula tree.
-pub fn collect_unique_wild_card_props(formula_tree: HctlTreeNode) -> HashSet<String> {
-    collect_unique_wild_card_props_recursive(formula_tree, HashSet::new())
+/// Compute the set of all uniquely named `wild-card propositions` and the set of all
+/// `variable domains` in the formula tree.
+pub fn collect_unique_wild_cards(formula_tree: HctlTreeNode) -> (HashSet<String>, HashSet<String>) {
+    let mut wild_card_props = HashSet::new();
+    let mut var_domains = HashSet::new();
+    collect_unique_wild_cards_recursive(formula_tree, &mut wild_card_props, &mut var_domains);
+    (wild_card_props, var_domains)
 }
 
-fn collect_unique_wild_card_props_recursive(
+/// Recursive fn to compute the set of all uniquely named `wild-card propositions` in the
+/// formula tree.
+fn collect_unique_wild_cards_recursive(
     formula_tree: HctlTreeNode,
-    mut seen_props: HashSet<String>,
-) -> HashSet<String> {
+    seen_props: &mut HashSet<String>,
+    seen_domains: &mut HashSet<String>,
+) {
     match formula_tree.node_type {
-        NodeType::TerminalNode(atom) => {
+        NodeType::Terminal(atom) => {
             if let Atomic::WildCardProp(prop_name) = atom {
                 seen_props.insert(prop_name);
             }
         }
-        NodeType::UnaryNode(_, child) => {
-            seen_props.extend(collect_unique_wild_card_props_recursive(
-                *child,
-                seen_props.clone(),
-            ));
+        NodeType::Unary(_, child) => {
+            collect_unique_wild_cards_recursive(*child, seen_props, seen_domains);
         }
-        NodeType::BinaryNode(_, left, right) => {
-            seen_props.extend(collect_unique_wild_card_props_recursive(
-                *left,
-                seen_props.clone(),
-            ));
-            seen_props.extend(collect_unique_wild_card_props_recursive(
-                *right,
-                seen_props.clone(),
-            ));
+        NodeType::Binary(_, left, right) => {
+            collect_unique_wild_cards_recursive(*left, seen_props, seen_domains);
+            collect_unique_wild_cards_recursive(*right, seen_props, seen_domains);
         }
-        NodeType::HybridNode(_, _, child) => {
-            seen_props.extend(collect_unique_wild_card_props_recursive(
-                *child,
-                seen_props.clone(),
-            ));
+        NodeType::Hybrid(_, _, optional_domain, child) => {
+            if let Some(domain) = optional_domain {
+                seen_domains.insert(domain);
+            }
+
+            collect_unique_wild_cards_recursive(*child, seen_props, seen_domains);
         }
     }
-    seen_props
 }
 
 /// Check that extended symbolic graph's BDD supports enough extra variables for the evaluation of
@@ -124,13 +126,13 @@ pub fn check_hctl_var_support(stg: &SymbolicAsyncGraph, hctl_syntactic_tree: Hct
 #[cfg(test)]
 mod tests {
     use crate::mc_utils::{
-        check_hctl_var_support, collect_unique_hctl_vars, collect_unique_wild_card_props,
+        check_hctl_var_support, collect_unique_hctl_vars, collect_unique_wild_cards,
         get_extended_symbolic_graph,
     };
     use crate::preprocessing::parser::{
         parse_and_minimize_hctl_formula, parse_extended_formula, parse_hctl_formula,
     };
-    use crate::preprocessing::utils::check_props_and_rename_vars;
+    use crate::preprocessing::utils::validate_props_and_rename_vars;
 
     use biodivine_lib_param_bn::BooleanNetwork;
 
@@ -161,25 +163,29 @@ mod tests {
 
         // and for tree with minimized number of renamed state vars
         let modified_tree =
-            check_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).unwrap();
+            validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).unwrap();
         let expected_vars =
             HashSet::from_iter(vec!["x".to_string(), "xx".to_string(), "xxx".to_string()]);
         assert_eq!(collect_unique_hctl_vars(modified_tree), expected_vars);
     }
 
     #[test]
-    /// Test collecting wild-card propositions from extended HCTL formulae.
-    fn test_wild_card_prop_collecting() {
-        let formula = "!{x}: 3{y}: (@{x}: ~{y} & %A% & %B%) & (@{y}: %A% & %C%)";
+    /// Test collecting wild-card propositions and var domains from extended HCTL formulae.
+    fn test_wild_card_collecting() {
+        let formula = "!{x} in %dom1%: 3{y}: (@{x}: ~{y} & %A% & %B%) & (@{y}: %A% & %C%)";
         let tree = parse_extended_formula(formula).unwrap();
 
-        let expected_vars =
+        let expected_props =
             HashSet::from_iter(vec!["A".to_string(), "B".to_string(), "C".to_string()]);
-        assert_eq!(collect_unique_wild_card_props(tree.clone()), expected_vars);
+        let expected_domains = HashSet::from_iter(vec!["dom1".to_string()]);
+        let (props, domains) = collect_unique_wild_cards(tree.clone());
+        assert_eq!(props, expected_props);
+        assert_eq!(domains, expected_domains);
     }
 
     #[test]
-    /// Test collecting wild-card propositions from extended HCTL formulae.
+    /// Test asserting that given extended STG supports enough symbolic variables to allow for
+    /// evaluation of given HCTL formulae.
     fn test_check_hctl_var_support() {
         // define any placeholder bn and stg with enough variables
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();

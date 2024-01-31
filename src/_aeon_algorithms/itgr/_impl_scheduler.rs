@@ -2,7 +2,7 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::VariableId;
 
-use crate::aeon::itgr::{Process, Scheduler};
+use crate::_aeon_algorithms::itgr::{Process, Scheduler};
 
 impl Scheduler {
     /// Create a new `Scheduler` with initial universe and active variables.

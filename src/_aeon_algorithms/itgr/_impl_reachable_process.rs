@@ -2,10 +2,10 @@ use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::VariableId;
 
-use crate::aeon::itgr::{
+use crate::_aeon_algorithms::itgr::{
     ExtendedComponentProcess, FwdProcess, Process, ReachableProcess, Scheduler,
 };
-use crate::aeon::saturated_reachability::reach_bwd;
+use crate::_aeon_algorithms::saturated_reachability::reach_bwd;
 
 impl ReachableProcess {
     pub fn new(

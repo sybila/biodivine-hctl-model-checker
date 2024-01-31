@@ -9,27 +9,37 @@ use std::str::Chars;
 /// Enum of all possible tokens occurring in a HCTL formula string.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum HctlToken {
-    Unary(UnaryOp),           // Unary operators: '~','EX','AX','EF','AF','EG','AG'
-    Binary(BinaryOp),         // Binary operators: '&','|','^','=>','<=>','EU','AU','EW','AW'
-    Hybrid(HybridOp, String), // Hybrid operator and its variable: '!', '@', '3', 'V'
-    Atom(Atomic),             // Proposition, variable, or 'true'/'false' constant
-    Tokens(Vec<HctlToken>),   // A block of tokens inside parentheses
+    /// Unary operators: '~','EX','AX','EF','AF','EG','AG'.
+    Unary(UnaryOp),
+    /// Binary operators: '&','|','^','=>','<=>','EU','AU','EW','AW'.
+    Binary(BinaryOp),
+    /// Hybrid operator (and its variable, and optional domain): '!', '@', '3', 'V'.
+    Hybrid(HybridOp, String, Option<String>),
+    /// Proposition, variable, 'true'/'false' constants, wild-card property.
+    Atom(Atomic),
+    /// A block of tokens inside parentheses.
+    Tokens(Vec<HctlToken>),
 }
 
 /// Try to tokenize given HCTL formula string.
-/// Wrapper for the recursive `try_tokenize_formula` function.
+///
+/// This is a wrapper for the (more general) recursive [try_tokenize_formula]` function.
 pub fn try_tokenize_formula(formula: String) -> Result<Vec<HctlToken>, String> {
     try_tokenize_recursive(&mut formula.chars().peekable(), true, false)
 }
 
 /// Try to tokenize given `extended` HCTL formula string. That means that formula can include
-/// `wild-card properties` in form of "%proposition%".
-/// Wrapper for the recursive `try_tokenize_formula` function.
+/// `wild-card propositions` or variable domains.
+///
+/// This is a wrapper for the (more general) recursive [try_tokenize_formula]` function.
 pub fn try_tokenize_extended_formula(formula: String) -> Result<Vec<HctlToken>, String> {
     try_tokenize_recursive(&mut formula.chars().peekable(), true, true)
 }
 
 /// Process a peekable iterator of characters into a vector of `HctlToken`s.
+///
+/// If `parse_wild_cards` is `true`, `wild-card propositions` and `variable domains` are allowed to
+/// be in the formula. Otherwise, only classical HCTL components are allowed.
 fn try_tokenize_recursive(
     input_chars: &mut Peekable<Chars>,
     top_level: bool,
@@ -119,31 +129,37 @@ fn try_tokenize_recursive(
             }
             '!' => {
                 // we will collect the variable name via inside helper function
-                let name = collect_var_from_operator(input_chars, '!')?;
-                output.push(HctlToken::Hybrid(HybridOp::Bind, name));
-            }
-            '@' => {
-                // we will collect the variable name via inside helper function
-                let name = collect_var_from_operator(input_chars, '@')?;
-                output.push(HctlToken::Hybrid(HybridOp::Jump, name));
+                let (name, domain) =
+                    collect_var_and_dom_from_operator(input_chars, '!', parse_wild_cards)?;
+                output.push(HctlToken::Hybrid(HybridOp::Bind, name, domain));
             }
             // "3" can be either exist quantifier or part of some proposition
             '3' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
-                let name = collect_var_from_operator(input_chars, '3')?;
-                output.push(HctlToken::Hybrid(HybridOp::Exists, name));
+                let (name, domain) =
+                    collect_var_and_dom_from_operator(input_chars, '3', parse_wild_cards)?;
+                output.push(HctlToken::Hybrid(HybridOp::Exists, name, domain));
             }
             // "V" can be either forall quantifier or part of some proposition
             'V' if !is_valid_in_name_optional(input_chars.peek()) => {
                 // we will collect the variable name via inside helper function
-                let name = collect_var_from_operator(input_chars, 'V')?;
-                output.push(HctlToken::Hybrid(HybridOp::Forall, name));
+                let (name, domain) =
+                    collect_var_and_dom_from_operator(input_chars, 'V', parse_wild_cards)?;
+                output.push(HctlToken::Hybrid(HybridOp::Forall, name, domain));
+            }
+            '@' => {
+                // we will collect the variable name via inside helper function
+                let (name, domain) = collect_var_and_dom_from_operator(input_chars, '@', false)?;
+                if domain.is_some() {
+                    return Err("Cannot specify domain after '@'.".to_string());
+                }
+                output.push(HctlToken::Hybrid(HybridOp::Jump, name, None));
             }
             ')' => {
                 return if !top_level {
                     Ok(output)
                 } else {
-                    Err("Unexpected ')'.".to_string())
+                    Err("Unexpected ')' without opening counterpart.".to_string())
                 }
             }
             '(' => {
@@ -159,7 +175,7 @@ fn try_tokenize_recursive(
                 }
                 output.push(HctlToken::Atom(Atomic::Var(name)));
                 if Some('}') != input_chars.next() {
-                    return Err("Expected '}'.".to_string());
+                    return Err("Expected '}' without opening counterpart.".to_string());
                 }
             }
             // wild-card proposition name
@@ -170,7 +186,7 @@ fn try_tokenize_recursive(
                 }
                 output.push(HctlToken::Atom(Atomic::WildCardProp(name)));
                 if Some('%') != input_chars.next() {
-                    return Err("Expected '%'.".to_string());
+                    return Err("Expected '%' after wild-card proposition name.".to_string());
                 }
             }
             // proposition name or constant
@@ -186,7 +202,18 @@ fn try_tokenize_recursive(
     if top_level {
         Ok(output)
     } else {
-        Err("Expected ')'.".to_string())
+        Err("Expected ')' to previously encountered opening counterpart.".to_string())
+    }
+}
+
+/// Check all whitespaces at the front of the iterator.
+fn skip_whitespaces(chars: &mut Peekable<Chars>) {
+    while let Some(&c) = chars.peek() {
+        if c.is_whitespace() {
+            chars.next(); // Skip the whitespace character
+        } else {
+            break; // Stop skipping when a non-whitespace character is found
+        }
     }
 }
 
@@ -211,12 +238,12 @@ fn is_valid_temp_op(option_char: Option<&char>) -> bool {
     false
 }
 
-/// Retrieve the proposition (or variable) name from the input.
+/// Retrieve the name (of a proposition or variable) from the input.
 /// The first character of the name may or may not be already consumed by the caller.
 fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     let mut name = Vec::new();
     while let Some(c) = input_chars.peek() {
-        if c.is_whitespace() || !is_valid_in_name(*c) {
+        if !is_valid_in_name(*c) {
             break;
         } else {
             name.push(*c);
@@ -226,14 +253,17 @@ fn collect_name(input_chars: &mut Peekable<Chars>) -> Result<String, String> {
     Ok(name.into_iter().collect())
 }
 
-/// Retrieve the name of the variable bound by a hybrid operator.
+/// Retrieve the name of the variable, and optional name for the domain, bound by a hybrid operator.
 /// Operator character is consumed by caller and is given as input for error msg purposes.
-fn collect_var_from_operator(
+///
+/// Domains are allowed (but not required) only if `parse_domains` is true.
+fn collect_var_and_dom_from_operator(
     input_chars: &mut Peekable<Chars>,
     operator: char,
-) -> Result<String, String> {
+    parse_domains: bool,
+) -> Result<(String, Option<String>), String> {
     // there might be few spaces first
-    let _ = input_chars.take_while(|c| c.is_whitespace());
+    skip_whitespaces(input_chars);
     // now collect the variable name itself- it is in the form {var_name} for now
     if Some('{') != input_chars.next() {
         return Err(format!("Expected '{{' after '{operator}'."));
@@ -242,16 +272,47 @@ fn collect_var_from_operator(
     if name.is_empty() {
         return Err("Variable name can't be empty.".to_string());
     }
-
     if Some('}') != input_chars.next() {
-        return Err("Expected '}'.".to_string());
+        return Err(format!(
+            "Expected '}}' after variable name (in '{operator}' segment)."
+        ));
     }
-    let _ = input_chars.take_while(|c| c.is_whitespace());
+    skip_whitespaces(input_chars);
 
-    if Some(':') != input_chars.next() {
-        return Err("Expected ':'.".to_string());
+    let mut domain = None;
+    if parse_domains {
+        // there are 2 options:
+        // a) domain is specified and thus relevant chars form "in %domain%:"
+        // b) domain is not specified and thus next char must be ":"
+        if let Some('i') = input_chars.peek() {
+            // the "in" part
+            input_chars.next();
+            if Some('n') != input_chars.next() {
+                return Err("Expected 'n' after 'i' (in domain specification).".to_string());
+            }
+            skip_whitespaces(input_chars);
+
+            // the "%domain%" part
+            if Some('%') != input_chars.next() {
+                return Err("Expected '%' before domain name.".to_string());
+            }
+            let domain_name = collect_name(input_chars)?;
+            if domain_name.is_empty() {
+                return Err("Variable's domain name can't be empty.".to_string());
+            }
+            domain = Some(domain_name);
+            if Some('%') != input_chars.next() {
+                return Err("Expected '%' after domain name.".to_string());
+            }
+            skip_whitespaces(input_chars);
+        }
     }
-    Ok(name)
+    if Some(':') != input_chars.next() {
+        return Err(format!(
+            "Expected ':' after segment of hybrid operator '{operator}'."
+        ));
+    }
+    Ok((name, domain))
 }
 
 impl fmt::Display for HctlToken {
@@ -266,7 +327,8 @@ impl fmt::Display for HctlToken {
             HctlToken::Binary(BinaryOp::Imp) => write!(f, "=>"),
             HctlToken::Binary(BinaryOp::Iff) => write!(f, "<=>"),
             HctlToken::Binary(c) => write!(f, "{c:?}"), // binary temporal
-            HctlToken::Hybrid(op, var) => write!(f, "{op:?} {{{var}}}:"),
+            HctlToken::Hybrid(op, var, None) => write!(f, "{op:?} {{{var}}}:"),
+            HctlToken::Hybrid(op, var, Some(dom)) => write!(f, "{op:?} {{{var}}} in %{dom}%:"),
             HctlToken::Atom(Atomic::Prop(name)) => write!(f, "{name}"),
             HctlToken::Atom(Atomic::Var(name)) => write!(f, "{{{name}}}"),
             HctlToken::Atom(Atomic::WildCardProp(name)) => write!(f, "%{name}%"),
@@ -305,14 +367,14 @@ mod tests {
     /// Test tokenization process on several valid HCTL formulae.
     /// Test both some important and meaningful formulae and formulae that include wide
     /// range of operators.
-    fn test_tokenize_valid_formulae() {
+    fn tokenize_valid_formulae() {
         // formula for attractors
         let valid1 = "!{x}: AG EF {x}".to_string();
         let tokens1 = try_tokenize_formula(valid1).unwrap();
         assert_eq!(
             tokens1,
             vec![
-                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
                 HctlToken::Unary(UnaryOp::AG),
                 HctlToken::Unary(UnaryOp::EF),
                 HctlToken::Atom(Atomic::Var("x".to_string())),
@@ -325,7 +387,7 @@ mod tests {
         assert_eq!(
             tokens2,
             vec![
-                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
                 HctlToken::Tokens(vec![
                     HctlToken::Unary(UnaryOp::AX),
                     HctlToken::Tokens(vec![
@@ -345,10 +407,10 @@ mod tests {
         assert_eq!(
             tokens3,
             vec![
-                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
-                HctlToken::Hybrid(HybridOp::Exists, "y".to_string()),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
+                HctlToken::Hybrid(HybridOp::Exists, "y".to_string(), None),
                 HctlToken::Tokens(vec![
-                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string()),
+                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string(), None),
                     HctlToken::Unary(UnaryOp::Not),
                     HctlToken::Atom(Atomic::Var("y".to_string())),
                     HctlToken::Binary(BinaryOp::And),
@@ -357,7 +419,7 @@ mod tests {
                 ]),
                 HctlToken::Binary(BinaryOp::And),
                 HctlToken::Tokens(vec![
-                    HctlToken::Hybrid(HybridOp::Jump, "y".to_string()),
+                    HctlToken::Hybrid(HybridOp::Jump, "y".to_string(), None),
                     HctlToken::Unary(UnaryOp::AX),
                     HctlToken::Atom(Atomic::Var("y".to_string())),
                 ]),
@@ -393,9 +455,16 @@ mod tests {
     }
 
     #[test]
+    /// Test tokenization process on HCTL formula with several whitespaces.
+    fn tokenize_with_whitespaces() {
+        let valid_formula = " !   {x}   :  AG  EF    {x} ";
+        assert!(try_tokenize_formula(valid_formula.to_string()).is_ok())
+    }
+
+    #[test]
     /// Test tokenization process on several invalid HCTL formulae.
     /// Try to cover wide range of invalid possibilities, as well as potential frequent mistakes.
-    fn test_tokenize_invalid_formulae() {
+    fn tokenize_invalid_formulae() {
         let invalid_formulae = vec![
             "!{x}: AG EF {x<&}",
             "!{x}: A* EF {x}",
@@ -424,8 +493,8 @@ mod tests {
 
     #[test]
     /// Test tokenization process on several extended HCTL formulae containing
-    /// `wild-card propositions`.
-    fn test_tokenize_extended_formulae() {
+    /// `wild-card propositions` or `variable domains`.
+    fn tokenize_extended_formulae() {
         let formula1 = "p & %p%";
         // tokenizer for standard HCTL should fail, for extended succeed
         assert!(try_tokenize_formula(formula1.to_string()).is_err());
@@ -447,14 +516,70 @@ mod tests {
         assert_eq!(
             tokens,
             vec![
-                HctlToken::Hybrid(HybridOp::Bind, "x".to_string()),
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), None),
                 HctlToken::Tokens(vec![
-                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string()),
+                    HctlToken::Hybrid(HybridOp::Jump, "x".to_string(), None),
                     HctlToken::Atom(Atomic::Var("x".to_string())),
                     HctlToken::Binary(BinaryOp::And),
                     HctlToken::Atom(Atomic::WildCardProp("s".to_string())),
                 ]),
             ]
         );
+
+        let formula3 = "!{x} in %dom_x%: {x}";
+        assert!(try_tokenize_formula(formula3.to_string()).is_err());
+        assert!(try_tokenize_extended_formula(formula3.to_string()).is_ok());
+        let tokens = try_tokenize_extended_formula(formula3.to_string()).unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), Some("dom_x".to_string())),
+                HctlToken::Atom(Atomic::Var("x".to_string())),
+            ]
+        );
+
+        let formula4 = "!{x} in %dom_x%: %wild_card%";
+        assert!(try_tokenize_formula(formula4.to_string()).is_err());
+        assert!(try_tokenize_extended_formula(formula4.to_string()).is_ok());
+        let tokens = try_tokenize_extended_formula(formula4.to_string()).unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                HctlToken::Hybrid(HybridOp::Bind, "x".to_string(), Some("dom_x".to_string())),
+                HctlToken::Atom(Atomic::WildCardProp("wild_card".to_string())),
+            ]
+        );
+    }
+
+    #[test]
+    /// Test tokenization process on an extended HCTL formula with several whitespaces.
+    fn tokenize_extended_with_whitespaces() {
+        let valid_formula = " !   {x}   in  %d%  :  AF   %u%   ";
+        assert!(try_tokenize_extended_formula(valid_formula.to_string()).is_ok())
+    }
+
+    #[test]
+    /// Test tokenization process on several invalid extended HCTL formulae.
+    /// Try to cover wide range of invalid possibilities, as well as potential frequent mistakes.
+    fn tokenize_invalid_extended() {
+        let invalid_formulae = vec![
+            "!{x} in: AG EF {x}",
+            "!{x} i %d%: AG EF {x}",
+            "!{x} in %%: AG EF {x}",
+            "!{x} %d%: AG EF {x}",
+            "!{x} in abc: AG EF {x}",
+            "!{} in %d%: AG EF {x}",
+            "3{x}: @{x} in %s%: AG EF {x}",
+            "%%",
+            "%ddd %",
+            "%ddd*%",
+            "A & d %",
+            "A & %d",
+            "A & d%",
+        ];
+
+        for formula in invalid_formulae {
+            assert!(try_tokenize_extended_formula(formula.to_string()).is_err())
+        }
     }
 }

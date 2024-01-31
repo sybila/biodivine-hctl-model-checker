@@ -1,9 +1,9 @@
-//! Components regarding the preprocessing of HCTL formulae, e.g., tokenizing, parsing, validating,
-//! or renaming of variables.
+//! Components responsible for the preprocessing of HCTL formulae before model checking.
+//!
+//! That is, tokenization, parsing, validation, and variable renaming.
 
-pub mod node;
+pub mod hctl_tree;
 pub mod operator_enums;
 pub mod parser;
-pub mod read_inputs;
 pub mod tokenizer;
 pub mod utils;

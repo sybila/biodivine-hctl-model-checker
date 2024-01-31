@@ -1,4 +1,4 @@
-use crate::aeon::saturated_reachability::{reach_bwd, reachability_step};
+use crate::_aeon_algorithms::saturated_reachability::{reach_bwd, reachability_step};
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};

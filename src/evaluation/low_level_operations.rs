@@ -1,17 +1,23 @@
-//! Contains the low-level operations needed to implement HCTL operators symbolically.
+//! Low-level operations and utilities needed to evaluate HCTL operators symbolically.
+//! This is a place to look for when you need to touch the underlying BDDs directly.
 
 use biodivine_lib_bdd::BddVariable;
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
-/// Create a comparator between the components of either:
-///  - system states and a given HCTL variable: `(s__1 <=> var__1) & (s__2 <=> var__2) ... `
-///  - two given HCTL variables: `(varA__1 <=> varB__1) & (varA__2 <=> varB__2) ... `
-/// The variant is specified by the argument `other_hctl_var_name_opt` (`None` -> v1, `Some` -> v2).
-fn create_comparator(
+/// Create an `equalizer` between two sets of BDD variables. One of the BDD variable sets must encode a HCTL
+/// variable. The other encodes either a state of the BN, or another HCTL variable.
+///
+/// The equalizer ensures that the corresponding bits (between the two sets) are set to the same value.
+/// It essential makes a "bitwise" equivalence between
+///  a) system states and a given HCTL variable: `(s__1 <=> var__1) & (s__2 <=> var__2) ... `
+///  b) two given HCTL variables: `(varA__1 <=> varB__1) & (varA__2 <=> varB__2) ... `
+///
+/// The variant to be used is specified by the argument `other_hctl_var_name`, `None` -> a), `Some` -> b).
+fn create_equalizer(
     graph: &SymbolicAsyncGraph,
     hctl_var_name: &str,
-    other_hctl_var_name_opt: Option<&str>,
+    other_hctl_var_name: Option<&str>,
 ) -> GraphColoredVertices {
     // TODO: merge both branches to not repeat code
     let mut comparator = graph.mk_unit_colored_vertices().as_bdd().clone();
@@ -19,7 +25,7 @@ fn create_comparator(
     // HCTL variables are named x, xx, xxx, ...
     let hctl_var_id = hctl_var_name.len() - 1; // len of var codes its index
 
-    if let Some(other_hctl_var_name) = other_hctl_var_name_opt {
+    if let Some(other_hctl_var_name) = other_hctl_var_name {
         // do comparator between the two HCTL variables
 
         // HCTL variables are named x, xx, xxx, ...
@@ -65,27 +71,30 @@ fn create_comparator(
         .intersect(graph.unit_colored_vertices())
 }
 
-/// Wrapper for creating a comparator between the components of the state (network vars) and
+/// Wrapper for creating an `equalizer` between the components of the state (network vars) and
 /// a given HCTL variable.
-/// It is computed as `(s__1 <=> var__1) & (s__2 <=> var__2) ... `
+///
+/// See [create_equalizer] for more details.
 pub fn create_comparator_var_state(
     graph: &SymbolicAsyncGraph,
     hctl_var_name: &str,
 ) -> GraphColoredVertices {
-    create_comparator(graph, hctl_var_name, None)
+    create_equalizer(graph, hctl_var_name, None)
 }
 
-/// Wrapper for creating a comparator between the components of two HCTL variables.
-/// It is computed as `(varA__1 <=> varB__1) & (varA__2 <=> varB__2) ...`
+/// Wrapper for creating an `equalizer` between the components of two HCTL variables.
+///
+/// See [create_equalizer] for more details.
 pub fn create_comparator_two_vars(
     graph: &SymbolicAsyncGraph,
     hctl_var_name: &str,
     other_hctl_var_name: &str,
 ) -> GraphColoredVertices {
-    create_comparator(graph, hctl_var_name, Some(other_hctl_var_name))
+    create_equalizer(graph, hctl_var_name, Some(other_hctl_var_name))
 }
 
-/// Project out (existentially quantify) the given HCTL variable.
+/// Existentially quantify the given HCTL variable (by projecting out its components from the BDD).
+///
 /// This is used during hybrid operators evaluation or during renaming of HCTL vars.
 pub fn project_out_hctl_var(
     graph: &SymbolicAsyncGraph,
@@ -108,22 +117,25 @@ pub fn project_out_hctl_var(
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
-/// Project out (existentially quantify) the BDD variables encoding the state.
+/// Existentially quantify the state of the BN (by projecting out its components - BN variables - from the BDD).
+///
 /// This is used during evaluation of jump operator.
-pub fn project_out_state_vars(
+pub fn project_out_bn_vars(
     graph: &SymbolicAsyncGraph,
-    colored_state_set: GraphColoredVertices,
+    colored_state_set: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     // project out the bdd vars coding variables from the Boolean network
     let result_bdd = colored_state_set
+        .clone()
         .into_bdd()
         .exists(graph.symbolic_context().state_variables());
     // after projecting we do not need to intersect with unit bdd
     GraphColoredVertices::new(result_bdd, graph.symbolic_context())
 }
 
-/// Substitute (rename) HCTL variable by another (valid) HCTL variable.
-/// BDD of the set must not depend on the HCTL to be substituted.
+/// Substitute (rename) HCTL variable by another (valid) HCTL variable (by renaming its components in the BDD).
+/// BDD of the set `colored_states` must not depend on the HCTL to be substituted.
+///
 /// Can be used for more efficient caching between sub-formulae with differently named vars.
 pub fn substitute_hctl_var(
     graph: &SymbolicAsyncGraph,
@@ -141,6 +153,53 @@ pub fn substitute_hctl_var(
     let comparator = create_comparator_two_vars(graph, hctl_var_before, hctl_var_after);
     let colored_states_new = colored_states.intersect(&comparator);
 
-    // get rid of the old var
+    // get rid of the old var (project it out)
     project_out_hctl_var(graph, &colored_states_new, hctl_var_before)
+}
+
+/// Given a `domain` of ColoredVertices, which restricts valid states, create the same
+/// restriction set, but instead restricting values of given `hctl_var`.
+/// Simply put, do `substitution` from BN variables to symbolic variables encoding `hctl_var`.
+///
+/// If input `domain` specifies states satisfying `s1 & s2`, then (for hctl var `x`), the result
+/// satisfies exactly `x1 & x2`.
+///
+/// The `domain's` bdd must not depend on any symbolic (HCTL) variables.
+pub fn compute_valid_domain_for_var(
+    graph: &SymbolicAsyncGraph,
+    domain: &GraphColoredVertices,
+    hctl_var: &str,
+) -> GraphColoredVertices {
+    // TODO: check that BDD for `domain` does not depend on any hctl_var
+
+    // set new HCTL var to the same values as the BN vars in `domain`
+    let comparator = create_comparator_var_state(graph, hctl_var);
+    let colored_states_new = domain.intersect(&comparator);
+
+    // project out the BN variables
+    project_out_bn_vars(graph, &colored_states_new)
+}
+
+/// Restrict the unit BDD of a given STG with given `restriction_set`.
+///
+/// The `restriction_set` must be a subset of `graph's` unit BDD, and it must be a cartesian
+/// product of a set of vertices, a set of colors, and a set of valuations on the extra variables
+/// (due to limitations of `SymbolicAsyncGraph::with_custom_context`).
+///
+/// The `restriction_set` must be compatible with the `graph`. Otherwise panics.
+pub fn restrict_stg_unit_bdd(
+    graph: &SymbolicAsyncGraph,
+    restriction_set: &GraphColoredVertices,
+) -> SymbolicAsyncGraph {
+    // compute the new unit set
+    let new_unit_set = graph.unit_colored_vertices().intersect(restriction_set);
+
+    // set the validity domain for the given var (graph has valid BN ref, so we can unwrap)
+    let new_graph = SymbolicAsyncGraph::with_custom_context(
+        graph.as_network().unwrap(),
+        graph.symbolic_context().clone(),
+        new_unit_set.into_bdd(),
+    );
+    // the validity of the
+    new_graph.unwrap()
 }

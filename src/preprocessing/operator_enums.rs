@@ -37,9 +37,11 @@ pub enum HybridOp {
     Forall, // 'V'
 }
 
-/// Enum for atomic sub-formulae - propositions, variables, and constants.
-/// There are also `wild-card propositions`, that will be directly evaluated as some precomputed
-/// coloured set. We have to differentiate them from classical propositions.
+/// Enum for atomic sub-formulae: propositions, variables, and constants.
+///
+/// There are also *wild-card propositions*, which are immediately evaluated using
+/// a precomputed coloured set. We differentiate them from classical propositions
+/// since they are evaluated differently.
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub enum Atomic {
     Prop(String),         // A proposition name
@@ -92,6 +94,16 @@ impl fmt::Display for Atomic {
             Atomic::True => write!(f, "True"),
             Atomic::False => write!(f, "False"),
             Atomic::WildCardProp(name) => write!(f, "%{name}%"),
+        }
+    }
+}
+
+impl From<bool> for Atomic {
+    fn from(value: bool) -> Self {
+        if value {
+            Atomic::True
+        } else {
+            Atomic::False
         }
     }
 }
