@@ -104,16 +104,15 @@ pub fn validate_props_and_rename_vars(
 }
 
 /// Check that all wild-card propositions and variable domains in the formula's syntactic tree have
-/// their corresponding "raw set" (context) in `context_props` or `context_domains`, respectively.
+/// their corresponding "raw set" (context) in `context_sets`.
 pub fn validate_wild_cards(
     tree: &HctlTreeNode,
-    context_props: &LabelToSetMap,
-    context_domains: &LabelToSetMap,
+    context_sets: &LabelToSetMap,
 ) -> Result<(), String> {
     let (wild_card_props, var_domains) = collect_unique_wild_cards(tree.clone());
     // check that all occurring wild-card props are present in `context_props`
     for wild_card in wild_card_props {
-        if !context_props.contains_key(wild_card.as_str()) {
+        if !context_sets.contains_key(wild_card.as_str()) {
             return Err(format!(
                 "Wild-card prop `{}` lacks evaluation context.",
                 wild_card
@@ -122,7 +121,7 @@ pub fn validate_wild_cards(
     }
     // check that all occurring wild-card props are present in `context_domains`
     for var_domain in var_domains {
-        if !context_domains.contains_key(var_domain.as_str()) {
+        if !context_sets.contains_key(var_domain.as_str()) {
             return Err(format!(
                 "Var domain `{}` lacks evaluation context.",
                 var_domain
@@ -138,7 +137,7 @@ pub fn validate_wild_cards(
 /// Returns two individual context subsets, one for wild-card propositions, and the other for variable domains.
 pub fn validate_and_divide_wild_cards(
     tree: &HctlTreeNode,
-    substitution_context: &LabelToSetMap,
+    context_sets: &LabelToSetMap,
 ) -> Result<(LabelToSetMap, LabelToSetMap), String> {
     let mut context_domains = HashMap::new();
     let mut context_props = HashMap::new();
@@ -146,7 +145,7 @@ pub fn validate_and_divide_wild_cards(
     let (wild_card_props, var_domains) = collect_unique_wild_cards(tree.clone());
     // check that all occurring wild-card props are present in `substitution_context`
     for wild_card in wild_card_props {
-        if !substitution_context.contains_key(wild_card.as_str()) {
+        if !context_sets.contains_key(wild_card.as_str()) {
             return Err(format!(
                 "Wild-card prop `{}` lacks evaluation context.",
                 wild_card
@@ -154,13 +153,13 @@ pub fn validate_and_divide_wild_cards(
         } else {
             context_props.insert(
                 wild_card.clone(),
-                substitution_context.get(&wild_card).unwrap().clone(),
+                context_sets.get(&wild_card).unwrap().clone(),
             );
         }
     }
     // check that all occurring wild-card props are present in `substitution_context`
     for var_domain in var_domains {
-        if !substitution_context.contains_key(var_domain.as_str()) {
+        if !context_sets.contains_key(var_domain.as_str()) {
             return Err(format!(
                 "Var domain `{}` lacks evaluation context.",
                 var_domain
@@ -168,7 +167,7 @@ pub fn validate_and_divide_wild_cards(
         } else {
             context_domains.insert(
                 var_domain.clone(),
-                substitution_context.get(&var_domain).unwrap().clone(),
+                context_sets.get(&var_domain).unwrap().clone(),
             );
         }
     }
@@ -254,20 +253,19 @@ mod tests {
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // test simple validation
-        let context_props = HashMap::from([("p".to_string(), stg.mk_empty_colored_vertices())]);
-        let context_domains = HashMap::from([("d".to_string(), stg.mk_empty_colored_vertices())]);
-        let formula = "!{x} in %d%: EF %p%";
-        let tree = parse_and_minimize_extended_formula(stg.symbolic_context(), formula).unwrap();
-        let res = validate_wild_cards(&tree, &context_props, &context_domains);
-        assert!(res.is_ok());
-
-        // test validation combined with dividing set of wild-cards into propositions and domains
-        let context_combined = HashMap::from([
+        let context_sets = HashMap::from([
             ("p".to_string(), stg.mk_empty_colored_vertices()),
             ("d".to_string(), stg.mk_empty_colored_vertices()),
         ]);
-        let (context1, context2) =
-            validate_and_divide_wild_cards(&tree, &context_combined).unwrap();
+        let formula = "!{x} in %d%: EF %p%";
+        let tree = parse_and_minimize_extended_formula(stg.symbolic_context(), formula).unwrap();
+        let res = validate_wild_cards(&tree, &context_sets);
+        assert!(res.is_ok());
+
+        // test validation combined with dividing set of wild-cards into propositions and domains
+        let context_props = HashMap::from([("p".to_string(), stg.mk_empty_colored_vertices())]);
+        let context_domains = HashMap::from([("d".to_string(), stg.mk_empty_colored_vertices())]);
+        let (context1, context2) = validate_and_divide_wild_cards(&tree, &context_sets).unwrap();
         assert_eq!(context1, context_props);
         assert_eq!(context2, context_domains);
     }

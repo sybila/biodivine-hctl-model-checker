@@ -11,7 +11,7 @@ use std::collections::HashMap;
 
 /// Test evaluation of pairs of equivalent pattern formulae on given BN model.
 /// The patterns (wild-card propositions) are evaluated to raw sets specified by `context`.
-fn evaluate_equivalent_formulae_in_context(stg: &SymbolicAsyncGraph, context: LabelToSetMap) {
+fn evaluate_equivalent_formulae_in_context(stg: &SymbolicAsyncGraph, context_sets: LabelToSetMap) {
     let equivalent_pattern_pairs = vec![
         // AU equivalence
         (
@@ -29,10 +29,8 @@ fn evaluate_equivalent_formulae_in_context(stg: &SymbolicAsyncGraph, context: La
     ];
 
     for (f1, f2) in equivalent_pattern_pairs {
-        let result1 =
-            model_check_extended_formula(f1.to_string(), stg, &context, &HashMap::new()).unwrap();
-        let result2 =
-            model_check_extended_formula(f2.to_string(), stg, &context, &HashMap::new()).unwrap();
+        let result1 = model_check_extended_formula(f1.to_string(), stg, &context_sets).unwrap();
+        let result2 = model_check_extended_formula(f2.to_string(), stg, &context_sets).unwrap();
         assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
     }
 }

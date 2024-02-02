@@ -14,9 +14,10 @@ use crate::preprocessing::hctl_tree::HctlTreeNode;
 use crate::preprocessing::parser::{
     parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula,
 };
+use std::collections::HashMap;
 
 use crate::evaluation::LabelToSetMap;
-use crate::preprocessing::utils::validate_wild_cards;
+use crate::preprocessing::utils::validate_and_divide_wild_cards;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
 /// Perform the model checking for the list of HCTL formulae given by their syntax trees on a given transition `graph`.
@@ -153,14 +154,17 @@ pub fn model_check_formula_dirty(
 
 /// Parse given extended HCTL formulae into syntactic trees and perform compatibility check with
 /// the provided `graph` (i.e., check if `graph` object supports enough sets of symbolic variables).
+///
+/// Returns a triplet - a syntactic tree, context mapping for wild-card props, and context mapping for domains.
 fn parse_and_validate_extended(
     formulae: Vec<String>,
     graph: &SymbolicAsyncGraph,
-    subst_context_props: &LabelToSetMap,
-    subst_context_domains: &LabelToSetMap,
-) -> Result<Vec<HctlTreeNode>, String> {
+    context_sets: &LabelToSetMap,
+) -> Result<(Vec<HctlTreeNode>, LabelToSetMap, LabelToSetMap), String> {
     // parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
+    let mut props_context = HashMap::new();
+    let mut domains_context = HashMap::new();
     for formula in formulae {
         let tree = parse_and_minimize_extended_formula(graph.symbolic_context(), formula.as_str())?;
 
@@ -169,10 +173,14 @@ fn parse_and_validate_extended(
             return Err("Graph does not support enough HCTL state variables".to_string());
         }
 
-        validate_wild_cards(&tree, subst_context_props, subst_context_domains)?;
+        let (tree_prop_context, tree_dom_context) =
+            validate_and_divide_wild_cards(&tree, context_sets)?;
+
+        props_context.extend(tree_prop_context);
+        domains_context.extend(tree_dom_context);
         parsed_trees.push(tree);
     }
-    Ok(parsed_trees)
+    Ok((parsed_trees, props_context, domains_context))
 }
 
 /// Perform the model checking for list of `extended` HCTL formulae on a given transition `graph`,
@@ -180,25 +188,23 @@ fn parse_and_validate_extended(
 /// Return the resulting sets of colored vertices (in the same order as input formulae).
 /// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 ///
-/// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
-/// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
-/// Bdds of both must only depend on BN variables and colours, not on their symbolic variables.
+/// The `context_props` is a mapping determining how `wild-card propositions` and `variable domains` are evaluated.
+/// These BDDs must only depend on BN variables and parameters, not on any other symbolic variables.
 pub fn model_check_multiple_extended_formulae_dirty(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
-    subst_context_props: &LabelToSetMap,
-    subst_context_domains: &LabelToSetMap,
+    context_sets: &LabelToSetMap,
 ) -> Result<Vec<GraphColoredVertices>, String> {
-    // get the abstract syntactic trees and check compatibility with graph
-    let parsed_trees =
-        parse_and_validate_extended(formulae, stg, subst_context_props, subst_context_domains)?;
+    // get the abstract syntactic trees and divide context sets, plus check compatibility with graph
+    let (parsed_trees, context_props, context_domains) =
+        parse_and_validate_extended(formulae, stg, context_sets)?;
 
     // prepare the extended evaluation context
 
     // 1) find normal duplicate sub-formulae throughout all formulae + initiate caching structures
     let mut eval_info = EvalContext::from_multiple_trees(&parsed_trees);
     // 2) extended the cache with given substitution context for wild-card nodes
-    eval_info.extend_context_with_wild_cards(subst_context_props, subst_context_domains);
+    eval_info.extend_context_with_wild_cards(&context_props, &context_domains);
     // 3) pre-compute compute states with self-loops which will be needed during eval
     let self_loop_states = compute_steady_states(stg);
 
@@ -219,21 +225,14 @@ pub fn model_check_multiple_extended_formulae_dirty(
 /// Return the resulting sets of colored vertices (in the same order as input formulae).
 /// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 ///
-/// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
-/// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
-/// Bdds of both must only depend on BN variables and colours, not on their symbolic variables.
+/// The `context_props` is a mapping determining how `wild-card propositions` and `variable domains` are evaluated.
+/// These BDDs must only depend on BN variables and parameters, not on any other symbolic variables.
 pub fn model_check_multiple_extended_formulae(
     formulae: Vec<String>,
     stg: &SymbolicAsyncGraph,
-    subst_context_props: &LabelToSetMap,
-    subst_context_domains: &LabelToSetMap,
+    context_sets: &LabelToSetMap,
 ) -> Result<Vec<GraphColoredVertices>, String> {
-    let results = model_check_multiple_extended_formulae_dirty(
-        formulae,
-        stg,
-        subst_context_props,
-        subst_context_domains,
-    )?;
+    let results = model_check_multiple_extended_formulae_dirty(formulae, stg, context_sets)?;
 
     // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
     let sanitized_results: Vec<GraphColoredVertices> = results
@@ -246,21 +245,14 @@ pub fn model_check_multiple_extended_formulae(
 /// Perform the model checking for a given `extended` HCTL formula on a given transition `graph`.
 /// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 ///
-/// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
-/// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
-/// Bdds of both must only depend on BN variables and colours, not on their symbolic variables.
+/// The `context_props` is a mapping determining how `wild-card propositions` and `variable domains` are evaluated.
+/// These BDDs must only depend on BN variables and parameters, not on any other symbolic variables.
 pub fn model_check_extended_formula(
     formula: String,
     stg: &SymbolicAsyncGraph,
-    subst_context_props: &LabelToSetMap,
-    subst_context_domains: &LabelToSetMap,
+    context_sets: &LabelToSetMap,
 ) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_extended_formulae(
-        vec![formula],
-        stg,
-        subst_context_props,
-        subst_context_domains,
-    )?;
+    let result = model_check_multiple_extended_formulae(vec![formula], stg, context_sets)?;
     Ok(result[0].clone())
 }
 
@@ -268,21 +260,14 @@ pub fn model_check_extended_formula(
 /// but do not sanitize the results.
 /// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 ///
-/// The `subst_context_props` is a mapping determining how `wild-card propositions` are evaluated.
-/// The `subst_context_domains` is a mapping determining how `var domains` are evaluated.
-/// Bdds of both must only depend on BN variables and colours, not on their symbolic variables.
+/// The `context_props` is a mapping determining how `wild-card propositions` and `variable domains` are evaluated.
+/// These BDDs must only depend on BN variables and parameters, not on any other symbolic variables.
 pub fn model_check_extended_formula_dirty(
     formula: String,
     stg: &SymbolicAsyncGraph,
-    subst_context_props: &LabelToSetMap,
-    subst_context_domains: &LabelToSetMap,
+    context_sets: &LabelToSetMap,
 ) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_extended_formulae_dirty(
-        vec![formula],
-        stg,
-        subst_context_props,
-        subst_context_domains,
-    )?;
+    let result = model_check_multiple_extended_formulae_dirty(vec![formula], stg, context_sets)?;
     Ok(result[0].clone())
 }
 
@@ -378,15 +363,9 @@ mod tests {
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // test situation where one substitution is missing
-        let sub_context_props = HashMap::from([("s".to_string(), stg.mk_empty_colored_vertices())]);
-        let sub_context_domains = HashMap::new();
+        let context_sets = HashMap::from([("s".to_string(), stg.mk_empty_colored_vertices())]);
         let formula = "%s% & EF %t%".to_string();
-        let res = parse_and_validate_extended(
-            vec![formula],
-            &stg,
-            &sub_context_props,
-            &sub_context_domains,
-        );
+        let res = parse_and_validate_extended(vec![formula], &stg, &context_sets);
         assert!(res.is_err());
         assert_eq!(
             res.err().unwrap(),
@@ -394,16 +373,9 @@ mod tests {
         );
 
         // test situation where one domain is missing
-        let sub_context_props = HashMap::new();
-        let sub_context_domains =
-            HashMap::from([("a".to_string(), stg.mk_empty_colored_vertices())]);
+        let context_sets = HashMap::from([("a".to_string(), stg.mk_empty_colored_vertices())]);
         let formula = "!{x} in %a%: !{y} in %b%: AX {x}".to_string();
-        let res = parse_and_validate_extended(
-            vec![formula],
-            &stg,
-            &sub_context_props,
-            &sub_context_domains,
-        );
+        let res = parse_and_validate_extended(vec![formula], &stg, &context_sets);
         assert!(res.is_err());
         assert_eq!(
             res.err().unwrap(),
