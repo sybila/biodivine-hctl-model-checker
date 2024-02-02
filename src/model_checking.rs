@@ -90,13 +90,13 @@ pub fn model_check_tree(
 /// Parse given HCTL formulae into syntactic trees and perform compatibility check with
 /// the provided `graph` (i.e., check if `graph` object supports enough sets of symbolic variables).
 fn parse_and_validate(
-    formulae: Vec<String>,
+    formulae: Vec<&str>,
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<HctlTreeNode>, String> {
     // parse all the formulae and check that graph supports enough HCTL vars
     let mut parsed_trees = Vec::new();
     for formula in formulae {
-        let tree = parse_and_minimize_hctl_formula(graph.symbolic_context(), formula.as_str())?;
+        let tree = parse_and_minimize_hctl_formula(graph.symbolic_context(), formula)?;
         // check that given extended symbolic graph supports enough stated variables
         if !check_hctl_var_support(graph, tree.clone()) {
             return Err("Graph does not support enough HCTL state variables".to_string());
@@ -110,7 +110,7 @@ fn parse_and_validate(
 /// Return the resulting sets of colored vertices (in the same order as input formulae).
 /// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 pub fn model_check_multiple_formulae(
-    formulae: Vec<String>,
+    formulae: Vec<&str>,
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees
@@ -122,7 +122,7 @@ pub fn model_check_multiple_formulae(
 /// Perform the model checking for the list of formulae, but do not sanitize the results.
 /// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 pub fn model_check_multiple_formulae_dirty(
-    formulae: Vec<String>,
+    formulae: Vec<&str>,
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees
@@ -135,7 +135,7 @@ pub fn model_check_multiple_formulae_dirty(
 /// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 /// Return the resulting set of colored vertices.
 pub fn model_check_formula(
-    formula: String,
+    formula: &str,
     graph: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
     let result = model_check_multiple_formulae(vec![formula], graph)?;
@@ -145,7 +145,7 @@ pub fn model_check_formula(
 /// Perform the model checking for given formula, but do not sanitize the result.
 /// The `graph` object MUST support enough sets of symbolic variables to represent all occurring HCTL vars.
 pub fn model_check_formula_dirty(
-    formula: String,
+    formula: &str,
     graph: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
     let result = model_check_multiple_formulae_dirty(vec![formula], graph)?;
@@ -157,7 +157,7 @@ pub fn model_check_formula_dirty(
 ///
 /// Returns a triplet - a syntactic tree, context mapping for wild-card props, and context mapping for domains.
 fn parse_and_validate_extended(
-    formulae: Vec<String>,
+    formulae: Vec<&str>,
     graph: &SymbolicAsyncGraph,
     context_sets: &LabelToSetMap,
 ) -> Result<(Vec<HctlTreeNode>, LabelToSetMap, LabelToSetMap), String> {
@@ -166,7 +166,7 @@ fn parse_and_validate_extended(
     let mut props_context = HashMap::new();
     let mut domains_context = HashMap::new();
     for formula in formulae {
-        let tree = parse_and_minimize_extended_formula(graph.symbolic_context(), formula.as_str())?;
+        let tree = parse_and_minimize_extended_formula(graph.symbolic_context(), formula)?;
 
         // check that given extended symbolic graph supports enough stated variables
         if !check_hctl_var_support(graph, tree.clone()) {
@@ -191,7 +191,7 @@ fn parse_and_validate_extended(
 /// The `context_props` is a mapping determining how `wild-card propositions` and `variable domains` are evaluated.
 /// These BDDs must only depend on BN variables and parameters, not on any other symbolic variables.
 pub fn model_check_multiple_extended_formulae_dirty(
-    formulae: Vec<String>,
+    formulae: Vec<&str>,
     stg: &SymbolicAsyncGraph,
     context_sets: &LabelToSetMap,
 ) -> Result<Vec<GraphColoredVertices>, String> {
@@ -228,7 +228,7 @@ pub fn model_check_multiple_extended_formulae_dirty(
 /// The `context_props` is a mapping determining how `wild-card propositions` and `variable domains` are evaluated.
 /// These BDDs must only depend on BN variables and parameters, not on any other symbolic variables.
 pub fn model_check_multiple_extended_formulae(
-    formulae: Vec<String>,
+    formulae: Vec<&str>,
     stg: &SymbolicAsyncGraph,
     context_sets: &LabelToSetMap,
 ) -> Result<Vec<GraphColoredVertices>, String> {
@@ -248,7 +248,7 @@ pub fn model_check_multiple_extended_formulae(
 /// The `context_props` is a mapping determining how `wild-card propositions` and `variable domains` are evaluated.
 /// These BDDs must only depend on BN variables and parameters, not on any other symbolic variables.
 pub fn model_check_extended_formula(
-    formula: String,
+    formula: &str,
     stg: &SymbolicAsyncGraph,
     context_sets: &LabelToSetMap,
 ) -> Result<GraphColoredVertices, String> {
@@ -263,7 +263,7 @@ pub fn model_check_extended_formula(
 /// The `context_props` is a mapping determining how `wild-card propositions` and `variable domains` are evaluated.
 /// These BDDs must only depend on BN variables and parameters, not on any other symbolic variables.
 pub fn model_check_extended_formula_dirty(
-    formula: String,
+    formula: &str,
     stg: &SymbolicAsyncGraph,
     context_sets: &LabelToSetMap,
 ) -> Result<GraphColoredVertices, String> {
@@ -279,7 +279,7 @@ pub fn model_check_extended_formula_dirty(
 ///
 /// Also, this does not sanitize results.
 pub fn model_check_formula_unsafe_ex(
-    formula: String,
+    formula: &str,
     graph: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
     let tree = parse_and_validate(vec![formula], graph)?[0].clone();
@@ -314,7 +314,7 @@ mod tests {
         let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
 
         // define formula with two variables
-        let formula = "!{x}: !{y}: (AX {x} & AX {y})".to_string();
+        let formula = "!{x}: !{y}: (AX {x} & AX {y})";
         assert!(model_check_formula(formula, &stg).is_err());
     }
 
@@ -326,7 +326,7 @@ mod tests {
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // define formula that contains free variable
-        let formula = "AX {x}".to_string();
+        let formula = "AX {x}";
         assert!(model_check_formula(formula, &stg).is_err());
     }
 
@@ -338,7 +338,7 @@ mod tests {
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // define formula with several times quantified var
-        let formula = "!{x}: !{x}: AX {x}".to_string();
+        let formula = "!{x}: !{x}: AX {x}";
         assert!(model_check_formula(formula, &stg).is_err());
     }
 
@@ -350,7 +350,7 @@ mod tests {
         let stg = get_extended_symbolic_graph(&bn, 2).unwrap();
 
         // define formula with an invalid proposition
-        let formula = "AX invalid_proposition".to_string();
+        let formula = "AX invalid_proposition";
         assert!(model_check_formula(formula, &stg).is_err());
     }
 
@@ -364,7 +364,7 @@ mod tests {
 
         // test situation where one substitution is missing
         let context_sets = HashMap::from([("s".to_string(), stg.mk_empty_colored_vertices())]);
-        let formula = "%s% & EF %t%".to_string();
+        let formula = "%s% & EF %t%";
         let res = parse_and_validate_extended(vec![formula], &stg, &context_sets);
         assert!(res.is_err());
         assert_eq!(
@@ -374,7 +374,7 @@ mod tests {
 
         // test situation where one domain is missing
         let context_sets = HashMap::from([("a".to_string(), stg.mk_empty_colored_vertices())]);
-        let formula = "!{x} in %a%: !{y} in %b%: AX {x}".to_string();
+        let formula = "!{x} in %a%: !{y} in %b%: AX {x}";
         let res = parse_and_validate_extended(vec![formula], &stg, &context_sets);
         assert!(res.is_err());
         assert_eq!(

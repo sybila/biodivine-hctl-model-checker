@@ -15,9 +15,9 @@ fn model_check_extended_simple() {
     let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
 
     // 1) first test, only proposition substituted
-    let formula_v1 = "PleC & EF PleC".to_string();
-    let sub_formula = "PleC".to_string();
-    let formula_v2 = "%s% & EF %s%".to_string();
+    let formula_v1 = "PleC & EF PleC";
+    let sub_formula = "PleC";
+    let formula_v2 = "%s% & EF %s%";
 
     let result_v1 = model_check_formula(formula_v1, &stg).unwrap();
     // use 'dirty' version to avoid sanitation (for BDD to retain all symbolic vars)
@@ -27,9 +27,9 @@ fn model_check_extended_simple() {
     assert!(result_v1.as_bdd().iff(result_v2.as_bdd()).is_true());
 
     // 2) second test, disjunction substituted
-    let formula_v1 = "EX (PleC | DivK)".to_string();
-    let sub_formula = "PleC | DivK".to_string();
-    let formula_v2 = "EX %s%".to_string();
+    let formula_v1 = "EX (PleC | DivK)";
+    let sub_formula = "PleC | DivK";
+    let formula_v2 = "EX %s%";
 
     let result_v1 = model_check_formula(formula_v1, &stg).unwrap();
     // use 'dirty' version to avoid sanitation (for BDD to retain all symbolic vars)
@@ -50,21 +50,19 @@ fn model_check_extended_complex_on_bn(bn: BooleanNetwork) {
     // first define and evaluate the two formulae normally in one step
     let formula1 = "!{x}: 3{y}: (@{x}: ~{y} & (!{z}: AX {z})) & (@{y}: (!{z}: AX {z}))";
     let formula2 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))";
-    let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
-    let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
+    let result1 = model_check_formula(formula1, &stg).unwrap();
+    let result2 = model_check_formula(formula2, &stg).unwrap();
 
     // now precompute part of the formula, and then substitute it as `wild-card proposition`
     let substitution_formula = "(!{z}: AX {z})";
     // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
-    let raw_set = model_check_formula_dirty(substitution_formula.to_string(), &stg).unwrap();
+    let raw_set = model_check_formula_dirty(substitution_formula, &stg).unwrap();
     let context_sets = HashMap::from([("subst".to_string(), raw_set)]);
 
     let formula1_v2 = "!{x}: 3{y}: (@{x}: ~{y} & %subst%) & (@{y}: %subst%)";
     let formula2_v2 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & %subst%) & EF ({y} & %subst%) & AX (EF ({x} & %subst%) ^ EF ({y} & %subst%))";
-    let result1_v2 =
-        model_check_extended_formula(formula1_v2.to_string(), &stg, &context_sets).unwrap();
-    let result2_v2 =
-        model_check_extended_formula(formula2_v2.to_string(), &stg, &context_sets).unwrap();
+    let result1_v2 = model_check_extended_formula(formula1_v2, &stg, &context_sets).unwrap();
+    let result2_v2 = model_check_extended_formula(formula2_v2, &stg, &context_sets).unwrap();
 
     assert!(result1.as_bdd().iff(result1_v2.as_bdd()).is_true());
     assert!(result2.as_bdd().iff(result2_v2.as_bdd()).is_true());
@@ -72,10 +70,8 @@ fn model_check_extended_complex_on_bn(bn: BooleanNetwork) {
     // also double check that running "extended" evaluation on the original formula (without
     // wild-card propositions) is the same as running the standard variant
     let empty_context = HashMap::new();
-    let result1_v2 =
-        model_check_extended_formula(formula1.to_string(), &stg, &empty_context).unwrap();
-    let result2_v2 =
-        model_check_extended_formula(formula2.to_string(), &stg, &empty_context).unwrap();
+    let result1_v2 = model_check_extended_formula(formula1, &stg, &empty_context).unwrap();
+    let result2_v2 = model_check_extended_formula(formula2, &stg, &empty_context).unwrap();
     assert!(result1.as_bdd().iff(result1_v2.as_bdd()).is_true());
     assert!(result2.as_bdd().iff(result2_v2.as_bdd()).is_true());
 }
@@ -96,7 +92,7 @@ fn model_check_extended_complex() {
 /// Test checking tautology or contradiction formulae that contain both wild-card properties
 /// and variable domains.
 fn model_check_extended_tautologies_on_bn(bn: BooleanNetwork) {
-    let formula = "!{x}: AG EF {x}".to_string();
+    let formula = "!{x}: AG EF {x}";
     let stg = get_extended_symbolic_graph(&bn, 1).unwrap();
 
     // we must use 'dirty' version to avoid sanitation (BDDs must retain all symbolic vars)
@@ -116,7 +112,7 @@ fn model_check_extended_tautologies_on_bn(bn: BooleanNetwork) {
     ]);
 
     for f in formulas {
-        let result = model_check_extended_formula_dirty(f.to_string(), &stg, &context).unwrap();
+        let result = model_check_extended_formula_dirty(f, &stg, &context).unwrap();
         assert!(result
             .as_bdd()
             .iff(stg.unit_colored_vertices().as_bdd())

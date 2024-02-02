@@ -137,7 +137,7 @@ mod tests {
     use biodivine_lib_param_bn::BooleanNetwork;
 
     use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashSet;
 
     #[test]
     /// Test collecting state vars from HCTL formulae.
@@ -159,11 +159,10 @@ mod tests {
 
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
-        let ctx = SymbolicContext::new(&bn).unwrap();
+        let symbolic_context = SymbolicContext::new(&bn).unwrap();
 
         // and for tree with minimized number of renamed state vars
-        let modified_tree =
-            validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).unwrap();
+        let modified_tree = validate_props_and_rename_vars(tree, &symbolic_context).unwrap();
         let expected_vars =
             HashSet::from_iter(vec!["x".to_string(), "xx".to_string(), "xxx".to_string()]);
         assert_eq!(collect_unique_hctl_vars(modified_tree), expected_vars);

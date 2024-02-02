@@ -16,13 +16,11 @@ fn test_unsafe_optimization() {
     for bn in bns {
         let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
         // use formula for attractors that won't be recognized as the "attractor pattern"
-        let formula = "!{x}: AG EF ({x} & {x})".to_string();
-        let result1 = model_check_formula(formula.clone(), &stg).unwrap();
+        let formula = "!{x}: AG EF ({x} & {x})";
+        let result1 = model_check_formula(formula, &stg).unwrap();
         // result of the unsafe eval must be sanitized
-        let result2 = sanitize_colored_vertices(
-            &stg,
-            &model_check_formula_unsafe_ex(formula.clone(), &stg).unwrap(),
-        );
+        let result2 =
+            sanitize_colored_vertices(&stg, &model_check_formula_unsafe_ex(formula, &stg).unwrap());
         assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
     }
 }

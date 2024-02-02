@@ -64,12 +64,12 @@ fn evaluate_equivalent_formulae(bn: BooleanNetwork) {
     // check that the results for the two formulae are equivalent in both sanitized and
     // non-sanitized version of model checking
     for (formula1, formula2) in equivalent_formulae_pairs {
-        let result1 = model_check_formula(formula1.to_string(), &stg).unwrap();
-        let result2 = model_check_formula(formula2.to_string(), &stg).unwrap();
+        let result1 = model_check_formula(formula1, &stg).unwrap();
+        let result2 = model_check_formula(formula2, &stg).unwrap();
         assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
 
-        let result1 = model_check_formula_dirty(formula1.to_string(), &stg).unwrap();
-        let result2 = model_check_formula_dirty(formula2.to_string(), &stg).unwrap();
+        let result1 = model_check_formula_dirty(formula1, &stg).unwrap();
+        let result2 = model_check_formula_dirty(formula2, &stg).unwrap();
         assert!(result1.as_bdd().iff(result2.as_bdd()).is_true());
     }
 }

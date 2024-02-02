@@ -11,12 +11,12 @@ fn compare_mc_results_with_expected(test_tuples: Vec<(&str, f64, f64, f64)>, bn:
     let stg = get_extended_symbolic_graph(&bn, 3).unwrap();
 
     for (formula, num_total, num_colors, num_states) in test_tuples {
-        let result = model_check_formula(formula.to_string(), &stg).unwrap();
+        let result = model_check_formula(formula, &stg).unwrap();
         assert_eq!(num_total, result.approx_cardinality());
         assert_eq!(num_colors, result.colors().approx_cardinality());
         assert_eq!(num_states, result.vertices().approx_cardinality());
 
-        let result = model_check_formula_dirty(formula.to_string(), &stg).unwrap();
+        let result = model_check_formula_dirty(formula, &stg).unwrap();
         assert_eq!(num_total, result.approx_cardinality());
         assert_eq!(num_colors, result.colors().approx_cardinality());
         assert_eq!(num_states, result.vertices().approx_cardinality());

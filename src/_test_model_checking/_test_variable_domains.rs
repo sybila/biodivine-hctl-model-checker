@@ -44,13 +44,11 @@ fn model_check_with_domains() {
             for (f, f_with_domain) in formulae_pairs {
                 // eval the variant without domain first (contains wild-card prop)
                 let ctx_sets = HashMap::from([("s".to_string(), raw_set.clone())]);
-                let res = model_check_extended_formula(f.to_string(), &stg, &ctx_sets).unwrap();
+                let res = model_check_extended_formula(f, &stg, &ctx_sets).unwrap();
 
                 // eval the variant with a domain
                 let ctx_sets = HashMap::from([("s".to_string(), raw_set.clone())]);
-                let res_v2 =
-                    model_check_extended_formula(f_with_domain.to_string(), &stg, &ctx_sets)
-                        .unwrap();
+                let res_v2 = model_check_extended_formula(f_with_domain, &stg, &ctx_sets).unwrap();
                 assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
             }
         }
@@ -76,10 +74,10 @@ fn model_check_with_empty_domain() {
 
     for (f, domain_f) in formulae_pairs {
         // eval the variant without domain first
-        let res = model_check_formula(f.to_string(), &stg).unwrap();
+        let res = model_check_formula(f, &stg).unwrap();
 
         // and now the variant with empty domain
-        let res_v2 = model_check_extended_formula(domain_f.to_string(), &stg, &context).unwrap();
+        let res_v2 = model_check_extended_formula(domain_f, &stg, &context).unwrap();
 
         assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
     }
@@ -141,14 +139,14 @@ fn model_check_with_domains_complex() {
                     ("s1".to_string(), raw_set_1.clone()),
                     ("s2".to_string(), raw_set_2.clone()),
                 ]);
-                let res_v2 = model_check_extended_formula(f1.to_string(), &stg, &context).unwrap();
+                let res_v2 = model_check_extended_formula(f1, &stg, &context).unwrap();
 
                 // eval the variant without domain (contains wild-card prop)
                 let context = HashMap::from([
                     ("s1".to_string(), raw_set_1.clone()),
                     ("s2".to_string(), raw_set_2.clone()),
                 ]);
-                let res = model_check_extended_formula(f2.to_string(), &stg, &context).unwrap();
+                let res = model_check_extended_formula(f2, &stg, &context).unwrap();
 
                 assert!(res.as_bdd().iff(res_v2.as_bdd()).is_true());
             }

@@ -14,6 +14,17 @@ use std::collections::HashMap;
 /// It renames as many variables as possible to identical names, without affecting the semantics.
 pub fn validate_props_and_rename_vars(
     orig_tree: HctlTreeNode,
+    symbolic_context: &SymbolicContext,
+) -> Result<HctlTreeNode, String> {
+    validate_and_rename_recursive(orig_tree, HashMap::new(), String::new(), symbolic_context)
+}
+
+/// Checks that all HCTL variables in the formula's syntactic tree are quantified (exactly once) and that
+/// its propositions are valid BN variables.
+/// Then renames all HCTL vars in the formula's tree to a pseudo-canonical form - "x", "xx", ...
+/// It renames as many variables as possible to identical names, without affecting the semantics.
+fn validate_and_rename_recursive(
+    orig_tree: HctlTreeNode,
     mut renaming_map: HashMap<String, String>,
     mut last_used_name: String,
     ctx: &SymbolicContext,
@@ -46,18 +57,18 @@ pub fn validate_props_and_rename_vars(
         // just dive one level deeper for unary nodes, and rename string
         NodeType::Unary(op, child) => {
             let node =
-                validate_props_and_rename_vars(*child, renaming_map, last_used_name.clone(), ctx)?;
+                validate_and_rename_recursive(*child, renaming_map, last_used_name.clone(), ctx)?;
             Ok(HctlTreeNode::mk_unary(node, op))
         }
         // just dive deeper for binary nodes, and rename string
         NodeType::Binary(op, left, right) => {
-            let node1 = validate_props_and_rename_vars(
+            let node1 = validate_and_rename_recursive(
                 *left,
                 renaming_map.clone(),
                 last_used_name.clone(),
                 ctx,
             )?;
-            let node2 = validate_props_and_rename_vars(*right, renaming_map, last_used_name, ctx)?;
+            let node2 = validate_and_rename_recursive(*right, renaming_map, last_used_name, ctx)?;
             Ok(HctlTreeNode::mk_binary(node1, node2, op))
         }
         // hybrid nodes are more complicated
@@ -79,7 +90,7 @@ pub fn validate_props_and_rename_vars(
             }
 
             // dive deeper
-            let node = validate_props_and_rename_vars(
+            let node = validate_and_rename_recursive(
                 *child,
                 renaming_map.clone(),
                 last_used_name.clone(),
@@ -275,19 +286,19 @@ mod tests {
     fn validation_error_free_vars() {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
-        let ctx = SymbolicContext::new(&bn).unwrap();
+        let symbolic_context = SymbolicContext::new(&bn).unwrap();
 
         // define and parse formula with free variable
         let formula = "AX {x}";
         let tree = parse_hctl_formula(formula).unwrap();
-        let result = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx);
+        let result = validate_props_and_rename_vars(tree, &symbolic_context);
         assert!(result.is_err());
         assert_eq!(result.err().unwrap(), "Variable x is free.".to_string());
 
         // define and parse formula with free variable in jump operator
         let formula = "@{x}: v1";
         let tree = parse_hctl_formula(formula).unwrap();
-        let result = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx);
+        let result = validate_props_and_rename_vars(tree, &symbolic_context);
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap(),
@@ -300,13 +311,13 @@ mod tests {
     fn validation_error_invalid_quantification() {
         // define any placeholder bn
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
-        let ctx = SymbolicContext::new(&bn).unwrap();
+        let symbolic_context = SymbolicContext::new(&bn).unwrap();
 
         // define and parse formula with two variables
         let formula = "!{x}: !{x}: AX {x}";
         let tree = parse_hctl_formula(formula).unwrap();
 
-        assert!(validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
+        assert!(validate_props_and_rename_vars(tree, &symbolic_context).is_err());
     }
 
     #[test]
@@ -314,12 +325,12 @@ mod tests {
     fn validation_error_invalid_propositions() {
         // define a placeholder bn with only 1 prop v1
         let bn = BooleanNetwork::try_from_bnet("v1, v1").unwrap();
-        let ctx = SymbolicContext::new(&bn).unwrap();
+        let symbolic_context = SymbolicContext::new(&bn).unwrap();
 
         // define and parse formula with invalid proposition
         let formula = "AX invalid_proposition";
         let tree = parse_hctl_formula(formula).unwrap();
 
-        assert!(validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &ctx).is_err());
+        assert!(validate_props_and_rename_vars(tree, &symbolic_context).is_err());
     }
 }

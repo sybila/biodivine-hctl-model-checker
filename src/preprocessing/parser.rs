@@ -14,7 +14,6 @@ use crate::preprocessing::tokenizer::{
 };
 use crate::preprocessing::utils::validate_props_and_rename_vars;
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
-use std::collections::HashMap;
 
 /// Parse an HCTL formula string representation into an actual formula tree.
 /// Basically a wrapper for tokenize+parse (used often for testing/debug purposes).
@@ -40,11 +39,11 @@ pub fn parse_extended_formula(formula: &str) -> Result<HctlTreeNode, String> {
 /// set of variables.
 /// Basically a wrapper for the whole preprocessing step (tokenize + parse + rename vars).
 pub fn parse_and_minimize_hctl_formula(
-    ctx: &SymbolicContext,
+    symbolic_context: &SymbolicContext,
     formula: &str,
 ) -> Result<HctlTreeNode, String> {
     let tree = parse_hctl_formula(formula)?;
-    let tree = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
+    let tree = validate_props_and_rename_vars(tree, symbolic_context)?;
     Ok(tree)
 }
 
@@ -52,11 +51,11 @@ pub fn parse_and_minimize_hctl_formula(
 /// with renamed (minimized) set of variables.
 /// Extended formulae can include `wild-card propositions` in form "%proposition%".
 pub fn parse_and_minimize_extended_formula(
-    ctx: &SymbolicContext,
+    symbolic_context: &SymbolicContext,
     formula: &str,
 ) -> Result<HctlTreeNode, String> {
     let tree = parse_extended_formula(formula)?;
-    let tree = validate_props_and_rename_vars(tree, HashMap::new(), String::new(), ctx)?;
+    let tree = validate_props_and_rename_vars(tree, symbolic_context)?;
     Ok(tree)
 }
 

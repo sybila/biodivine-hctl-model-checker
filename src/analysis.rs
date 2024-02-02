@@ -59,8 +59,7 @@ pub fn analyse_formulae(
         print_if_allowed(format!("Parsed version:       {tree}"), print_opt);
 
         // validate propositions and modify variable names in the formula
-        let modified_tree =
-            validate_props_and_rename_vars(tree, HashMap::new(), String::new(), &plain_context)?;
+        let modified_tree = validate_props_and_rename_vars(tree, &plain_context)?;
         print_if_allowed(format!("Modified version:     {modified_tree}"), print_opt);
         print_if_allowed("-----".to_string(), print_opt);
 
