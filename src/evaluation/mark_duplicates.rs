@@ -35,19 +35,19 @@ impl NodeWithDomains<'_> {
 }
 
 /// Nodes are ordered by their height, with atomic propositions being the "smallest".
-impl PartialOrd for NodeWithDomains<'_> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.subtree.height.partial_cmp(&other.subtree.height)
-    }
-}
-
-/// Nodes are ordered by their height, with atomic propositions being the "smallest".
 ///
 /// Note that while this sort is "total" in the sense that every pair of nodes can be compared,
 /// there are many "semantically equivalent" nodes that have the same height.
 impl Ord for NodeWithDomains<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.subtree.height.cmp(&other.subtree.height)
+    }
+}
+
+/// Nodes are ordered by their height, with atomic propositions being the "smallest".
+impl PartialOrd for NodeWithDomains<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
