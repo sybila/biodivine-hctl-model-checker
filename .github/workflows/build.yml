@@ -1,7 +1,8 @@
 name: build
+
 # This should ensure that the workflow won't run on `dev-*` branches, but will
-# otherwise execute on any other branch and any pull request (including dev
-# branches).
+# otherwise execute on any other branch and any pull request (including PRs
+# from dev branches).
 on:
   push:
     branches-ignore:
@@ -16,21 +17,21 @@ env:
   # Make sure to update this from time to time.
   RUST_VERSION: "1.77.0"
 jobs:
-  # Check formatting
+  # Checks syntax formatting.
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: "-D warnings"
     steps:
-      - name: Checkout.
-        uses: actions/checkout@v3
-      - name: Install Rust toolchain.
-        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
-      - name: Rust format check.
-        run: cargo fmt --all -- --check
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt
+      - run: cargo fmt --all -- --check
 
-  # Run basic code validity check
+  # Run basic code validity check.
   check:
     needs: fmt
     name: Check
@@ -38,30 +39,28 @@ jobs:
     env:
       RUSTFLAGS: "-D warnings"
     steps:
-      - name: Checkout.
-        uses: actions/checkout@v3
-      - name: Install Rust toolchain.
-        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
-      - name: Rust code validity check.
-        run: cargo check
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - run: cargo check --all-features
 
-  # Run all tests
+  # Run tests.
   test:
     needs: check
-    name: Test Suite
+    name: Test Suite (linux)
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: "-D warnings"
     steps:
-      - uses: actions/checkout@v3
-      - name: Checkout.
-        uses: actions/checkout@v3
-      - name: Install Rust toolchain.
-        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
-      - name: Run tests.
-        run: cargo test --all-features
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt
+      - run: cargo test --all-features
 
-  # Check code style
+  # Checks code style.
   clippy:
     needs: check
     name: Clippy
@@ -69,12 +68,12 @@ jobs:
     env:
       RUSTFLAGS: "-D warnings"
     steps:
-      - name: Checkout.
-        uses: actions/checkout@v3
-      - name: Install Rust toolchain.
-        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
-      - name: Run clippy.
-        run: cargo clippy
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: clippy
+      - run: cargo clippy --all-features
 
   # Compute code coverage
   codecov:
@@ -82,20 +81,21 @@ jobs:
     name: Code coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout.
-        uses: actions/checkout@v3
-      - name: Install Rust toolchain.
-        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain ${{ env.RUST_VERSION }}
-      - name: Setup cargo-tarpaulin.
-        run: cargo install cargo-tarpaulin
-      - name: Run tarpaulin to compute coverage.
-        run: cargo tarpaulin --verbose --lib --examples --all-features --out xml
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      # Install action using cargo-binstall, which is faster because we don't have to compile tarpaulin every time.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-tarpaulin
+      - run: cargo tarpaulin --verbose --lib --examples --all-features --out xml
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v1.0.2
+        uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Archive code coverage results
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         with:
           name: code-coverage-report
           path: cobertura.xml
