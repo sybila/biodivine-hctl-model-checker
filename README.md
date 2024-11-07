@@ -83,6 +83,10 @@ We use the following syntax:
   * forall x: `V{x}:`
 * parentheses: `(`, `)`
 
+We also allow to specify the hybrid operators using their names (prefixed by backslash): `\bind`, `\jump`, `\exists`, `\forall`.
+You can use this syntax to write a formula like `\bind {x}: AG EF {x}`.
+Note that the default for serialization is the short format above.
+
 The operator precedence is following (the lower, the stronger):
 * unary operators (negation + temporal): 1
 * binary temporal operators: 2

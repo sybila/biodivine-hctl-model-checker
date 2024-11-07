@@ -1,6 +1,6 @@
 [package]
 name = "biodivine-hctl-model-checker"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Ondřej Huvar <xhuvar@fi.muni.cz>", "Samuel Pastva <sam.pastva@gmail.com>"]
 edition = "2021"
 description = "Library for symbolic HCTL model checking on partially defined Boolean networks."
@@ -25,8 +25,8 @@ name = "convert-aeon-to-bnet"
 path = "src/bin/convert_aeon_to_bnet.rs"
 
 [dependencies]
-biodivine-lib-bdd = ">=0.5.7, <1.0.0"
-biodivine-lib-param-bn = ">=0.5.1, <1.0.0"
+biodivine-lib-bdd = ">=0.5.22, <1.0.0"
+biodivine-lib-param-bn = ">=0.5.13, <1.0.0"
 clap = { version = "4.1.4", features = ["derive"] }
 rand = "0.8.5"
 termcolor = "1.1.2"
