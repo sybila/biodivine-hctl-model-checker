@@ -116,93 +116,38 @@ pub fn eval_node(
             // should not be reachable, as wild-card nodes are always evaluated earlier using cache
             Atomic::WildCardProp(_) => unreachable!(),
         },
-        NodeType::Unary(op, child) => match op {
-            UnaryOp::Not => eval_neg(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-            ),
-            UnaryOp::EX => eval_ex(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                steady_states,
-            ),
-            UnaryOp::AX => eval_ax(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                steady_states,
-            ),
-            UnaryOp::EF => eval_ef_saturated(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-            ),
-            UnaryOp::AF => eval_af(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                steady_states,
-            ),
-            UnaryOp::EG => eval_eg(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                steady_states,
-            ),
-            UnaryOp::AG => eval_ag(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-            ),
-        },
-        NodeType::Binary(op, left, right) => {
+        NodeType::Unary(op, child) => {
+            let child_evaluated = eval_node(*child, graph, eval_context, steady_states);
             match op {
-                BinaryOp::And => eval_node(*left, graph, eval_context, steady_states)
-                    .intersect(&eval_node(*right, graph, eval_context, steady_states)),
-                BinaryOp::Or => eval_node(*left, graph, eval_context, steady_states)
-                    .union(&eval_node(*right, graph, eval_context, steady_states)),
-                BinaryOp::Xor => eval_xor(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
-                BinaryOp::Imp => eval_imp(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
-                BinaryOp::Iff => eval_equiv(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
-                BinaryOp::EU => eval_eu_saturated(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
-                BinaryOp::AU => eval_au(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                    steady_states,
-                ),
-                BinaryOp::EW => eval_ew(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                    steady_states,
-                ),
-                BinaryOp::AW => eval_aw(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
+                UnaryOp::Not => eval_neg(graph, &child_evaluated),
+                UnaryOp::EX => eval_ex(graph, &child_evaluated, steady_states),
+                UnaryOp::AX => eval_ax(graph, &child_evaluated, steady_states),
+                UnaryOp::EF => eval_ef_saturated(graph, &child_evaluated),
+                UnaryOp::AF => eval_af(graph, &child_evaluated, steady_states),
+                UnaryOp::EG => eval_eg(graph, &child_evaluated, steady_states),
+                UnaryOp::AG => eval_ag(graph, &child_evaluated),
+            }
+        }
+        NodeType::Binary(op, left, right) => {
+            let left_evaluated = eval_node(*left, graph, eval_context, steady_states);
+            let right_evaluated = eval_node(*right, graph, eval_context, steady_states);
+            match op {
+                BinaryOp::And => left_evaluated.intersect(&right_evaluated),
+                BinaryOp::Or => left_evaluated.union(&right_evaluated),
+                BinaryOp::Xor => eval_xor(graph, &left_evaluated, &right_evaluated),
+                BinaryOp::Imp => eval_imp(graph, &left_evaluated, &right_evaluated),
+                BinaryOp::Iff => eval_equiv(graph, &left_evaluated, &right_evaluated),
+                BinaryOp::EU => eval_eu_saturated(graph, &left_evaluated, &right_evaluated),
+                BinaryOp::AU => eval_au(graph, &left_evaluated, &right_evaluated, steady_states),
+                BinaryOp::EW => eval_ew(graph, &left_evaluated, &right_evaluated, steady_states),
+                BinaryOp::AW => eval_aw(graph, &left_evaluated, &right_evaluated),
             }
         }
         NodeType::Hybrid(HybridOp::Jump, var, _, child) => {
             // special case for hybrid operator Jump (it is not quantifier, so it is different than the rest)
             // mainly, we dont have to worry about the domain (which complicates other hybrid operators)
-            eval_jump(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                var.as_str(),
-            )
+            let child_evaluated = eval_node(*child, graph, eval_context, steady_states);
+            eval_jump(graph, &child_evaluated, var.as_str())
         }
         NodeType::Hybrid(op, var, maybe_domain, child) => {
             // since hybrid operator Jump is handled in previous match arm, only quantifiers end up there
@@ -290,27 +235,17 @@ fn eval_hybrid_quantifier(
     variable: String,
     child_node: HctlTreeNode,
 ) -> GraphColoredVertices {
+    let child_evaluated = eval_node(child_node, graph_to_propagate, eval_context, steady_states);
     match operator {
-        HybridOp::Bind => eval_bind(
-            graph,
-            &eval_node(child_node, graph_to_propagate, eval_context, steady_states),
-            variable.as_str(),
-        ),
-        HybridOp::Exists => eval_exists(
-            graph,
-            &eval_node(child_node, graph_to_propagate, eval_context, steady_states),
-            variable.as_str(),
-        ),
+        HybridOp::Bind => eval_bind(graph, &child_evaluated, variable.as_str()),
+        HybridOp::Exists => eval_exists(graph, &child_evaluated, variable.as_str()),
         // evaluate `forall x in A. phi` as `not exists x in A. not phi`
         // do it directly there so that the domain for negations are handled correctly
         HybridOp::Forall => eval_neg(
             graph,
             &eval_exists(
                 graph,
-                &eval_neg(
-                    graph_to_propagate,
-                    &eval_node(child_node, graph_to_propagate, eval_context, steady_states),
-                ),
+                &eval_neg(graph_to_propagate, &child_evaluated),
                 variable.as_str(),
             ),
         ),
