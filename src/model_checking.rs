@@ -30,6 +30,15 @@ pub fn model_check_multiple_trees_dirty(
     formula_trees: Vec<HctlTreeNode>,
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
+    _model_check_multiple_trees_dirty(formula_trees, graph, &dont_track_progress)
+}
+
+/// A version of [model_check_multiple_trees_dirty] with optional progress tracking.
+pub fn _model_check_multiple_trees_dirty<F: Fn(&GraphColoredVertices, &str)>(
+    formula_trees: Vec<HctlTreeNode>,
+    graph: &SymbolicAsyncGraph,
+    progress_callback: &F,
+) -> Result<Vec<GraphColoredVertices>, String> {
     // find duplicate sub-formulae throughout all formulae + initiate caching structures
     let mut eval_info = EvalContext::from_multiple_trees(&formula_trees);
     // pre-compute states with self-loops which will be needed during eval
@@ -43,7 +52,7 @@ pub fn model_check_multiple_trees_dirty(
             graph,
             &mut eval_info,
             &self_loop_states,
-            &dont_track_progress,
+            progress_callback,
         ));
     }
     Ok(results)
@@ -55,7 +64,16 @@ pub fn model_check_tree_dirty(
     formula_tree: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_trees_dirty(vec![formula_tree], graph)?;
+    _model_check_tree_dirty(formula_tree, graph, &dont_track_progress)
+}
+
+/// A version of [model_check_tree_dirty] with optional progress tracking.
+pub fn _model_check_tree_dirty<F: Fn(&GraphColoredVertices, &str)>(
+    formula_tree: HctlTreeNode,
+    graph: &SymbolicAsyncGraph,
+    progress_callback: &F,
+) -> Result<GraphColoredVertices, String> {
+    let result = _model_check_multiple_trees_dirty(vec![formula_tree], graph, progress_callback)?;
     Ok(result[0].clone())
 }
 
@@ -66,8 +84,17 @@ pub fn model_check_multiple_trees(
     formula_trees: Vec<HctlTreeNode>,
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
+    _model_check_multiple_trees(formula_trees, graph, &dont_track_progress)
+}
+
+/// A version of [model_check_multiple_trees] with optional progress tracking.
+pub fn _model_check_multiple_trees<F: Fn(&GraphColoredVertices, &str)>(
+    formula_trees: Vec<HctlTreeNode>,
+    graph: &SymbolicAsyncGraph,
+    progress_callback: &F,
+) -> Result<Vec<GraphColoredVertices>, String> {
     // evaluate the formulae and collect results
-    let results = model_check_multiple_trees_dirty(formula_trees, graph)?;
+    let results = _model_check_multiple_trees_dirty(formula_trees, graph, progress_callback)?;
 
     // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
     let sanitized_results: Vec<GraphColoredVertices> = results
@@ -84,7 +111,16 @@ pub fn model_check_tree(
     formula_tree: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_trees(vec![formula_tree], graph)?;
+    _model_check_tree(formula_tree, graph, &dont_track_progress)
+}
+
+/// A version of [model_check_tree] with optional progress tracking.
+pub fn _model_check_tree<F: Fn(&GraphColoredVertices, &str)>(
+    formula_tree: HctlTreeNode,
+    graph: &SymbolicAsyncGraph,
+    progress_callback: &F,
+) -> Result<GraphColoredVertices, String> {
+    let result = _model_check_multiple_trees(vec![formula_tree], graph, progress_callback)?;
     Ok(result[0].clone())
 }
 
@@ -114,10 +150,19 @@ pub fn model_check_multiple_formulae(
     formulae: Vec<&str>,
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
+    _model_check_multiple_formulae(formulae, graph, &dont_track_progress)
+}
+
+/// A version of [model_check_multiple_formulae] with optional progress tracking.
+pub fn _model_check_multiple_formulae<F: Fn(&GraphColoredVertices, &str)>(
+    formulae: Vec<&str>,
+    graph: &SymbolicAsyncGraph,
+    progress_callback: &F,
+) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees
     let parsed_trees = parse_and_validate(formulae, graph)?;
     // run the main model-checking procedure on formulae trees
-    model_check_multiple_trees(parsed_trees, graph)
+    _model_check_multiple_trees(parsed_trees, graph, progress_callback)
 }
 
 /// Perform the model checking for the list of formulae, but do not sanitize the results.
@@ -126,10 +171,19 @@ pub fn model_check_multiple_formulae_dirty(
     formulae: Vec<&str>,
     graph: &SymbolicAsyncGraph,
 ) -> Result<Vec<GraphColoredVertices>, String> {
+    _model_check_multiple_formulae_dirty(formulae, graph, &dont_track_progress)
+}
+
+/// A version of [model_check_multiple_formulae_dirty] with optional progress tracking.
+pub fn _model_check_multiple_formulae_dirty<F: Fn(&GraphColoredVertices, &str)>(
+    formulae: Vec<&str>,
+    graph: &SymbolicAsyncGraph,
+    progress_callback: &F,
+) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees
     let parsed_trees = parse_and_validate(formulae, graph)?;
     // run the main model-checking procedure on formulae trees
-    model_check_multiple_trees_dirty(parsed_trees, graph)
+    _model_check_multiple_trees_dirty(parsed_trees, graph, progress_callback)
 }
 
 /// Perform the model checking for a given HCTL formula on a given transition `graph`.
@@ -139,7 +193,16 @@ pub fn model_check_formula(
     formula: &str,
     graph: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_formulae(vec![formula], graph)?;
+    _model_check_formula(formula, graph, &dont_track_progress)
+}
+
+/// A version of [model_check_formula] with optional progress tracking.
+pub fn _model_check_formula<F: Fn(&GraphColoredVertices, &str)>(
+    formula: &str,
+    graph: &SymbolicAsyncGraph,
+    progress_callback: &F,
+) -> Result<GraphColoredVertices, String> {
+    let result = _model_check_multiple_formulae(vec![formula], graph, progress_callback)?;
     Ok(result[0].clone())
 }
 
@@ -149,7 +212,16 @@ pub fn model_check_formula_dirty(
     formula: &str,
     graph: &SymbolicAsyncGraph,
 ) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_formulae_dirty(vec![formula], graph)?;
+    _model_check_formula_dirty(formula, graph, &dont_track_progress)
+}
+
+/// A version of [model_check_formula_dirty] with optional progress tracking.
+pub fn _model_check_formula_dirty<F: Fn(&GraphColoredVertices, &str)>(
+    formula: &str,
+    graph: &SymbolicAsyncGraph,
+    progress_callback: &F,
+) -> Result<GraphColoredVertices, String> {
+    let result = _model_check_multiple_formulae_dirty(vec![formula], graph, progress_callback)?;
     Ok(result[0].clone())
 }
 

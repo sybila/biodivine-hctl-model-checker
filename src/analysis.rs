@@ -2,7 +2,9 @@
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_context::EvalContext;
-use crate::mc_utils::{collect_unique_hctl_vars, get_extended_symbolic_graph, track_progress};
+use crate::mc_utils::{
+    collect_unique_hctl_vars, dont_track_progress, get_extended_symbolic_graph, track_progress,
+};
 use crate::preprocessing::parser::{parse_extended_formula, parse_hctl_formula};
 use crate::preprocessing::utils::{validate_and_divide_wild_cards, validate_props_and_rename_vars};
 use crate::result_print::*;
@@ -140,7 +142,7 @@ pub fn analyse_formulae(
     // pre-compute states with self-loops which will be needed
     let self_loop_states = compute_steady_states(&graph);
     print_if_allowed(
-        "Self-loops successfully pre-computed.\n".to_string(),
+        "Self-loop states successfully pre-computed.\n".to_string(),
         print_opt,
     );
 
@@ -155,12 +157,18 @@ pub fn analyse_formulae(
         let formula = formulae[i].clone();
         print_if_allowed(format!("Evaluating formula {}...", i + 1), print_opt);
         let curr_comp_start = SystemTime::now();
+        let progress_callback =
+            if matches!(print_opt, PrintOptions::NoPrint | PrintOptions::JustSummary) {
+                dont_track_progress
+            } else {
+                track_progress
+            };
         let result = eval_node(
             parse_tree.clone(),
             &graph,
             &mut eval_info,
             &self_loop_states,
-            &track_progress,
+            &progress_callback,
         );
 
         match print_opt {

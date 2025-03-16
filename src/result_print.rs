@@ -24,7 +24,10 @@ pub enum PrintOptions {
 /// Print the given text, but only if the correct print options are selected (long or full).
 /// This simplifies the code regarding printing (no redundant if statements).
 pub(crate) fn print_if_allowed(text: String, print_options: PrintOptions) {
-    if print_options == PrintOptions::NoPrint || print_options == PrintOptions::JustSummary {
+    if matches!(
+        print_options,
+        PrintOptions::NoPrint | PrintOptions::JustSummary
+    ) {
         return;
     }
     println!("{text}")
