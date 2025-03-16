@@ -43,6 +43,7 @@ pub fn model_check_multiple_trees_dirty(
             graph,
             &mut eval_info,
             &self_loop_states,
+            &dont_track_progress,
         ));
     }
     Ok(results)
@@ -216,6 +217,7 @@ pub fn model_check_multiple_extended_formulae_dirty(
             stg,
             &mut eval_info,
             &self_loop_states,
+            &dont_track_progress,
         ));
     }
     Ok(results)
@@ -291,6 +293,7 @@ pub fn model_check_formula_unsafe_ex(
         graph,
         &mut eval_info,
         &graph.mk_empty_colored_vertices(),
+        &dont_track_progress,
     );
     Ok(result)
 }

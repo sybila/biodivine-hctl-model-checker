@@ -2,7 +2,7 @@
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_context::EvalContext;
-use crate::mc_utils::{collect_unique_hctl_vars, get_extended_symbolic_graph};
+use crate::mc_utils::{collect_unique_hctl_vars, get_extended_symbolic_graph, track_progress};
 use crate::preprocessing::parser::{parse_extended_formula, parse_hctl_formula};
 use crate::preprocessing::utils::{validate_and_divide_wild_cards, validate_props_and_rename_vars};
 use crate::result_print::*;
@@ -160,6 +160,7 @@ pub fn analyse_formulae(
             &graph,
             &mut eval_info,
             &self_loop_states,
+            &track_progress,
         );
 
         match print_opt {
