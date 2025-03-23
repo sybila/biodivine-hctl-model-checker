@@ -147,11 +147,11 @@ pub fn eval_ef(
 }
 
 /// Evaluate EU operator using the saturation-based algorithm.
-pub fn eval_eu_saturated<F: Fn(&GraphColoredVertices, &str)>(
+pub fn eval_eu_saturated<F: FnMut(&GraphColoredVertices, &str)>(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
     phi2: &GraphColoredVertices,
-    progress_callback: &F,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     // TODO: for generating predecessors, check if including self-loops really is not needed
     let mut result = phi2.clone();
@@ -173,21 +173,21 @@ pub fn eval_eu_saturated<F: Fn(&GraphColoredVertices, &str)>(
 
 /// Evaluate EF operator via the saturation-based algorithm for EU evaluation.
 /// This is possible because `EF(phi) == EU(true, phi)`.
-pub fn eval_ef_saturated<F: Fn(&GraphColoredVertices, &str)>(
+pub fn eval_ef_saturated<F: FnMut(&GraphColoredVertices, &str)>(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
-    progress_callback: &F,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     let unit_set = graph.mk_unit_colored_vertices();
     eval_eu_saturated(graph, &unit_set, phi, progress_callback)
 }
 
 /// Evaluate EG operator using the classical fixpoint algorithm.
-pub fn eval_eg<F: Fn(&GraphColoredVertices, &str)>(
+pub fn eval_eg<F: FnMut(&GraphColoredVertices, &str)>(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
     self_loop_states: &GraphColoredVertices,
-    progress_callback: &F,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     let mut old_set = phi.clone();
     let mut new_set = graph.mk_empty_colored_vertices();
@@ -215,11 +215,11 @@ pub fn eval_ax(
 
 /// Evaluate the AF operator using the EG computation.
 /// This is possible because `AF(phi) == not EG(not phi)`.
-pub fn eval_af<F: Fn(&GraphColoredVertices, &str)>(
+pub fn eval_af<F: FnMut(&GraphColoredVertices, &str)>(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
     self_loop_states: &GraphColoredVertices,
-    progress_callback: &F,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     eval_neg(
         graph,
@@ -234,10 +234,10 @@ pub fn eval_af<F: Fn(&GraphColoredVertices, &str)>(
 
 /// Evaluate the AG operator using the EF computation.
 /// This is possible because `AG(phi) == not EF(not phi)`.
-pub fn eval_ag<F: Fn(&GraphColoredVertices, &str)>(
+pub fn eval_ag<F: FnMut(&GraphColoredVertices, &str)>(
     graph: &SymbolicAsyncGraph,
     phi: &GraphColoredVertices,
-    progress_callback: &F,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     eval_neg(
         graph,
@@ -246,12 +246,12 @@ pub fn eval_ag<F: Fn(&GraphColoredVertices, &str)>(
 }
 
 /// Evaluate AU operator using the classical fixpoint algorithm.
-pub fn eval_au<F: Fn(&GraphColoredVertices, &str)>(
+pub fn eval_au<F: FnMut(&GraphColoredVertices, &str)>(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
     phi2: &GraphColoredVertices,
     self_loop_states: &GraphColoredVertices,
-    progress_callback: &F,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     let mut old_set = phi2.clone();
     let mut new_set = graph.mk_empty_colored_vertices();
@@ -265,12 +265,12 @@ pub fn eval_au<F: Fn(&GraphColoredVertices, &str)>(
 }
 
 /// Evaluate the EW operator using the AU computation.
-pub fn eval_ew<F: Fn(&GraphColoredVertices, &str)>(
+pub fn eval_ew<F: FnMut(&GraphColoredVertices, &str)>(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
     phi2: &GraphColoredVertices,
     self_loop_states: &GraphColoredVertices,
-    progress_callback: &F,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     eval_neg(
         graph,
@@ -285,11 +285,11 @@ pub fn eval_ew<F: Fn(&GraphColoredVertices, &str)>(
 }
 
 /// Evaluate the AW operator using the EU computation.
-pub fn eval_aw<F: Fn(&GraphColoredVertices, &str)>(
+pub fn eval_aw<F: FnMut(&GraphColoredVertices, &str)>(
     graph: &SymbolicAsyncGraph,
     phi1: &GraphColoredVertices,
     phi2: &GraphColoredVertices,
-    progress_callback: &F,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     eval_neg(
         graph,

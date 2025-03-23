@@ -157,7 +157,7 @@ pub fn analyse_formulae(
         let formula = formulae[i].clone();
         print_if_allowed(format!("Evaluating formula {}...", i + 1), print_opt);
         let curr_comp_start = SystemTime::now();
-        let progress_callback =
+        let mut progress_callback =
             if matches!(print_opt, PrintOptions::NoPrint | PrintOptions::JustSummary) {
                 dont_track_progress
             } else {
@@ -168,7 +168,7 @@ pub fn analyse_formulae(
             &graph,
             &mut eval_info,
             &self_loop_states,
-            &progress_callback,
+            &mut progress_callback,
         );
 
         match print_opt {

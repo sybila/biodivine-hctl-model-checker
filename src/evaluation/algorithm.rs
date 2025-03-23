@@ -22,12 +22,18 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, Symboli
 /// See also [EvalContext].
 ///
 /// The set of `steady_states` is used to include self-loops in computing predecessors.
-pub fn eval_node<F: Fn(&GraphColoredVertices, &str)>(
+///
+/// `progress_callback` is used to report intermediate progress to the caller. For now, this reports on BDD
+/// size every step of fixed-point computations, and when each new unique subformula is evaluated.
+/// It currently does not cover:
+///  - progress for optimized algorithms (fixed points and attractors)
+///  - subformulas already cached
+pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
     node: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
     eval_context: &mut EvalContext,
     steady_states: &GraphColoredVertices,
-    progress_callback: &F,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
     let mut save_to_cache = false;
