@@ -2,9 +2,7 @@
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_context::EvalContext;
-use crate::mc_utils::{
-    collect_unique_hctl_vars, dont_track_progress, get_extended_symbolic_graph, track_progress,
-};
+use crate::mc_utils::{collect_unique_hctl_vars, dont_track_progress, get_extended_symbolic_graph};
 use crate::preprocessing::parser::{parse_extended_formula, parse_hctl_formula};
 use crate::preprocessing::utils::{validate_and_divide_wild_cards, validate_props_and_rename_vars};
 use crate::result_print::*;
@@ -14,7 +12,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 use crate::evaluation::LabelToSetMap;
 use crate::generate_output::build_result_archive;
 use crate::load_inputs::load_bdd_bundle;
-use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicContext};
 use std::collections::HashMap;
 use std::time::SystemTime;
 
@@ -226,6 +224,13 @@ pub fn analyse_formula(
         result_zip,
         context_archive_path,
     )
+}
+
+fn track_progress(intermediate_result: &GraphColoredVertices, msg: &str) {
+    println!(
+        "> Internal progress: \"{msg}\"; BDD size: {};",
+        intermediate_result.symbolic_size()
+    );
 }
 
 #[cfg(test)]

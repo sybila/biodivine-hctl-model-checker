@@ -23,11 +23,13 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, Symboli
 ///
 /// The set of `steady_states` is used to include self-loops in computing predecessors.
 ///
-/// `progress_callback` is used to report intermediate progress to the caller. For now, this reports on BDD
-/// size every step of fixed-point computations, and when each new unique subformula is evaluated.
-/// It currently does not cover:
-///  - progress for optimized algorithms (fixed points and attractors)
-///  - subformulas already cached
+/// Arg `progress_callback` is used to report intermediate progress to the caller. For now, this reports on:
+///  - start of the evaluation of a new unique sub-formula (or pattern)
+///  - internal step-by-step progress of fixed-point computations (for operators EU, AU, EF, AF, EG, AG, ...)
+///
+/// Progress messages currently do not cover:
+///  - internal progress for optimized algorithms (fixed points and attractors)
+///  - subformulas that were already computed and cached
 pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
     node: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
@@ -98,9 +100,13 @@ pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
         }
     }
 
+    // just an empty relation used for progress callback at the start of the computation
+    let empty_set = graph.mk_empty_colored_vertices();
+
     // first lets check for special cases, which can be optimised:
     // 1) attractors
     if is_attractor_pattern(&node) {
+        progress_callback(&empty_set, "Evaluating attractor pattern.");
         let result = compute_attractor_states(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
             eval_context
@@ -111,18 +117,25 @@ pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
     }
     // 2) fixed-points
     if is_fixed_point_pattern(&node) {
+        progress_callback(&empty_set, "Evaluating fixed-point pattern.");
         return steady_states.clone();
     }
 
     let result = match node.node_type {
-        NodeType::Terminal(atom) => match atom {
-            Atomic::True => graph.mk_unit_colored_vertices(),
-            Atomic::False => graph.mk_empty_colored_vertices(),
-            Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
-            Atomic::Prop(name) => eval_prop(graph, &name),
-            // should not be reachable, as wild-card nodes are always evaluated earlier using cache
-            Atomic::WildCardProp(_) => unreachable!(),
-        },
+        NodeType::Terminal(atom) => {
+            progress_callback(
+                &empty_set,
+                &format!("Evaluating atomic subformula `{atom}`."),
+            );
+            match atom {
+                Atomic::True => graph.mk_unit_colored_vertices(),
+                Atomic::False => graph.mk_empty_colored_vertices(),
+                Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
+                Atomic::Prop(name) => eval_prop(graph, &name),
+                // should not be reachable, as wild-card nodes are always evaluated earlier using cache
+                Atomic::WildCardProp(_) => unreachable!(),
+            }
+        }
         NodeType::Unary(op, child) => {
             let child_evaluated = eval_node(
                 *child,
@@ -131,6 +144,7 @@ pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
                 steady_states,
                 progress_callback,
             );
+            progress_callback(&empty_set, &format!("Evaluating operator `{op}`."));
             match op {
                 UnaryOp::Not => eval_neg(graph, &child_evaluated),
                 UnaryOp::EX => eval_ex(graph, &child_evaluated, steady_states),
@@ -150,6 +164,7 @@ pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
                 steady_states,
                 progress_callback,
             );
+            progress_callback(&empty_set, &format!("Evaluating operator `{op}`."));
             match op {
                 BinaryOp::And => left_eval.intersect(&right_eval),
                 BinaryOp::Or => left_eval.union(&right_eval),
@@ -186,6 +201,7 @@ pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
                 steady_states,
                 progress_callback,
             );
+            progress_callback(&empty_set, "Evaluating operator `@`.");
             eval_jump(graph, &child_evaluated, var.as_str())
         }
         NodeType::Hybrid(op, var, maybe_domain, child) => {
@@ -207,6 +223,7 @@ pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
                         steady_states,
                         progress_callback,
                     );
+                    progress_callback(&empty_set, &format!("Evaluating operator `{op}`."));
                     eval_hybrid_quantifier(graph, graph, &op, &var, &child_evaluated)
                 }
                 Some(domain) => {
@@ -238,6 +255,10 @@ pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
                         steady_states,
                         progress_callback,
                     );
+                    progress_callback(
+                        &empty_set,
+                        &format!("Evaluating operator `{op}` with restricted domain `{domain}`."),
+                    );
                     eval_hybrid_quantifier(graph, &restricted_graph, &op, &var, &child_eval)
                 }
             };
@@ -254,10 +275,6 @@ pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
             .cache
             .insert(canonized_formula_with_domains, (result.clone(), renaming));
     }
-    progress_callback(
-        &result,
-        &format!("Finished subformula `{}`", node.formula_str),
-    );
     result
 }
 

@@ -11,13 +11,6 @@ use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
 
-pub(crate) fn track_progress(intermediate_result: &GraphColoredVertices, msg: &str) {
-    println!(
-        "Current BDD size: {};\tMessage: \"{msg}\"",
-        intermediate_result.symbolic_size()
-    );
-}
-
 pub(crate) fn dont_track_progress(_progress: &GraphColoredVertices, _msg: &str) {}
 
 /// Create an extended symbolic transition graph that supports the number of needed HCTL variables.

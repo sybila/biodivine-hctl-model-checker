@@ -47,6 +47,11 @@ pub fn _model_check_multiple_trees_dirty<F: FnMut(&GraphColoredVertices, &str)>(
     // evaluate the formulae (perform the actual model checking) and collect results
     let mut results: Vec<GraphColoredVertices> = Vec::new();
     for parse_tree in formula_trees {
+        progress_callback(
+            &graph.mk_empty_colored_vertices(),
+            &format!("Starting evaluation of formula `{parse_tree}`."),
+        );
+
         results.push(eval_node(
             parse_tree,
             graph,
