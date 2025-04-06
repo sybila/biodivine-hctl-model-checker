@@ -2,7 +2,7 @@
 
 use crate::evaluation::algorithm::{compute_steady_states, eval_node};
 use crate::evaluation::eval_context::EvalContext;
-use crate::mc_utils::{collect_unique_hctl_vars, get_extended_symbolic_graph};
+use crate::mc_utils::{collect_unique_hctl_vars, dont_track_progress, get_extended_symbolic_graph};
 use crate::preprocessing::parser::{parse_extended_formula, parse_hctl_formula};
 use crate::preprocessing::utils::{validate_and_divide_wild_cards, validate_props_and_rename_vars};
 use crate::result_print::*;
@@ -12,7 +12,7 @@ use biodivine_lib_param_bn::BooleanNetwork;
 use crate::evaluation::LabelToSetMap;
 use crate::generate_output::build_result_archive;
 use crate::load_inputs::load_bdd_bundle;
-use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicContext};
 use std::collections::HashMap;
 use std::time::SystemTime;
 
@@ -140,7 +140,7 @@ pub fn analyse_formulae(
     // pre-compute states with self-loops which will be needed
     let self_loop_states = compute_steady_states(&graph);
     print_if_allowed(
-        "Self-loops successfully pre-computed.\n".to_string(),
+        "Self-loop states successfully pre-computed.\n".to_string(),
         print_opt,
     );
 
@@ -155,11 +155,18 @@ pub fn analyse_formulae(
         let formula = formulae[i].clone();
         print_if_allowed(format!("Evaluating formula {}...", i + 1), print_opt);
         let curr_comp_start = SystemTime::now();
+        let mut progress_callback =
+            if matches!(print_opt, PrintOptions::NoPrint | PrintOptions::JustSummary) {
+                dont_track_progress
+            } else {
+                track_progress
+            };
         let result = eval_node(
             parse_tree.clone(),
             &graph,
             &mut eval_info,
             &self_loop_states,
+            &mut progress_callback,
         );
 
         match print_opt {
@@ -217,6 +224,13 @@ pub fn analyse_formula(
         result_zip,
         context_archive_path,
     )
+}
+
+fn track_progress(intermediate_result: &GraphColoredVertices, msg: &str) {
+    println!(
+        "> Internal progress: \"{msg}\"; BDD size: {};",
+        intermediate_result.symbolic_size()
+    );
 }
 
 #[cfg(test)]

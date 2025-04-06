@@ -22,11 +22,20 @@ use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, Symboli
 /// See also [EvalContext].
 ///
 /// The set of `steady_states` is used to include self-loops in computing predecessors.
-pub fn eval_node(
+///
+/// Arg `progress_callback` is used to report intermediate progress to the caller. For now, this reports on:
+///  - start of the evaluation of a new unique sub-formula (or pattern)
+///  - internal step-by-step progress of fixed-point computations (for operators EU, AU, EF, AF, EG, AG, ...)
+///
+/// Progress messages currently do not cover:
+///  - internal progress for optimized algorithms (fixed points and attractors)
+///  - subformulas that were already computed and cached
+pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
     node: HctlTreeNode,
     graph: &SymbolicAsyncGraph,
     eval_context: &mut EvalContext,
     steady_states: &GraphColoredVertices,
+    progress_callback: &mut F,
 ) -> GraphColoredVertices {
     // first check whether this node does not belong in the duplicates
     let mut save_to_cache = false;
@@ -91,9 +100,13 @@ pub fn eval_node(
         }
     }
 
+    // just an empty relation used for progress callback at the start of the computation
+    let empty_set = graph.mk_empty_colored_vertices();
+
     // first lets check for special cases, which can be optimised:
     // 1) attractors
     if is_attractor_pattern(&node) {
+        progress_callback(&empty_set, "Evaluating attractor pattern.");
         let result = compute_attractor_states(graph, graph.mk_unit_colored_vertices());
         if save_to_cache {
             eval_context
@@ -104,108 +117,95 @@ pub fn eval_node(
     }
     // 2) fixed-points
     if is_fixed_point_pattern(&node) {
+        progress_callback(&empty_set, "Evaluating fixed-point pattern.");
         return steady_states.clone();
     }
 
     let result = match node.node_type {
-        NodeType::Terminal(atom) => match atom {
-            Atomic::True => graph.mk_unit_colored_vertices(),
-            Atomic::False => graph.mk_empty_colored_vertices(),
-            Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
-            Atomic::Prop(name) => eval_prop(graph, &name),
-            // should not be reachable, as wild-card nodes are always evaluated earlier using cache
-            Atomic::WildCardProp(_) => unreachable!(),
-        },
-        NodeType::Unary(op, child) => match op {
-            UnaryOp::Not => eval_neg(
+        NodeType::Terminal(atom) => {
+            progress_callback(
+                &empty_set,
+                &format!("Evaluating atomic subformula `{atom}`."),
+            );
+            match atom {
+                Atomic::True => graph.mk_unit_colored_vertices(),
+                Atomic::False => graph.mk_empty_colored_vertices(),
+                Atomic::Var(name) => eval_hctl_var(graph, name.as_str()),
+                Atomic::Prop(name) => eval_prop(graph, &name),
+                // should not be reachable, as wild-card nodes are always evaluated earlier using cache
+                Atomic::WildCardProp(_) => unreachable!(),
+            }
+        }
+        NodeType::Unary(op, child) => {
+            let child_evaluated = eval_node(
+                *child,
                 graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-            ),
-            UnaryOp::EX => eval_ex(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
+                eval_context,
                 steady_states,
-            ),
-            UnaryOp::AX => eval_ax(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                steady_states,
-            ),
-            UnaryOp::EF => eval_ef_saturated(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-            ),
-            UnaryOp::AF => eval_af(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                steady_states,
-            ),
-            UnaryOp::EG => eval_eg(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                steady_states,
-            ),
-            UnaryOp::AG => eval_ag(
-                graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-            ),
-        },
-        NodeType::Binary(op, left, right) => {
+                progress_callback,
+            );
+            progress_callback(&empty_set, &format!("Evaluating operator `{op}`."));
             match op {
-                BinaryOp::And => eval_node(*left, graph, eval_context, steady_states)
-                    .intersect(&eval_node(*right, graph, eval_context, steady_states)),
-                BinaryOp::Or => eval_node(*left, graph, eval_context, steady_states)
-                    .union(&eval_node(*right, graph, eval_context, steady_states)),
-                BinaryOp::Xor => eval_xor(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
-                BinaryOp::Imp => eval_imp(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
-                BinaryOp::Iff => eval_equiv(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
-                BinaryOp::EU => eval_eu_saturated(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
+                UnaryOp::Not => eval_neg(graph, &child_evaluated),
+                UnaryOp::EX => eval_ex(graph, &child_evaluated, steady_states),
+                UnaryOp::AX => eval_ax(graph, &child_evaluated, steady_states),
+                UnaryOp::EF => eval_ef_saturated(graph, &child_evaluated, progress_callback),
+                UnaryOp::AF => eval_af(graph, &child_evaluated, steady_states, progress_callback),
+                UnaryOp::EG => eval_eg(graph, &child_evaluated, steady_states, progress_callback),
+                UnaryOp::AG => eval_ag(graph, &child_evaluated, progress_callback),
+            }
+        }
+        NodeType::Binary(op, left, right) => {
+            let left_eval = eval_node(*left, graph, eval_context, steady_states, progress_callback);
+            let right_eval = eval_node(
+                *right,
+                graph,
+                eval_context,
+                steady_states,
+                progress_callback,
+            );
+            progress_callback(&empty_set, &format!("Evaluating operator `{op}`."));
+            match op {
+                BinaryOp::And => left_eval.intersect(&right_eval),
+                BinaryOp::Or => left_eval.union(&right_eval),
+                BinaryOp::Xor => eval_xor(graph, &left_eval, &right_eval),
+                BinaryOp::Imp => eval_imp(graph, &left_eval, &right_eval),
+                BinaryOp::Iff => eval_equiv(graph, &left_eval, &right_eval),
+                BinaryOp::EU => {
+                    eval_eu_saturated(graph, &left_eval, &right_eval, progress_callback)
+                }
                 BinaryOp::AU => eval_au(
                     graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
+                    &left_eval,
+                    &right_eval,
                     steady_states,
+                    progress_callback,
                 ),
                 BinaryOp::EW => eval_ew(
                     graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
+                    &left_eval,
+                    &right_eval,
                     steady_states,
+                    progress_callback,
                 ),
-                BinaryOp::AW => eval_aw(
-                    graph,
-                    &eval_node(*left, graph, eval_context, steady_states),
-                    &eval_node(*right, graph, eval_context, steady_states),
-                ),
+                BinaryOp::AW => eval_aw(graph, &left_eval, &right_eval, progress_callback),
             }
         }
         NodeType::Hybrid(HybridOp::Jump, var, _, child) => {
             // special case for hybrid operator Jump (it is not quantifier, so it is different than the rest)
             // mainly, we dont have to worry about the domain (which complicates other hybrid operators)
-            eval_jump(
+            let child_evaluated = eval_node(
+                *child,
                 graph,
-                &eval_node(*child, graph, eval_context, steady_states),
-                var.as_str(),
-            )
+                eval_context,
+                steady_states,
+                progress_callback,
+            );
+            progress_callback(&empty_set, "Evaluating operator `@`.");
+            eval_jump(graph, &child_evaluated, var.as_str())
         }
         NodeType::Hybrid(op, var, maybe_domain, child) => {
-            // since hybrid operator Jump is handled in previous match arm, only quantifiers end up there
+            // case for hybrid quantifiers (jump operator matched by previous match)
 
             // add the variable's domain to the eval context (the variable will be free in the sub-formulae)
             eval_context
@@ -214,16 +214,22 @@ pub fn eval_node(
 
             // two different options depending on if the quantified variable has restricted domain or not
             let res = match maybe_domain {
-                None => eval_hybrid_quantifier(
-                    graph,
-                    graph,
-                    eval_context,
-                    steady_states,
-                    op.clone(),
-                    var.clone(),
-                    *child,
-                ),
+                None => {
+                    // if there is no domain restriction, we evaluate the child node on the current version of the graph
+                    let child_evaluated = eval_node(
+                        *child,
+                        graph,
+                        eval_context,
+                        steady_states,
+                        progress_callback,
+                    );
+                    progress_callback(&empty_set, &format!("Evaluating operator `{op}`."));
+                    eval_hybrid_quantifier(graph, graph, &op, &var, &child_evaluated)
+                }
                 Some(domain) => {
+                    // if there is a domain restriction, we evaluate the child node a restricted version of the graph
+                    // with a smaller unit bdd, limiting the validity domain of the `variable`
+
                     // get a domain set from EvalContext, can use unwrap as it is previously checked
                     let domain_set = eval_context.domain_raw_sets.get(domain.as_str()).unwrap();
 
@@ -239,17 +245,21 @@ pub fn eval_node(
                     }
 
                     // restrict the var domain in unit BDD of the graph
-                    let var_domain = compute_valid_domain_for_var(graph, domain_set, var.as_str());
+                    let var_domain = compute_valid_domain_for_var(graph, domain_set, &var);
                     let restricted_graph = restrict_stg_unit_bdd(graph, &var_domain);
-                    eval_hybrid_quantifier(
-                        graph,
+
+                    let child_eval = eval_node(
+                        *child,
                         &restricted_graph,
                         eval_context,
                         steady_states,
-                        op.clone(),
-                        var.clone(),
-                        *child,
-                    )
+                        progress_callback,
+                    );
+                    progress_callback(
+                        &empty_set,
+                        &format!("Evaluating operator `{op}` with restricted domain `{domain}`."),
+                    );
+                    eval_hybrid_quantifier(graph, &restricted_graph, &op, &var, &child_eval)
                 }
             };
 
@@ -268,50 +278,34 @@ pub fn eval_node(
     result
 }
 
-/// Wrapper to recursively evaluate the formula represented by a sub-tree beginning at hybrid node
-/// specified by its `operator`, `variable` and `child_node`.
+/// Wrapper to evaluate a hybrid quantifier node specified by its `operator` and `variable`,
+/// given that its child node is already evaluated (with result in `child_evaluated`).
 ///
-/// The operator must be a quantifier (bind, exists, forall), not a jump.
+/// The operator must be a quantifier (bind, exists, forall), it cant be a jump.
 ///
-/// `graph` gives the context for evaluating the hybrid operator itself, while `graph_to_propagate` should
-/// be used to evaluate the successors of the node. The two graphs might be the same. Having two
-/// distinct versions allows to evaluate the sub-tree on a different graph with smaller unit bdd,
-/// thus limiting the validity domain of the `variable`.
-///
-/// `eval_context` holds the current version additional data used for optimization, such as
-/// pre-computed set of `duplicate` sub-formulae and corresponding `cache` set.
-/// The `steady_states` are needed to include self-loops in computing predecessors.
+/// The `graph` gives the context for evaluating the quantifier node itself, while `graph_to_propagate` is
+/// the graph that was used to evaluate the child node. The two graphs might be different, depending on
+/// the quantifier's domain. Having two distinct versions allows to evaluate the child node on a different
+/// graph with smaller unit bdd, thus limiting the validity domain of the `variable`. Here, it is
+/// currently important just for the `forall` quantifier.
 fn eval_hybrid_quantifier(
     graph: &SymbolicAsyncGraph,
     graph_to_propagate: &SymbolicAsyncGraph,
-    eval_context: &mut EvalContext,
-    steady_states: &GraphColoredVertices,
-    operator: HybridOp,
-    variable: String,
-    child_node: HctlTreeNode,
+    operator: &HybridOp,
+    variable: &str,
+    child_evaluated: &GraphColoredVertices,
 ) -> GraphColoredVertices {
     match operator {
-        HybridOp::Bind => eval_bind(
-            graph,
-            &eval_node(child_node, graph_to_propagate, eval_context, steady_states),
-            variable.as_str(),
-        ),
-        HybridOp::Exists => eval_exists(
-            graph,
-            &eval_node(child_node, graph_to_propagate, eval_context, steady_states),
-            variable.as_str(),
-        ),
+        HybridOp::Bind => eval_bind(graph, child_evaluated, variable),
+        HybridOp::Exists => eval_exists(graph, child_evaluated, variable),
         // evaluate `forall x in A. phi` as `not exists x in A. not phi`
         // do it directly there so that the domain for negations are handled correctly
         HybridOp::Forall => eval_neg(
             graph,
             &eval_exists(
                 graph,
-                &eval_neg(
-                    graph_to_propagate,
-                    &eval_node(child_node, graph_to_propagate, eval_context, steady_states),
-                ),
-                variable.as_str(),
+                &eval_neg(graph_to_propagate, child_evaluated),
+                variable,
             ),
         ),
         // only hybrid quantifiers should be evaluated in this function

@@ -32,7 +32,7 @@ fn validate_and_rename_recursive(
     // If we find hybrid node with binder or exist, we add new var-name to rename_dict and stack (x, xx, xxx...)
     // After we leave this binder/exist, we remove its var from rename_dict
     // When we find terminal with free var or jump node, we rename the var using rename-dict
-    return match orig_tree.node_type {
+    match orig_tree.node_type {
         // rename vars in terminal state-var nodes
         NodeType::Terminal(ref atom) => match atom {
             Atomic::Var(name) => {
@@ -52,7 +52,7 @@ fn validate_and_rename_recursive(
                 }
             }
             // constants or wild-card propositions are always considered fine
-            _ => return Ok(orig_tree),
+            _ => Ok(orig_tree),
         },
         // just dive one level deeper for unary nodes, and rename string
         NodeType::Unary(op, child) => {
@@ -111,7 +111,7 @@ fn validate_and_rename_recursive(
                 op,
             ))
         }
-    };
+    }
 }
 
 /// Check that all wild-card propositions and variable domains in the formula's syntactic tree have

@@ -4,10 +4,14 @@
 use crate::preprocessing::hctl_tree::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::{Atomic, HybridOp};
 
-use biodivine_lib_param_bn::symbolic_async_graph::{SymbolicAsyncGraph, SymbolicContext};
+use biodivine_lib_param_bn::symbolic_async_graph::{
+    GraphColoredVertices, SymbolicAsyncGraph, SymbolicContext,
+};
 use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
+
+pub(crate) fn dont_track_progress(_progress: &GraphColoredVertices, _msg: &str) {}
 
 /// Create an extended symbolic transition graph that supports the number of needed HCTL variables.
 ///

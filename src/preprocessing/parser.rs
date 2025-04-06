@@ -82,22 +82,22 @@ fn is_unary(token: &HctlToken) -> bool {
 
 /// Utility method to find the first occurrence of a specific token in the token tree.
 fn index_of_first(tokens: &[HctlToken], token: HctlToken) -> Option<usize> {
-    return tokens.iter().position(|t| *t == token);
+    tokens.iter().position(|t| *t == token)
 }
 
 /// Utility method to find the first occurrence of a hybrid operator in the token tree.
 fn index_of_first_hybrid(tokens: &[HctlToken]) -> Option<usize> {
-    return tokens.iter().position(is_hybrid);
+    tokens.iter().position(is_hybrid)
 }
 
 /// Utility method to find the first occurrence of a binary temporal operator in the token tree.
 fn index_of_first_binary_temp(tokens: &[HctlToken]) -> Option<usize> {
-    return tokens.iter().position(is_binary_temporal);
+    tokens.iter().position(is_binary_temporal)
 }
 
 /// Utility method to find the first occurrence of an unary operator in the token tree.
 fn index_of_first_unary(tokens: &[HctlToken]) -> Option<usize> {
-    return tokens.iter().position(is_unary);
+    tokens.iter().position(is_unary)
 }
 
 /// Parse `tokens` of HCTL formula into an abstract syntax tree using recursive steps.
