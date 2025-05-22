@@ -268,6 +268,21 @@ pub fn model_check_multiple_extended_formulae_dirty(
     stg: &SymbolicAsyncGraph,
     context_sets: &LabelToSetMap,
 ) -> Result<Vec<GraphColoredVertices>, String> {
+    _model_check_multiple_extended_formulae_dirty(
+        formulae,
+        stg,
+        context_sets,
+        &mut dont_track_progress,
+    )
+}
+
+/// A version of [model_check_multiple_extended_formulae_dirty] with optional progress tracking.
+pub fn _model_check_multiple_extended_formulae_dirty<F: FnMut(&GraphColoredVertices, &str)>(
+    formulae: Vec<&str>,
+    stg: &SymbolicAsyncGraph,
+    context_sets: &LabelToSetMap,
+    progress_callback: &mut F,
+) -> Result<Vec<GraphColoredVertices>, String> {
     // get the abstract syntactic trees and divide context sets, plus check compatibility with graph
     let (parsed_trees, context_props, context_domains) =
         parse_and_validate_extended(formulae, stg, context_sets)?;
@@ -276,7 +291,7 @@ pub fn model_check_multiple_extended_formulae_dirty(
 
     // 1) find normal duplicate sub-formulae throughout all formulae + initiate caching structures
     let mut eval_info = EvalContext::from_multiple_trees(&parsed_trees);
-    // 2) extended the cache with given substitution context for wild-card nodes
+    // 2) extend the cache with given substitution context for wild-card nodes
     eval_info.extend_context_with_wild_cards(&context_props, &context_domains);
     // 3) pre-compute compute states with self-loops which will be needed during eval
     let self_loop_states = compute_steady_states(stg);
@@ -289,7 +304,7 @@ pub fn model_check_multiple_extended_formulae_dirty(
             stg,
             &mut eval_info,
             &self_loop_states,
-            &mut dont_track_progress,
+            progress_callback,
         ));
     }
     Ok(results)
@@ -306,7 +321,22 @@ pub fn model_check_multiple_extended_formulae(
     stg: &SymbolicAsyncGraph,
     context_sets: &LabelToSetMap,
 ) -> Result<Vec<GraphColoredVertices>, String> {
-    let results = model_check_multiple_extended_formulae_dirty(formulae, stg, context_sets)?;
+    _model_check_multiple_extended_formulae(formulae, stg, context_sets, &mut dont_track_progress)
+}
+
+/// A version of [model_check_multiple_extended_formulae] with optional progress tracking.
+pub fn _model_check_multiple_extended_formulae<F: FnMut(&GraphColoredVertices, &str)>(
+    formulae: Vec<&str>,
+    stg: &SymbolicAsyncGraph,
+    context_sets: &LabelToSetMap,
+    progress_callback: &mut F,
+) -> Result<Vec<GraphColoredVertices>, String> {
+    let results = _model_check_multiple_extended_formulae_dirty(
+        formulae,
+        stg,
+        context_sets,
+        progress_callback,
+    )?;
 
     // sanitize the results' bdds - get rid of additional bdd vars used for HCTL vars
     let sanitized_results: Vec<GraphColoredVertices> = results
@@ -326,7 +356,22 @@ pub fn model_check_extended_formula(
     stg: &SymbolicAsyncGraph,
     context_sets: &LabelToSetMap,
 ) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_extended_formulae(vec![formula], stg, context_sets)?;
+    _model_check_extended_formula(formula, stg, context_sets, &mut dont_track_progress)
+}
+
+/// A version of [model_check_extended_formula] with optional progress tracking.
+pub fn _model_check_extended_formula<F: FnMut(&GraphColoredVertices, &str)>(
+    formula: &str,
+    stg: &SymbolicAsyncGraph,
+    context_sets: &LabelToSetMap,
+    progress_callback: &mut F,
+) -> Result<GraphColoredVertices, String> {
+    let result = _model_check_multiple_extended_formulae(
+        vec![formula],
+        stg,
+        context_sets,
+        progress_callback,
+    )?;
     Ok(result[0].clone())
 }
 
@@ -341,7 +386,22 @@ pub fn model_check_extended_formula_dirty(
     stg: &SymbolicAsyncGraph,
     context_sets: &LabelToSetMap,
 ) -> Result<GraphColoredVertices, String> {
-    let result = model_check_multiple_extended_formulae_dirty(vec![formula], stg, context_sets)?;
+    _model_check_extended_formula_dirty(formula, stg, context_sets, &mut dont_track_progress)
+}
+
+/// A version of [model_check_extended_formula_dirty] with optional progress tracking.
+pub fn _model_check_extended_formula_dirty<F: FnMut(&GraphColoredVertices, &str)>(
+    formula: &str,
+    stg: &SymbolicAsyncGraph,
+    context_sets: &LabelToSetMap,
+    progress_callback: &mut F,
+) -> Result<GraphColoredVertices, String> {
+    let result = _model_check_multiple_extended_formulae_dirty(
+        vec![formula],
+        stg,
+        context_sets,
+        progress_callback,
+    )?;
     Ok(result[0].clone())
 }
 
