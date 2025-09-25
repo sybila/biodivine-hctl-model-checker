@@ -2,7 +2,7 @@
 name = "biodivine-hctl-model-checker"
 version = "0.3.3"
 authors = ["Ondřej Huvar <xhuvar@fi.muni.cz>", "Samuel Pastva <sam.pastva@gmail.com>"]
-edition = "2021"
+edition = "2024"
 description = "Library for symbolic HCTL model checking on partially defined Boolean networks."
 documentation = "https://docs.rs/biodivine-hctl-model-checker/latest/"
 homepage = "https://github.com/sybila/biodivine-hctl-model-checker"
