@@ -11,6 +11,8 @@ readme = "README.md"
 keywords = ["hctl", "model-checking", "boolean-network", "symbolic", "systems-biology"]
 categories = ["science", "simulation"]
 license = "MIT"
+# If you are increasing this, update it in both CI workflows.
+rust-version = "1.88.0"
 exclude = ["benchmark_models", ".github", ".githooks"]
 
 [profile.test]
