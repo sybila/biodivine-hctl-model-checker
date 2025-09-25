@@ -100,10 +100,6 @@ impl fmt::Display for Atomic {
 
 impl From<bool> for Atomic {
     fn from(value: bool) -> Self {
-        if value {
-            Atomic::True
-        } else {
-            Atomic::False
-        }
+        if value { Atomic::True } else { Atomic::False }
     }
 }

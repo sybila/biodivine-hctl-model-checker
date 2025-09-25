@@ -4,10 +4,10 @@
 use crate::preprocessing::hctl_tree::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::{Atomic, HybridOp};
 
+use biodivine_lib_param_bn::BooleanNetwork;
 use biodivine_lib_param_bn::symbolic_async_graph::{
     GraphColoredVertices, SymbolicAsyncGraph, SymbolicContext,
 };
-use biodivine_lib_param_bn::BooleanNetwork;
 
 use std::collections::{HashMap, HashSet};
 

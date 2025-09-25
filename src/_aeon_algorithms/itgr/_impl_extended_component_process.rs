@@ -1,6 +1,6 @@
+use biodivine_lib_param_bn::VariableId;
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
-use biodivine_lib_param_bn::VariableId;
 
 use crate::_aeon_algorithms::itgr::{BwdProcess, ExtendedComponentProcess, Process, Scheduler};
 use crate::_aeon_algorithms::saturated_reachability::reach_bwd;

@@ -195,8 +195,8 @@ mod tests {
     use crate::preprocessing::utils::{
         validate_and_divide_wild_cards, validate_props_and_rename_vars, validate_wild_cards,
     };
-    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
     use biodivine_lib_param_bn::BooleanNetwork;
+    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
     use std::collections::HashMap;
 
     /// Compare tree for formula with automatically minimized state var number to the

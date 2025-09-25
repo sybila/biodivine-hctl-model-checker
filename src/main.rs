@@ -9,8 +9,8 @@ use biodivine_hctl_model_checker::analysis::analyse_formulae;
 use biodivine_hctl_model_checker::load_inputs::load_formulae;
 use biodivine_hctl_model_checker::result_print::PrintOptions;
 
-use clap::builder::PossibleValuesParser;
 use clap::Parser;
+use clap::builder::PossibleValuesParser;
 
 use biodivine_lib_param_bn::BooleanNetwork;
 

@@ -10,7 +10,7 @@
 use crate::preprocessing::hctl_tree::*;
 use crate::preprocessing::operator_enums::*;
 use crate::preprocessing::tokenizer::{
-    try_tokenize_extended_formula, try_tokenize_formula, HctlToken,
+    HctlToken, try_tokenize_extended_formula, try_tokenize_formula,
 };
 use crate::preprocessing::utils::validate_props_and_rename_vars;
 use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
@@ -259,13 +259,13 @@ fn parse_9_terminal_and_parentheses(tokens: &[HctlToken]) -> Result<HctlTreeNode
                         Ok(HctlTreeNode::mk_constant(false))
                     } else {
                         Ok(HctlTreeNode::mk_proposition(name.as_str()))
-                    }
+                    };
                 }
                 HctlToken::Atom(Atomic::Var(name)) => {
-                    return Ok(HctlTreeNode::mk_variable(name.as_str()))
+                    return Ok(HctlTreeNode::mk_variable(name.as_str()));
                 }
                 HctlToken::Atom(Atomic::WildCardProp(name)) => {
-                    return Ok(HctlTreeNode::mk_wild_card(name.as_str()))
+                    return Ok(HctlTreeNode::mk_wild_card(name.as_str()));
                 }
                 // recursively solve sub-formulae in parentheses
                 HctlToken::Tokens(inner) => return parse_hctl_tokens(inner),
@@ -299,7 +299,10 @@ mod tests {
 
         let valid3 = "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))";
         let tree = parse_hctl_formula(valid3).unwrap();
-        assert_eq!(tree.as_str(), "(3{x}: (3{y}: ((@{x}: ((~{y}) & (AX {x}))) & ((@{y}: (AX {y})) & ((EF ({x} & (!{z}: (AX {z})))) & ((EF ({y} & (!{z}: (AX {z})))) & (AX ((EF ({x} & (!{z}: (AX {z})))) ^ (EF ({y} & (!{z}: (AX {z}))))))))))))");
+        assert_eq!(
+            tree.as_str(),
+            "(3{x}: (3{y}: ((@{x}: ((~{y}) & (AX {x}))) & ((@{y}: (AX {y})) & ((EF ({x} & (!{z}: (AX {z})))) & ((EF ({y} & (!{z}: (AX {z})))) & (AX ((EF ({x} & (!{z}: (AX {z})))) ^ (EF ({y} & (!{z}: (AX {z}))))))))))))"
+        );
 
         // also test propositions, constants, and other operators (and their parse order)
         // propositions names should not be modified, constants should be unified to True/False

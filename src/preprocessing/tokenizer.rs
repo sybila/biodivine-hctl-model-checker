@@ -79,14 +79,14 @@ fn try_tokenize_recursive(
             'E' if is_valid_temp_op(input_chars.peek()) => {
                 if let Some(c2) = input_chars.next() {
                     // check that it is not just a part of some proposition name
-                    if let Some(c3) = input_chars.peek() {
-                        if is_valid_in_name(*c3) {
-                            let name = collect_name(input_chars)?;
-                            output.push(HctlToken::Atom(Atomic::Prop(
-                                c.to_string() + c2.to_string().as_str() + &name,
-                            )));
-                            continue;
-                        }
+                    if let Some(c3) = input_chars.peek()
+                        && is_valid_in_name(*c3)
+                    {
+                        let name = collect_name(input_chars)?;
+                        output.push(HctlToken::Atom(Atomic::Prop(
+                            c.to_string() + c2.to_string().as_str() + &name,
+                        )));
+                        continue;
                     }
 
                     match c2 {
@@ -106,14 +106,14 @@ fn try_tokenize_recursive(
             'A' if is_valid_temp_op(input_chars.peek()) => {
                 if let Some(c2) = input_chars.next() {
                     // check that it is not just a part of some proposition name
-                    if let Some(c3) = input_chars.peek() {
-                        if is_valid_in_name(*c3) {
-                            let name = collect_name(input_chars)?;
-                            output.push(HctlToken::Atom(Atomic::Prop(
-                                c.to_string() + c2.to_string().as_str() + &name,
-                            )));
-                            continue;
-                        }
+                    if let Some(c3) = input_chars.peek()
+                        && is_valid_in_name(*c3)
+                    {
+                        let name = collect_name(input_chars)?;
+                        output.push(HctlToken::Atom(Atomic::Prop(
+                            c.to_string() + c2.to_string().as_str() + &name,
+                        )));
+                        continue;
                     }
                     match c2 {
                         'X' => output.push(HctlToken::Unary(UnaryOp::AX)),
@@ -187,7 +187,7 @@ fn try_tokenize_recursive(
                     Ok(output)
                 } else {
                     Err("Unexpected ')' without opening counterpart.".to_string())
-                }
+                };
             }
             '(' => {
                 // start a nested token group
@@ -387,7 +387,7 @@ pub fn print_tokens(tokens: &Vec<HctlToken>) {
 mod tests {
     use crate::preprocessing::operator_enums::*;
     use crate::preprocessing::tokenizer::{
-        try_tokenize_extended_formula, try_tokenize_formula, HctlToken,
+        HctlToken, try_tokenize_extended_formula, try_tokenize_formula,
     };
 
     #[test]

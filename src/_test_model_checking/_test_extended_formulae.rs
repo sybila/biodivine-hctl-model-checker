@@ -113,10 +113,12 @@ fn model_check_extended_tautologies_on_bn(bn: BooleanNetwork) {
 
     for f in formulas {
         let result = model_check_extended_formula_dirty(f, &stg, &context).unwrap();
-        assert!(result
-            .as_bdd()
-            .iff(stg.unit_colored_vertices().as_bdd())
-            .is_true());
+        assert!(
+            result
+                .as_bdd()
+                .iff(stg.unit_colored_vertices().as_bdd())
+                .is_true()
+        );
     }
 }
 

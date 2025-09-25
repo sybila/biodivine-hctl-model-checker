@@ -34,11 +34,26 @@ fn model_check_basic_yeast() {
         ("!{x}: AX {x}", 12., 1., 12.),
         ("!{x}: AX EF {x}", 68., 1., 68.),
         ("AF (!{x}: AX {x})", 60., 1., 60.),
-        ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 12., 1., 12.),
-        ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 11., 1., 11.),
+        (
+            "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})",
+            12.,
+            1.,
+            12.,
+        ),
+        (
+            "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))",
+            11.,
+            1.,
+            11.,
+        ),
         ("!{x}: (AX (AF {x}))", 12., 1., 12.),
         ("AF (!{x}: (AX (~{x} & AF {x})))", 0., 0., 0.),
-        ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 0., 0., 0.),
+        (
+            "AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))",
+            0.,
+            0.,
+            0.,
+        ),
         // TODO: more tests regarding formulae for inference using concrete observations
     ];
 
@@ -58,11 +73,26 @@ fn model_check_basic_mammal() {
         ("!{x}: AX {x}", 1., 1., 1.),
         ("!{x}: AX EF {x}", 425., 2., 425.),
         ("AF (!{x}: AX {x})", 32., 1., 32.),
-        ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 0., 0., 0.),
-        ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 0., 0., 0.),
+        (
+            "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})",
+            0.,
+            0.,
+            0.,
+        ),
+        (
+            "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))",
+            0.,
+            0.,
+            0.,
+        ),
         ("!{x}: (AX (AF {x}))", 1., 1., 1.),
         ("AF (!{x}: (AX (~{x} & AF {x})))", 0., 0., 0.),
-        ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 0., 0., 0.),
+        (
+            "AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))",
+            0.,
+            0.,
+            0.,
+        ),
         // TODO: more tests regarding formulae for inference using concrete observations
     ];
 
@@ -82,11 +112,26 @@ fn model_check_basic_cell_division() {
         ("!{x}: AX {x}", 65536., 53248., 64.),
         ("!{x}: AX EF {x}", 1499136., 65536., 512.),
         ("AF (!{x}: AX {x})", 21430272., 53248., 512.),
-        ("!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})", 24576., 12288., 64.),
-        ("3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))", 24576., 12288., 48.),
+        (
+            "!{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y})",
+            24576.,
+            12288.,
+            64.,
+        ),
+        (
+            "3{x}: 3{y}: (@{x}: ~{y} & AX {x}) & (@{y}: AX {y}) & EF ({x} & (!{z}: AX {z})) & EF ({y} & (!{z}: AX {z})) & AX (EF ({x} & (!{z}: AX {z})) ^ EF ({y} & (!{z}: AX {z})))",
+            24576.,
+            12288.,
+            48.,
+        ),
         ("!{x}: (AX (AF {x}))", 84992., 59392., 112.),
         ("AF (!{x}: (AX (~{x} & AF {x})))", 49152., 6144., 128.),
-        ("AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))", 28672., 3584., 128.),
+        (
+            "AF (!{x}: ((AX (~{x} & AF {x})) & (EF (!{y}: EX ~AF {y}))))",
+            28672.,
+            3584.,
+            128.,
+        ),
         // TODO: more tests regarding formulae for inference using concrete observations
     ];
 
