@@ -182,15 +182,15 @@ pub fn mark_duplicates_canonized_single(
 
 #[cfg(test)]
 mod tests {
+    use crate::evaluation::VarDomainMap;
     use crate::evaluation::mark_duplicates::{
         mark_duplicates_canonized_multiple, mark_duplicates_canonized_single,
     };
-    use crate::evaluation::VarDomainMap;
     use crate::preprocessing::parser::{
         parse_and_minimize_extended_formula, parse_and_minimize_hctl_formula,
     };
-    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
     use biodivine_lib_param_bn::BooleanNetwork;
+    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicContext;
     use std::collections::HashMap;
 
     #[test]

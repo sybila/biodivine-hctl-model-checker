@@ -47,8 +47,8 @@ mod tests {
     use crate::postprocessing::sanitizing::{
         sanitize_colored_vertices, sanitize_colors, sanitize_vertices,
     };
-    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
     use biodivine_lib_param_bn::BooleanNetwork;
+    use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 
     const MODEL: &str = r"
     targets,factors

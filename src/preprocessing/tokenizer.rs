@@ -187,7 +187,7 @@ fn try_tokenize_recursive(
                     Ok(output)
                 } else {
                     Err("Unexpected ')' without opening counterpart.".to_string())
-                }
+                };
             }
             '(' => {
                 // start a nested token group
@@ -387,7 +387,7 @@ pub fn print_tokens(tokens: &Vec<HctlToken>) {
 mod tests {
     use crate::preprocessing::operator_enums::*;
     use crate::preprocessing::tokenizer::{
-        try_tokenize_extended_formula, try_tokenize_formula, HctlToken,
+        HctlToken, try_tokenize_extended_formula, try_tokenize_formula,
     };
 
     #[test]

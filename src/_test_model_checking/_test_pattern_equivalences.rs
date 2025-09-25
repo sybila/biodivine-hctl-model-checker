@@ -5,8 +5,8 @@ use crate::_test_model_checking::{
 use crate::evaluation::LabelToSetMap;
 use crate::mc_utils::get_extended_symbolic_graph;
 use crate::model_checking::{model_check_extended_formula, model_check_tree_dirty};
-use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use biodivine_lib_param_bn::BooleanNetwork;
+use biodivine_lib_param_bn::symbolic_async_graph::SymbolicAsyncGraph;
 use std::collections::HashMap;
 
 /// Test evaluation of pairs of equivalent pattern formulae on given BN model.

@@ -5,8 +5,8 @@
 //! a very reasonable amount of time.
 //!
 
-use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 use biodivine_lib_param_bn::VariableId;
+use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
 
 mod _impl_extended_component_process;
 mod _impl_fwd_bwd_process;

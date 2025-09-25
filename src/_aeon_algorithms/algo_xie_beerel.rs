@@ -1,8 +1,8 @@
 use crate::_aeon_algorithms::saturated_reachability::{reach_bwd, reachability_step};
 
+use biodivine_lib_param_bn::VariableId;
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
-use biodivine_lib_param_bn::VariableId;
 
 /// Uses a simplified Xie-Beerel algorithm adapted to coloured setting to find all bottom
 /// SCCs in the given `universe` set. It only tests transitions using `active_variables`.

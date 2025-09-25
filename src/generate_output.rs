@@ -2,8 +2,8 @@ use crate::evaluation::LabelToSetMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use zip::write::FileOptions;
 use zip::ZipWriter;
+use zip::write::FileOptions;
 
 /// Create a full results archive for an "result map" of `string -> colored set of states`.
 ///

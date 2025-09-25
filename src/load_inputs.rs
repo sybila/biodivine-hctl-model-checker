@@ -3,8 +3,8 @@
 use crate::evaluation::LabelToSetMap;
 use biodivine_lib_bdd::Bdd;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicContext};
-use std::fs::read_to_string;
 use std::fs::File;
+use std::fs::read_to_string;
 use std::io::Read;
 use std::path::Path;
 use zip::ZipArchive;
