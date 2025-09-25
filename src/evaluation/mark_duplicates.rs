@@ -22,11 +22,11 @@ struct NodeWithDomains<'a> {
 }
 
 impl NodeWithDomains<'_> {
-    pub fn new(subtree: &HctlTreeNode, domains: VarDomainMap) -> NodeWithDomains {
+    pub fn new(subtree: &HctlTreeNode, domains: VarDomainMap) -> NodeWithDomains<'_> {
         NodeWithDomains { subtree, domains }
     }
 
-    pub fn new_empty_doms(subtree: &HctlTreeNode) -> NodeWithDomains {
+    pub fn new_empty_doms(subtree: &HctlTreeNode) -> NodeWithDomains<'_> {
         NodeWithDomains {
             subtree,
             domains: VarDomainMap::new(),

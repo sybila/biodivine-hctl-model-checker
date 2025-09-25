@@ -1,6 +1,6 @@
 use crate::evaluation::LabelToSetMap;
 use std::fs::File;
-use std::io::{ErrorKind, Write};
+use std::io::Write;
 use std::path::Path;
 use zip::write::FileOptions;
 use zip::ZipWriter;
@@ -21,7 +21,7 @@ pub fn build_result_archive(
     // If there are some non existing dirs in path, create them.
     let prefix = archive_path
         .parent()
-        .ok_or(std::io::Error::new(ErrorKind::Other, "Invalid path."))?;
+        .ok_or(std::io::Error::other("Invalid path."))?;
     std::fs::create_dir_all(prefix)?;
 
     // Create a zip writer for the desired archive.
@@ -66,7 +66,7 @@ pub fn build_initial_archive(
     // If there are some non existing dirs in path, create them.
     let prefix = archive_path
         .parent()
-        .ok_or(std::io::Error::new(ErrorKind::Other, "Invalid path."))?;
+        .ok_or(std::io::Error::other("Invalid path."))?;
     std::fs::create_dir_all(prefix)?;
 
     // Create a zip writer for the desired archive.
