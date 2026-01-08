@@ -8,7 +8,6 @@
 //!  - Simultaneous evaluation of several formulae, sharing common computation via cache.
 //!
 
-mod _aeon_algorithms;
 pub mod analysis;
 pub mod evaluation;
 pub mod generate_output;

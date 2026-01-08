@@ -1,6 +1,5 @@
 //! Contains the high-level model-checking algorithm and few optimisations.
 
-use crate::_aeon_algorithms::scc_computation::compute_attractor_states;
 use crate::evaluation::canonization::get_canonical_and_renaming;
 use crate::evaluation::eval_context::EvalContext;
 use crate::evaluation::hctl_operators_eval::*;
@@ -10,10 +9,16 @@ use crate::evaluation::low_level_operations::{
 use crate::evaluation::{VarDomainMap, VarRenameMap};
 use crate::preprocessing::hctl_tree::{HctlTreeNode, NodeType};
 use crate::preprocessing::operator_enums::*;
+use biodivine_algo_bdd_scc::attractor::{
+    AttractorConfig, InterleavedTransitionGuidedReduction, ItgrState, XieBeerelAttractors,
+    XieBeerelState,
+};
+use std::collections::BTreeSet;
 
 use biodivine_lib_param_bn::biodivine_std::traits::Set;
 use biodivine_lib_param_bn::fixed_points::FixedPoints;
 use biodivine_lib_param_bn::symbolic_async_graph::{GraphColoredVertices, SymbolicAsyncGraph};
+use computation_process::{Computable, Stateful};
 
 /// Recursively evaluate the sub-formula represented by a `node` (of a syntactic tree) on a given `graph`.
 ///
@@ -107,7 +112,7 @@ pub fn eval_node<F: FnMut(&GraphColoredVertices, &str)>(
     // 1) attractors
     if is_attractor_pattern(&node) {
         progress_callback(&empty_set, "Evaluating attractor pattern.");
-        let result = compute_attractor_states(graph, graph.mk_unit_colored_vertices());
+        let result = compute_attractor_states(graph, graph.unit_colored_vertices());
         if save_to_cache {
             eval_context
                 .cache
@@ -351,6 +356,30 @@ fn is_fixed_point_pattern(node: &HctlTreeNode) -> bool {
 /// Can also be used as optimised procedure for formula `!{x}: AX {x}`.
 pub fn compute_steady_states(graph: &SymbolicAsyncGraph) -> GraphColoredVertices {
     FixedPoints::symbolic(graph, &graph.mk_unit_colored_vertices())
+}
+
+pub fn compute_attractor_states(
+    graph: &SymbolicAsyncGraph,
+    vertices: &GraphColoredVertices,
+) -> GraphColoredVertices {
+    // First, run ITGR to reduce the state space
+    let mut config = AttractorConfig::new(graph.clone());
+    let itgr_state = ItgrState::new(graph, vertices);
+    let mut itgr = InterleavedTransitionGuidedReduction::configure(config.clone(), itgr_state);
+    let reduced = itgr.compute().expect("Cancellation not supported.");
+
+    let active_variables = itgr.state().active_variables().collect::<BTreeSet<_>>();
+
+    // Then run Xie-Beerel on the reduced state space
+    config.active_variables = active_variables;
+    let initial_state = XieBeerelState::from(&reduced);
+    let mut result = graph.mk_empty_colored_vertices();
+    for attractor in XieBeerelAttractors::configure(config, initial_state) {
+        let attractor = attractor.expect("Cancellation not supported.");
+        result = result.union(&attractor);
+    }
+
+    result
 }
 
 #[cfg(test)]

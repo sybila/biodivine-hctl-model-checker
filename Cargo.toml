@@ -27,10 +27,12 @@ name = "convert-aeon-to-bnet"
 path = "src/bin/convert_aeon_to_bnet.rs"
 
 [dependencies]
-biodivine-lib-bdd = ">=0.6.1, <1.0.0"
-biodivine-lib-param-bn = ">=0.6.1, <1.0.0"
+biodivine-lib-bdd = ">=0.6.2, <1.0.0"
+biodivine-lib-param-bn = ">=0.7.0, <1.0.0"
+biodivine-algo-bdd-scc = "0.3.2"
+computation-process = "0.2"
 clap = { version = "4.5", features = ["derive"] }
-# `rand` cannot be updated because `lib-bdd` uses it to generate random `big-int` values
+# `rand` cannot be updated because `lib-bdd` uses it to generate random `big-int` values,
 # and this is not yet supported for `0.9` or newer.
 rand = "0.8"
 termcolor = "1.4"
